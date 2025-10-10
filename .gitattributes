@@ -1,0 +1,3 @@
+*.xlam filter=lfs diff=lfs merge=lfs
+*.xlsm filter=lfs diff=lfs merge=lfs
+*.xlsx filter=lfs diff=lfs merge=lfs
