@@ -4,7 +4,7 @@
 # RDD Excel Add‑in (Room Design Document + Puzzle Dependency Chart)
 
 **Purpose**, an Excel add‑in that helps you author Room Design Documents and a Puzzle Dependency Chart in one place, then keep them consistent.  
-Designed for Adventure Games made with AGS, with a 9‑verb UI and data‑oriented workflow.
+Designed for Adventure Games made with **Adventure Game Studio** (AGS), with a 9‑verb UI and data‑oriented workflow.
 
 ---
 
