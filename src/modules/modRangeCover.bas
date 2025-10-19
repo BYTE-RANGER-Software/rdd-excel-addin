@@ -117,10 +117,10 @@ Public Sub LockRangeAndHideFormulas(ByVal wks As Worksheet, ByVal rngBlock As Ra
     If rngBlock Is Nothing Then Exit Sub
     
     On Error GoTo CleanExit
-    wks.Unprotect Password:=sPassword
+    wks.Unprotect Password:=strPassword
     rngBlock.Locked = True
     rngBlock.FormulaHidden = True
-    wks.Protect Password:=sPassword, UserInterfaceOnly:=True
+    wks.Protect Password:=strPassword, UserInterfaceOnly:=True
 
 CleanExit:
 End Sub
@@ -145,10 +145,10 @@ Public Sub UnlockRangeAndShowFormulas(ByVal wks As Worksheet, ByVal rngBlock As 
     If rngBlock Is Nothing Then Exit Sub
     
     On Error GoTo CleanExit
-    wks.Unprotect Password:=sPassword
+    wks.Unprotect Password:=strPassword
     rngBlock.Locked = False
     rngBlock.FormulaHidden = False
-    wks.Protect Password:=sPassword, UserInterfaceOnly:=True
+    wks.Protect Password:=strPassword, UserInterfaceOnly:=True
 
 CleanExit:
 End Sub
@@ -193,7 +193,7 @@ Private Sub InitCoverShape(ByVal shpCover As Shape, ByVal rngBlock As Range, ByV
     lngRGB = TopLeftDisplayColor(rngBlock)
     
     With shpCover
-        .name = strCoverName
+        .Name = strCoverName
         .Fill.Visible = msoTrue
         .Fill.Solid
         .Fill.ForeColor.RGB = lngRGB

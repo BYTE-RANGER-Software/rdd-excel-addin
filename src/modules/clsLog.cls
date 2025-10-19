@@ -13,16 +13,6 @@ Attribute VB_Exposed = False
 '             memory and flushes them to disk on demand or when a size threshold
 '             is exceeded. Supports separators, error entries, and quick viewing.
 '
-' Public API:
-'   Enums     : LOG_SEPARATOR_TYPE (NONE, BEFORE, AFTER, BEFORE_AND_AFTER)
-'   Methods   : OpenLog, CloseLog, AddRecord, WriteErrorLog, SaveLog, SaveLogAs,
-'               ClearLog, ShowLog
-'   Properties: PathLogFile [Let]
-'               LogFilename [Let]
-'               Buffer [Get/Let]
-'               maxLogSizeBeforeSave [Get/Let]
-'               LogSeparator [Get/Let]
-'
 ' Usage     :
 '   Dim oLog As New clsLog
 '   oLog.PathLogFile = ThisWorkbook.Path & "\logs\"
@@ -33,8 +23,6 @@ Attribute VB_Exposed = False
 '   oLog.SaveLog
 '   oLog.CloseLog
 '
-' Dependencies:
-'   - Late-bound Scripting.FileSystemObject (CreateObject("scripting.filesystemobject"))
 '
 ' Notes     :
 '   - Default folder: ThisWorkbook.Path
@@ -43,9 +31,6 @@ Attribute VB_Exposed = False
 '   - Line breaks use vbNewLine; separator text configurable via LogSeparator
 '   - I/O helpers use On Error Resume Next; check Boolean returns for success.
 '
-' Author    : CalyDymos
-' Version   : 1.1
-' Created   : 2020-05-20
 ' -----------------------------------------------------------------------------------
 
 Option Explicit
@@ -247,7 +232,7 @@ Public Property Let LogSeparator(ByVal NewValue As String)
 
 End Property
 ' -----------------------------------------------------------------------------------
-' Function  : WriteErrorLog
+' Function  : WriteError
 ' Purpose   : Writes a structured error record into the log buffer, including the
 '             procedure name, error number, line number, and description.
 '
@@ -262,7 +247,7 @@ End Property
 '   - Raises Err internally to retrieve its Description text (if given).
 '   - Surrounds the entry with separators (before and after).
 ' -----------------------------------------------------------------------------------
-Friend Sub WriteErrorLog(Optional ByVal strNameFunction As String = vbNullString, Optional ByVal lngErrNum As Long = -9999, Optional ByVal lngErrLine As Integer = -1)
+Friend Sub WriteError(Optional ByVal strNameFunction As String = vbNullString, Optional ByVal lngErrNum As Long = -9999, Optional ByVal lngErrLine As Integer = -1)
     Dim strMsg As String
     Dim sErrDescription As String
     If strNameFunction = vbNullString Then strNameFunction = "The procedure name is not set"

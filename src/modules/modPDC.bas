@@ -2,6 +2,22 @@ Attribute VB_Name = "modPDC"
 Option Explicit
 Option Private Module
 
+' -----------------------------------------------------------------------------------
+' Function  : GeneratePuzzleChart
+' Purpose   : Builds a fresh "Chart" sheet, creates node shapes from table "Daten"
+'             (columns A:C), and draws connectors from columns E:F.
+'
+' Parameters:
+'   (none)
+'
+' Returns   :
+'
+' Notes     :
+'   - Deletes any existing sheet named "Chart" without prompt.
+'   - Node shape name = Node ID, fill color via GetColorByType.
+'   - Simple grid placement, starts at (100,100) with fixed spacing.
+'   - Uses elbow connectors with triangle arrowheads.
+' -----------------------------------------------------------------------------------
 Sub GeneratePuzzleChart()
     Dim wksData As Worksheet, wksChart As Worksheet
     Dim dicNodes As Object, lngRow As Long
@@ -18,7 +34,7 @@ Sub GeneratePuzzleChart()
     Application.DisplayAlerts = True
     On Error GoTo 0
     Set wksChart = ThisWorkbook.Sheets.Add
-    wksChart.name = "Chart"
+    wksChart.Name = "Chart"
 
     Set dicNodes = CreateObject("Scripting.Dictionary")
 
@@ -33,7 +49,7 @@ Sub GeneratePuzzleChart()
 
         Set shp = wksChart.Shapes.AddShape(msoShapeRoundedRectangle, dblX, dblY, 120, 40)
         shp.TextFrame.Characters.Text = strNodeName
-        shp.name = strNodeId
+        shp.Name = strNodeId
         shp.Fill.ForeColor.RGB = GetColorByType(strNodeType)
 
         dicNodes.Add strNodeId, shp
@@ -64,6 +80,20 @@ Sub GeneratePuzzleChart()
     Next lngRow
 End Sub
 
+' -----------------------------------------------------------------------------------
+' Function  : UpdatePuzzleChart
+' Purpose   : Updates existing node shapes' text and color on "Chart", removes all
+'             old connectors, and redraws connectors based on table "Daten".
+'
+' Parameters:
+'   (none)
+'
+' Returns   :
+'
+' Notes     :
+'   - Skips nodes not found by name, colors via GetColorByType.
+'   - Removes every connector on the chart before redrawing edges.
+' -----------------------------------------------------------------------------------
 Sub UpdatePuzzleChart()
     Dim wksData As Worksheet, wksChart As Worksheet
     Dim lngLastRow As Long, lngRow As Long
@@ -75,7 +105,7 @@ Sub UpdatePuzzleChart()
     Set wksData = ThisWorkbook.Sheets("Daten")
     Set wksChart = ThisWorkbook.Sheets("Chart")
 
-    ' 1. Texte & Farben aktualisieren
+    ' 1. Update texts & colors
     lngLastRow = wksData.Cells(wksData.Rows.Count, 1).End(xlUp).Row
     For lngRow = 2 To lngLastRow
         strNodeId = wksData.Cells(lngRow, 1).Value
@@ -92,7 +122,7 @@ Sub UpdatePuzzleChart()
         End If
     Next lngRow
 
-    ' 2. Alte Verbindungen löschen (alle Connectors entfernen)
+    ' 2. Delete old connections (remove all connectors)
     Dim iShp As Long
     For iShp = wksChart.Shapes.Count To 1 Step -1
         If wksChart.Shapes(iShp).Connector Then
@@ -100,7 +130,7 @@ Sub UpdatePuzzleChart()
         End If
     Next iShp
 
-    ' 3. Neue Verbindungen zeichnen laut From/To
+    ' 3. Draw new connections according to From/To
     lngLastRow = wksData.Cells(wksData.Rows.Count, 5).End(xlUp).Row
     For lngRow = 2 To lngLastRow
         strFromId = wksData.Cells(lngRow, 5).Value
@@ -126,6 +156,21 @@ Sub UpdatePuzzleChart()
     MsgBox "Diagramm wurde aktualisiert!", vbInformation
 End Sub
 
+' -----------------------------------------------------------------------------------
+' Function  : SyncPuzzleChart
+' Purpose   : Synchronizes the chart with the data: updates existing nodes, creates
+'             missing nodes with grid placement, removes old connectors, redraws edges.
+'
+' Parameters:
+'   (none)
+'
+' Returns   :
+'
+' Notes     :
+'   - Builds a dictionary of existing non-connector shapes by Name.
+'   - New nodes are placed in rows of five, starting at (100,100).
+'   - Connectors are fully rebuilt from columns E (From) and F (To).
+' -----------------------------------------------------------------------------------
 Sub SyncPuzzleChart()
     Dim wksData As Worksheet, wksChart As Worksheet
     Dim lngLastRow As Long, lngRow As Long
@@ -141,16 +186,16 @@ Sub SyncPuzzleChart()
     Set wksChart = ThisWorkbook.Sheets("Chart")
     Set dicNodes = CreateObject("Scripting.Dictionary")
 
-    ' 1. Shapes-Position initialisieren (für neue)
+    ' 1. Initialize shapes position (for new ones)
     dblX = 100: dblY = 100
     lngShapeCount = 0
 
-    ' 2. Vorhandene Shapes erfassen
+    ' 2. Capture existing shapes
     For Each shp In wksChart.Shapes
         If Not shp.Connector Then
             On Error Resume Next
-            If Not dicNodes.Exists(shp.name) Then
-                dicNodes.Add shp.name, shp
+            If Not dicNodes.Exists(shp.Name) Then
+                dicNodes.Add shp.Name, shp
             End If
             On Error GoTo 0
         End If
@@ -158,7 +203,7 @@ Sub SyncPuzzleChart()
 
     lngShapeCount = dicNodes.Count
     
-    ' 3. Alle Knoten aus Tabelle verarbeiten
+    ' 3. Process all nodes from table
     lngLastRow = wksData.Cells(wksData.Rows.Count, 1).End(xlUp).Row
     For lngRow = 2 To lngLastRow
         strNodeId = Trim(wksData.Cells(lngRow, 1).Value)
@@ -173,7 +218,7 @@ Sub SyncPuzzleChart()
         Else
             ' Neue Shape erstellen
             Set shp = wksChart.Shapes.AddShape(msoShapeRoundedRectangle, dblX, dblY, 120, 40)
-            shp.name = strNodeId
+            shp.Name = strNodeId
             shp.TextFrame.Characters.Text = strNodeName
             shp.Fill.ForeColor.RGB = GetColorByType(strNodeType)
             shp.TextFrame.HorizontalAlignment = xlHAlignCenter
@@ -223,7 +268,18 @@ Sub SyncPuzzleChart()
     MsgBox "Puzzle-Chart synchronisiert!", vbInformation
 End Sub
 
-
+' -----------------------------------------------------------------------------------
+' Function  : GetColorByType
+' Purpose   : Returns an RGB color for a given node type string.
+'
+' Parameters:
+'   strNodeType [String]  - Node type, e.g. "story", "puzzle", "item".
+'
+' Returns   : Long (RGB color)
+'
+' Notes     :
+'   - Case-insensitive match, defaults to gray (200,200,200).
+' -----------------------------------------------------------------------------------
 Function GetColorByType(strNodeType As String) As Long
     Select Case LCase(strNodeType)
         Case "story": GetColorByType = RGB(180, 167, 214)
@@ -235,7 +291,21 @@ Function GetColorByType(strNodeType As String) As Long
     End Select
 End Function
 
-
+' -----------------------------------------------------------------------------------
+' Function  : BuildPdcData
+' Purpose   : Scans all "Room*" sheets, reads puzzle rows, and expands the DependsOn
+'             list into edge rows on sheet "Daten".
+'
+' Parameters:
+'   (none)
+'
+' Returns   :
+'
+' Notes     :
+'   - Ensures/clears sheet "Daten", writes headers: ID, From, To, Type, Condition, Notes.
+'   - Detects puzzle table via LocatePuzzleTable, maps columns via MapColumns.
+'   - Emits one row per dependency entry; ID is sequential.
+' -----------------------------------------------------------------------------------
 Public Sub BuildPdcData()
     ' Scans all Room sheets, reads puzzle rows, expands DependsOn into edges
     Dim wks As Worksheet, wksTarget As Worksheet, lngRowOut As Long
@@ -246,7 +316,7 @@ Public Sub BuildPdcData()
     lngRowOut = 2
 
     For Each wks In ThisWorkbook.Worksheets
-        If Left$(wks.name, 4) = "Room" Then
+        If Left$(wks.Name, 4) = "Room" Then
             Dim rngHeader As Range: Set rngHeader = LocatePuzzleTable(wks) ' finds header row by signature
             If Not rngHeader Is Nothing Then
                 Dim lngLastRow As Long: lngLastRow = wks.Cells(wks.Rows.Count, rngHeader.Column).End(xlUp).Row
@@ -284,6 +354,19 @@ NextRR:
     Next wks
 End Sub
 
+' -----------------------------------------------------------------------------------
+' Function  : LocatePuzzleTable
+' Purpose   : Finds the header row of the puzzle table by detecting required column
+'             names within the first 50 rows and 50 columns.
+'
+' Parameters:
+'   wks        [Worksheet]  - Worksheet to search.
+'
+' Returns   : Range (cell at detected header row, column 1), or Nothing
+'
+' Notes     :
+'   - Requires at least two of: "PuzzleID", "DependsOn", "Typ".
+' -----------------------------------------------------------------------------------
 Private Function LocatePuzzleTable(wks As Worksheet) As Range
     ' Finds the header row by required column names
     Dim vntFindSet As Variant: vntFindSet = Array("PuzzleID", "DependsOn", "Typ")
@@ -301,6 +384,19 @@ Private Function LocatePuzzleTable(wks As Worksheet) As Range
     Next lngRow
 End Function
 
+' -----------------------------------------------------------------------------------
+' Function  : MapColumns
+' Purpose   : Builds a dictionary mapping header text to column index, starting at
+'             the provided header row and scanning up to 50 columns to the right.
+'
+' Parameters:
+'   rngHdrRow  [Range]     - A single-row range containing headers.
+'
+' Returns   : Object (Scripting.Dictionary: key=trimmed header, value=column index)
+'
+' Notes     :
+'   - Ignores empty header cells.
+' -----------------------------------------------------------------------------------
 Private Function MapColumns(rngHdrRow As Range) As Object
     ' Returns dictionary of column name to column index
     Dim dicMap As Object: Set dicMap = CreateObject("Scripting.Dictionary")
@@ -314,6 +410,19 @@ Private Function MapColumns(rngHdrRow As Range) As Object
     Set MapColumns = dicMap
 End Function
 
+' -----------------------------------------------------------------------------------
+' Function  : WriteHeaders
+' Purpose   : Writes a header array into row 1 of the target worksheet and bolds it.
+'
+' Parameters:
+'   wks         [Worksheet] - Target worksheet.
+'   vntHeaders  [Variant]   - 1D array of header captions.
+'
+' Returns   :
+'
+' Notes     :
+'   - Writes starting at cell (1,1), sequentially across columns.
+' -----------------------------------------------------------------------------------
 Private Sub WriteHeaders(wks As Worksheet, vntHeaders As Variant)
     Dim lngIndex As Long
     For lngIndex = LBound(vntHeaders) To UBound(vntHeaders)
@@ -322,6 +431,21 @@ Private Sub WriteHeaders(wks As Worksheet, vntHeaders As Variant)
     Next lngIndex
 End Sub
 
+' -----------------------------------------------------------------------------------
+' Function  : ValidateModel
+' Purpose   : Validates the model: ensures unique PuzzleIDs across Room sheets and
+'             checks that all edges in "Daten" reference existing IDs.
+'
+' Parameters:
+'   (none)
+'
+' Returns   :
+'
+' Notes     :
+'   - Writes issues to sheet "Validation" with headers: Type, Message.
+'   - Reports duplicates and missing references (From/To not found).
+'   - Auto-fits columns at the end.
+' -----------------------------------------------------------------------------------
 Public Sub ValidateModel()
     ' Checks unique PuzzleIDs, missing references, cycles hint
     Dim dicIds As Object: Set dicIds = CreateObject("Scripting.Dictionary")
@@ -334,7 +458,7 @@ Public Sub ValidateModel()
     ' Collect IDs
     Dim vntP As Variant, wksSrc As Worksheet
     For Each wks In ThisWorkbook.Worksheets
-        If Left$(wks.name, 4) = "Room" Then
+        If Left$(wks.Name, 4) = "Room" Then
             Dim rngHeader As Range: Set rngHeader = LocatePuzzleTable(wks)
             If Not rngHeader Is Nothing Then
                 Dim lngRow As Long, lngLastRow As Long

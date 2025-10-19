@@ -2,22 +2,11 @@ Attribute VB_Name = "modCellCtxMnu"
 Option Explicit
 Option Private Module
 
-Public Enum CellCtxMnu
-    CellCtxMnu_Default      ' Default menu behavior
-    CellCtxMnu_Rooms        ' Context menu for cells validated against room IDs
-    CellCtxMnu_Objects      ' Context menu for cells validated against objects list
-    CellCtxMnu_Actors       ' Context menu for cells validated against actors list
-End Enum
-
-Public gblnCellCtxMnuNeedsPrepare As Boolean        ' True to (re)prepare the menu on next call when Excel changed the "Cell" CommandBar
-Public gintCellCtxMenuType As Integer               ' Resolved context menu type according to CellCtxMnu, used by EvaluateCellCtxMnu and callers
-Public gblnCellCtxMnuHideDefault As Boolean         ' If True, built-in entries will be hidden during the next prepare pass
-
-Private mblnCtxCacheInited As Boolean               ' Cache guard, True once macbcCellCtxCtrls/mastrCellCtxCaps reflect the current "Cell" menu
-Private mlngCtlCountSig As Long                     ' Signature of live controls count to detect Excel-driven menu mutations
-Private macbcCellCtxCtrls() As CommandBarControl    ' Cached controls of the "Cell" CommandBar, 1-based, index aligned with mastrCellCtxCaps()
-Private mastrCellCtxCaps()  As String               ' Cached captions for the corresponding controls, used for case-insensitive matching
-Private mvntCtxMenuWhitelist As Variant             ' Whitelist of caption substrings to re-show after hiding built-in entries
+Private m_blnCtxCacheInited As Boolean               ' Cache guard, True once m_acbcCellCtxCtrls/m_astrCellCtxCaps reflect the current "Cell" menu
+Private m_lngCtlCountSig As Long                     ' Signature of live controls count to detect Excel-driven menu mutations
+Private m_acbcCellCtxCtrls() As CommandBarControl    ' Cached controls of the "Cell" CommandBar, 1-based, index aligned with m_astrCellCtxCaps()
+Private m_astrCellCtxCaps()  As String               ' Cached captions for the corresponding controls, used for case-insensitive matching
+Private m_vntCtxMenuWhitelist As Variant             ' Whitelist of caption substrings to re-show after hiding built-in entries
 
 
 ' -----------------------------------------------------------------------------------
@@ -30,24 +19,24 @@ Private mvntCtxMenuWhitelist As Variant             ' Whitelist of caption subst
 '   (none)
 '
 ' Notes     :
-'   - Populates macbcCellCtxCtrls/mastrCellCtxCaps via BuildCellCtxMenuCache.
-'   - Hides built-in entries, then re-shows captions in mvntCtxMenuWhitelist.
-'   - Stores a control-count signature (mlngCtlCountSig) to detect later changes.
-'   - Resets gblnCellCtxMnuNeedsPrepare to False.
+'   - Populates m_acbcCellCtxCtrls/m_astrCellCtxCaps via BuildCellCtxMenuCache.
+'   - Hides built-in entries, then re-shows captions in m_vntCtxMenuWhitelist.
+'   - Stores a control-count signature (m_lngCtlCountSig) to detect later changes.
+'   - Resets clsState.CellCtxMnuNeedsPrepare to False.
 ' -----------------------------------------------------------------------------------
 Public Sub InitCellCtxMnu()
     Dim vntCtxCpt As Variant
     BuildCellCtxMenuCache
     HideAllBuildInCellCtxMenuEntries
 
-    mvntCtxMenuWhitelist = Array("K&opieren", "&Copy", "Kom&mentar einfügen", "Insert Co&mment", "Neuer Kommentar", "New Co&mment", "Neue Notiz", "&New Note")
+    m_vntCtxMenuWhitelist = Array("K&opieren", "&Copy", "Kom&mentar einfügen", "Insert Co&mment", "Neuer Kommentar", "New Co&mment", "Neue Notiz", "&New Note")
 
-    For Each vntCtxCpt In mvntCtxMenuWhitelist
+    For Each vntCtxCpt In m_vntCtxMenuWhitelist
         ShowCellCtxByCachedCaption vntCtxCpt
     Next
     
-    mlngCtlCountSig = Application.CommandBars("Cell").Controls.Count
-    gblnCellCtxMnuNeedsPrepare = False
+    m_lngCtlCountSig = Application.CommandBars("Cell").Controls.Count
+    clsState.CellCtxMnuNeedsPrepare = False
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -60,17 +49,17 @@ End Sub
 '   (none)
 '
 ' Behavior  :
-'   - Exits early if gblnCellCtxMnuNeedsPrepare is False.
-'   - If the live control count differs from mlngCtlCountSig, rebuilds cache and
+'   - Exits early if clsState.CellCtxMnuNeedsPrepare is False.
+'   - If the live control count differs from m_lngCtlCountSig, rebuilds cache and
 '     re-applies default visibility and whitelist.
-'   - If gblnCellCtxMnuHideDefault is True, hides built-in items again.
+'   - If clsState.CellCtxMnuHideDefault is True, hides built-in items again.
 '
 ' Notes     :
-'   - Updates mlngCtlCountSig to the current control count.
-'   - Resets gblnCellCtxMnuNeedsPrepare to False at the end.
+'   - Updates m_lngCtlCountSig to the current control count.
+'   - Resets clsState.CellCtxMnuNeedsPrepare to False at the end.
 ' -----------------------------------------------------------------------------------
 Public Sub EnsureCellCtxMnuReady()
-    If Not gblnCellCtxMnuNeedsPrepare Then Exit Sub
+    If Not clsState.CellCtxMnuNeedsPrepare Then Exit Sub
 
     Dim cbrCell As CommandBar
     Dim vntCtxCpt As Variant
@@ -78,22 +67,22 @@ Public Sub EnsureCellCtxMnuReady()
 
     ' Menu has been modified by Excel for the current context,
     ' then rebuild context menu cache
-    If cbrCell.Controls.Count <> mlngCtlCountSig Then
-        mblnCtxCacheInited = False
+    If cbrCell.Controls.Count <> m_lngCtlCountSig Then
+        m_blnCtxCacheInited = False
         BuildCellCtxMenuCache
         'Hide everything built-in (RibbonX buttons remain visible)
         HideAllBuildInCellCtxMenuEntries
         ' Show standards again (by caption substring, case-insensitive)
-        For Each vntCtxCpt In mvntCtxMenuWhitelist
+        For Each vntCtxCpt In m_vntCtxMenuWhitelist
             ShowCellCtxByCachedCaption vntCtxCpt
         Next
-        mlngCtlCountSig = cbrCell.Controls.Count
-    ElseIf gblnCellCtxMnuHideDefault Then
+        m_lngCtlCountSig = cbrCell.Controls.Count
+    ElseIf clsState.CellCtxMnuHideDefault Then
         HideAllBuildInCellCtxMenuEntries
-        gblnCellCtxMnuHideDefault = False
+        clsState.CellCtxMnuHideDefault = False
     End If
 
-    gblnCellCtxMnuNeedsPrepare = False
+    clsState.CellCtxMnuNeedsPrepare = False
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -108,26 +97,26 @@ End Sub
 '
 ' Returns:
 '   Integer - One of the CellCtxMnu enumeration values
-'             (CellCtxMnu_Default, CellCtxMnu_Rooms, CellCtxMnu_Objects, CellCtxMnu_Actors).
+'             (CCM_Default, CCM_Rooms, CCM_Objects, CCM_Actors).
 '
 ' Behavior  :
 '   - If the sheet name starts with ROOM_SHEET_PREFIX and the target has a List validation
 '     driven by a named range, maps NAME_LIST_ROOM_IDS / NAME_LIST_OBJECTS / NAME_LIST_ACTORS
 '     to the respective menu type.
 '   - For Default: ensures cache exists and matches the live menu, then shows all cached items.
-'   - For non-default: sets gblnCellCtxMnuHideDefault to True to hide built-ins on prepare.
+'   - For non-default: sets clsState.CellCtxMnuHideDefault to True to hide built-ins on prepare.
 '
 ' Notes:
 '   - Uses On Error Resume Next around Validation access.
-'   - Updates global gintCellCtxMenuType and returns it.
+'   - Updates global clsState.CellCtxMenuType and returns it.
 ' -----------------------------------------------------------------------------------
 Public Function EvaluateCellCtxMnu(ws As Worksheet, Target As Range) As Integer
     On Error Resume Next
     
     Dim vldTarget As Validation
-    gintCellCtxMenuType = CellCtxMnu_Default
+    clsState.CellCtxMenuType = CCM_Default
     
-    If Left$(ws.name, Len(ROOM_SHEET_PREFIX)) = ROOM_SHEET_PREFIX Then
+    If Left$(ws.Name, Len(ROOM_SHEET_PREFIX)) = ROOM_SHEET_PREFIX Then
         Set vldTarget = Target.Validation
         If vldTarget.Type = xlValidateList Then
         
@@ -135,29 +124,29 @@ Public Function EvaluateCellCtxMnu(ws As Worksheet, Target As Range) As Integer
                 Dim nameRef As String
                 nameRef = Mid(vldTarget.Formula1, 2) ' remove '='
                 If nameRef = NAME_LIST_ROOM_IDS Then
-                    gintCellCtxMenuType = CellCtxMnu_Rooms
+                    clsState.CellCtxMenuType = CCM_Rooms
                 ElseIf nameRef = NAME_LIST_OBJECTS Then
-                    gintCellCtxMenuType = CellCtxMnu_Objects
+                    clsState.CellCtxMenuType = CCM_Objects
                 ElseIf nameRef = NAME_LIST_ACTORS Then
-                    gintCellCtxMenuType = CellCtxMnu_Actors
+                    clsState.CellCtxMenuType = CCM_Actors
                 End If
             End If
         End If
     End If
-    EvaluateCellCtxMnu = gintCellCtxMenuType
+    EvaluateCellCtxMnu = clsState.CellCtxMenuType
     
-    If gintCellCtxMenuType = CellCtxMnu_Default Then
+    If clsState.CellCtxMenuType = CCM_Default Then
         ' Cache für Default-Fall aktualisieren
-        If Not mblnCtxCacheInited Then BuildCellCtxMenuCache
+        If Not m_blnCtxCacheInited Then BuildCellCtxMenuCache
         
-        If Application.CommandBars("Cell").Controls.Count <> mlngCtlCountSig Then
-            mblnCtxCacheInited = False
+        If Application.CommandBars("Cell").Controls.Count <> m_lngCtlCountSig Then
+            m_blnCtxCacheInited = False
             BuildCellCtxMenuCache
-            mlngCtlCountSig = Application.CommandBars("Cell").Controls.Count
+            m_lngCtlCountSig = Application.CommandBars("Cell").Controls.Count
         End If
         ShowAllCachedCellCtx
     Else
-        gblnCellCtxMnuHideDefault = True
+        clsState.CellCtxMnuHideDefault = True
     End If
     
     
@@ -172,28 +161,28 @@ End Function
 '   (none)
 '
 ' Behavior  :
-'   - Reads Application.CommandBars("Cell").Controls into macbcCellCtxCtrls(), stores captions in mastrCellCtxCaps().
-'   - Skips rebuilding if mblnCtxCacheInited is already True.
+'   - Reads Application.CommandBars("Cell").Controls into m_acbcCellCtxCtrls(), stores captions in m_astrCellCtxCaps().
+'   - Skips rebuilding if m_blnCtxCacheInited is already True.
 '
 ' Notes     :
-'   - Sets mblnCtxCacheInited = True after successful caching.
+'   - Sets m_blnCtxCacheInited = True after successful caching.
 '   - Debug.Prints captions of built-in controls (for diagnostics).
 ' -----------------------------------------------------------------------------------
 Private Sub BuildCellCtxMenuCache()
     Dim cbrCell As CommandBar, lngIdx As Long
-    If Not mblnCtxCacheInited Then
+    If Not m_blnCtxCacheInited Then
         Set cbrCell = Application.CommandBars("Cell")
 
-        ReDim macbcCellCtxCtrls(1 To cbrCell.Controls.Count)
-        ReDim mastrCellCtxCaps(1 To cbrCell.Controls.Count)
+        ReDim m_acbcCellCtxCtrls(1 To cbrCell.Controls.Count)
+        ReDim m_astrCellCtxCaps(1 To cbrCell.Controls.Count)
 
         For lngIdx = 1 To cbrCell.Controls.Count
-            Set macbcCellCtxCtrls(lngIdx) = cbrCell.Controls(lngIdx)
+            Set m_acbcCellCtxCtrls(lngIdx) = cbrCell.Controls(lngIdx)
             If cbrCell.Controls(lngIdx).BuiltIn Then Debug.Print cbrCell.Controls(lngIdx).Caption
-            mastrCellCtxCaps(lngIdx) = macbcCellCtxCtrls(lngIdx).Caption
+            m_astrCellCtxCaps(lngIdx) = m_acbcCellCtxCtrls(lngIdx).Caption
         Next
     End If
-    mblnCtxCacheInited = True
+    m_blnCtxCacheInited = True
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -204,14 +193,14 @@ End Sub
 '   (none)
 '
 ' Notes:
-'   - Requires macbcCellCtxCtrls() to be populated by BuildCellCtxMenuCache.
+'   - Requires m_acbcCellCtxCtrls() to be populated by BuildCellCtxMenuCache.
 '   - Uses On Error Resume Next to be resilient to stale references.
 ' -----------------------------------------------------------------------------------
 Private Sub HideAllBuildInCellCtxMenuEntries()
     Dim lngIdx As Long
     On Error Resume Next
-    For lngIdx = 1 To UBound(macbcCellCtxCtrls)
-        If macbcCellCtxCtrls(lngIdx).BuiltIn Then macbcCellCtxCtrls(lngIdx).Visible = False
+    For lngIdx = 1 To UBound(m_acbcCellCtxCtrls)
+        If m_acbcCellCtxCtrls(lngIdx).BuiltIn Then m_acbcCellCtxCtrls(lngIdx).Visible = False
     Next
 End Sub
 
@@ -224,15 +213,15 @@ End Sub
 '   part [String] - Caption substring to match (case-insensitive)
 '
 ' Notes:
-'   - Operates on the cached captions mastrCellCtxCaps() and corresponding controls macbcCellCtxCtrls().
+'   - Operates on the cached captions m_astrCellCtxCaps() and corresponding controls m_acbcCellCtxCtrls().
 '   - Uses On Error Resume Next for robustness.
 ' -----------------------------------------------------------------------------------
 Public Sub ShowCellCtxByCachedCaption(ByVal part As String)
     Dim lngIdx As Long, strPrt As String
     strPrt = part
     On Error Resume Next
-    For lngIdx = 1 To UBound(mastrCellCtxCaps)
-        If InStr(1, mastrCellCtxCaps(lngIdx), strPrt, vbTextCompare) > 0 Then macbcCellCtxCtrls(lngIdx).Visible = True
+    For lngIdx = 1 To UBound(m_astrCellCtxCaps)
+        If InStr(1, m_astrCellCtxCaps(lngIdx), strPrt, vbTextCompare) > 0 Then m_acbcCellCtxCtrls(lngIdx).Visible = True
     Next
 End Sub
 
@@ -244,14 +233,14 @@ End Sub
 '   (none)
 '
 ' Notes:
-'   - Operates on the cached control array macbcCellCtxCtrls().
+'   - Operates on the cached control array m_acbcCellCtxCtrls().
 '   - Uses On Error Resume Next for robustness.
 ' -----------------------------------------------------------------------------------
 Public Sub ShowAllCachedCellCtx()
     Dim lngIdx As Long
     On Error Resume Next
-    For lngIdx = 1 To UBound(macbcCellCtxCtrls)
-        macbcCellCtxCtrls(lngIdx).Visible = True
+    For lngIdx = 1 To UBound(m_acbcCellCtxCtrls)
+        m_acbcCellCtxCtrls(lngIdx).Visible = True
     Next
 End Sub
 

@@ -8,23 +8,21 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = True
 Option Explicit
-Private mwbActiveWorkbook
+Private m_wbActiveWorkbook As Workbook
 
 Private Sub Workbook_AddinInstall()
 'If the add-in is activated when a workbook is opened,
 'save the reference to this workbook for Workbook_Open,
 'since the add-in is set as the active workbook in Workbook_Open.
-If Not ActiveWorkbook Is Nothing Then Set mwbActiveWorkbook = ActiveWorkbook
+If Not ActiveWorkbook Is Nothing Then Set m_wbActiveWorkbook = ActiveWorkbook
 End Sub
 
 Private Sub Workbook_Open()
-    Call ConnectEventHandler
-    If Not modRibbon.gRibbonUI Is Nothing Then gRibbonUI.Invalidate
+    modMain.AppStart
 End Sub
 
 
 Private Sub Workbook_BeforeClose(Cancel As Boolean)
-    Call DisconnectEventHandler
-    If Not modRibbon.gRibbonUI Is Nothing Then gRibbonUI.Invalidate
+    modMain.AppStop
 End Sub
 

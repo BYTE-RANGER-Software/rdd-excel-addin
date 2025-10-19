@@ -20,17 +20,17 @@ Private Sub App_SheetActivate(ByVal sh As Object)
     
     ' Only react if the sheet is NOT in the add-in.
     If Not wb Is RDDAddInWkBk And Not wb.IsAddin Then
-        ' Check whether the target workbook has a sheet with the code name “Lists”
-        If Not modUtil.GetSheetByCodeName(SHEET_LISTS) Is Nothing Then
+        ' Check whether the target workbook has a sheet with the Tag SHEET_LISTS
+        If modTags.SheetWithTagExists(wb, SHEET_DISPATCHER) Then
             'Don't update on sheet Lists
-            If sh.codeName <> SHEET_LISTS Then
-                If gblnRoomSheetChanged Then
-                    gblnRoomSheetChanged = False
+            If sh.codeName <> SHEET_DISPATCHER And Not modTags.HasSheetTag(sh, SHEET_DISPATCHER) Then
+                If clsState.RoomSheetChanged Then
+                    clsState.RoomSheetChanged = False
                     Call UpdateLists
                 End If
-                If Left$(wks.name, Len(ROOM_SHEET_PREFIX)) = ROOM_SHEET_PREFIX Then
-                    modRangeCover.EnsureRangeCover wks, wks.Range(ROOM_ADD_PARALLAX_SET_RANGE), ROOM_ADD_PARALLAX_SET_COVER_NAME
-                    modRangeCover.ApplyCoverVisibilityByDropdown wks, ROOM_PARALLAX_CELL, ROOM_ADD_PARALLAX_SET_HIDE_TOKEN, ROOM_ADD_PARALLAX_SET_COVER_NAME
+                If Left$(wks.Name, Len(ROOM_SHEET_PREFIX)) = ROOM_SHEET_PREFIX Then
+                    modRangeCover.EnsureRangeCover wks, wks.Range(NAME_ADD_PARALLAX_RANGE), ROOM_ADD_PARALLAX_SET_COVER_NAME
+                    modRangeCover.ApplyCoverVisibilityByDropdown wks, NAME_PARALLAX_CELL, ROOM_ADD_PARALLAX_SET_HIDE_TOKEN, ROOM_ADD_PARALLAX_SET_COVER_NAME
                 End If
             End If
         End If
@@ -44,14 +44,14 @@ Private Sub App_SheetChange(ByVal sh As Object, ByVal Target As Range)
     
     ' Only react if the sheet is NOT in the add-in.
     If Not wb Is RDDAddInWkBk And Not wb.IsAddin Then
-        ' Check whether the target workbook has a sheet with the code name “Lists”
-        If Not modUtil.GetSheetByCodeName(SHEET_LISTS) Is Nothing Then
+        ' Check whether the target workbook has a sheet with the Tag SHEET_LISTS
+        If modTags.SheetWithTagExists(wb, SHEET_DISPATCHER) Then
             ' Only set the change flag if a room sheet has been changed.
-            If Left$(wks.name, Len(ROOM_SHEET_PREFIX)) = ROOM_SHEET_PREFIX Then
-                gblnRoomSheetChanged = True
-                If Not Intersect(Target, wks.Range(ROOM_PARALLAX_CELL)) Is Nothing Then
-                    modRangeCover.EnsureRangeCover wks, wks.Range(ROOM_ADD_PARALLAX_SET_RANGE), ROOM_ADD_PARALLAX_SET_COVER_NAME
-                    modRangeCover.ApplyCoverVisibilityByDropdown wks, ROOM_PARALLAX_CELL, ROOM_ADD_PARALLAX_SET_HIDE_TOKEN, ROOM_ADD_PARALLAX_SET_COVER_NAME
+            If Left$(wks.Name, Len(ROOM_SHEET_PREFIX)) = ROOM_SHEET_PREFIX Then
+                clsState.RoomSheetChanged = True
+                If Not Intersect(Target, wks.Range(NAME_PARALLAX_CELL)) Is Nothing Then
+                    modRangeCover.EnsureRangeCover wks, wks.Range(NAME_ADD_PARALLAX_RANGE), ROOM_ADD_PARALLAX_SET_COVER_NAME
+                    modRangeCover.ApplyCoverVisibilityByDropdown wks, NAME_PARALLAX_CELL, ROOM_ADD_PARALLAX_SET_HIDE_TOKEN, ROOM_ADD_PARALLAX_SET_COVER_NAME
                 End If
             End If
         End If
@@ -60,16 +60,13 @@ End Sub
 
 Private Sub App_SheetBeforeRightClick(ByVal sh As Object, ByVal Target As Range, Cancel As Boolean)
 
-    gblnCellCtxMnuNeedsPrepare = True
+    clsState.CellCtxMnuNeedsPrepare = True
 
-    
     EvaluateCellCtxMnu sh, Target
-
+  
+    clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu1"
+    clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu2"
     
-    If Not gRibbonUI Is Nothing Then
-        gRibbonUI.InvalidateControl "RB75dd2c44_btnDynCtxMnu1"
-        gRibbonUI.InvalidateControl "RB75dd2c44_btnDynCtxMnu2"
-    End If
 End Sub
 
 
