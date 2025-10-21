@@ -8,21 +8,23 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = True
 Option Explicit
-Private m_wbActiveWorkbook As Workbook
+
 
 Private Sub Workbook_AddinInstall()
-'If the add-in is activated when a workbook is opened,
-'save the reference to this workbook for Workbook_Open,
-'since the add-in is set as the active workbook in Workbook_Open.
-If Not ActiveWorkbook Is Nothing Then Set m_wbActiveWorkbook = ActiveWorkbook
+    'Debug.Print "Workbook_AddinInstall()"
+    modMain.AppInstall
 End Sub
 
 Private Sub Workbook_Open()
+    'Debug.Print "Workbook_Open()"
     modMain.AppStart
 End Sub
 
 
 Private Sub Workbook_BeforeClose(Cancel As Boolean)
+    'Debug.Print "Workbook_BeforeClose()"
     modMain.AppStop
 End Sub
+
+
 

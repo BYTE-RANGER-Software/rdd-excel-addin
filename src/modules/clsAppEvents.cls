@@ -71,6 +71,12 @@ End Sub
 
 
 
+Private Sub App_WorkbookBeforeSave(ByVal wb As Workbook, ByVal SaveAsUI As Boolean, Cancel As Boolean)
+    If Not (wb Is RDDAddInWkBk) Then
 
+        Call SaveWorkbookOptions(wb)
+
+    End If
+End Sub
 
 

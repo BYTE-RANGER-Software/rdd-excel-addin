@@ -6,6 +6,7 @@ Private m_objLog As clsLog          ' central Logger
 Private m_strAppTempPath As String
 
 Private m_objAppEvents As clsAppEvents
+Private m_wbActiveWorkbook As Workbook
 
 ' -----------------------------------------------------------------------------------
 ' Function  : AppProjectName
@@ -36,7 +37,7 @@ End Property
 
 Public Property Let AppTempPath(ByVal strNewValue As String)
 
-   ' Ensure trailing backslash
+    ' Ensure trailing backslash
     If Len(strNewValue) > 0 Then
         If Right$(strNewValue, 1) <> "\" Then
             strNewValue = strNewValue & "\"
@@ -57,6 +58,12 @@ Public Property Get AppVersion() As String
     AppVersion = GetDocumentPropertyValue(ThisWorkbook, "RDD_AddInVersion", "0.0.0")
 End Property
 
+Public Sub AppInstall()
+'If the add-in is activated when a workbook is opened,
+'save the reference to this workbook for Workbook_Open,
+'since the add-in is set as the active workbook in Workbook_Open.
+If Not ActiveWorkbook Is Nothing Then Set m_wbActiveWorkbook = ActiveWorkbook
+End Sub
 ' -----------------------------------------------------------------------------------
 ' Function  : AppStart
 ' Purpose   : Application startup: init logging, wire App events, init state, refresh UI.
@@ -65,7 +72,7 @@ End Property
 ' Notes     : Requires clsAppEvents and (falls genutzt) eine State-Instanz.
 ' -----------------------------------------------------------------------------------
 Public Sub AppStart()
-
+    
     ' Ensure temp path exists before logging
     m_strAppTempPath = modUtil.GetTempFolder & "\BYTE RANGER"
     If Dir(m_strAppTempPath, vbDirectory) = "" Then MkDir m_strAppTempPath
@@ -74,11 +81,15 @@ Public Sub AppStart()
         
     ' Logger
     Call OpenLog
+    
+    modOptions.ReadGeneralOptions
 
-    ' App-Events verbinden
-    ConnectEventHandler
+    If RDDAddInWkBk.IsAddin Then
+        ' connect App-Events
+        ConnectEventHandler
+    End If
 
-    ' State initialisieren (so wie du es nutzt)
+    ' init State
     clsState.Init
     clsState.InvalidateRibbon
 End Sub
@@ -91,6 +102,9 @@ End Sub
 ' Notes     : Safe to call multiple times.
 ' -----------------------------------------------------------------------------------
 Public Sub AppStop()
+
+    Call SaveGeneralOptions
+    
     ' Detach events
     DisconnectEventHandler
 
@@ -135,8 +149,8 @@ errHandler:
     LogError "ConnectEventHandler", Err.Number, Erl
     
     MsgBox "Unable to enable application events." & vbCrLf & _
-           "Error " & Err.Number & ": " & Err.Description, _
-           vbOKOnly Or vbCritical, AppProjectName
+        "Error " & Err.Number & ": " & Err.Description, _
+        vbOKOnly Or vbCritical, AppProjectName
            
     ' Ensure instance is detached/cleared on failure
     If Not m_objAppEvents Is Nothing Then Set m_objAppEvents.App = Nothing
@@ -299,5 +313,28 @@ errHandler:
 
 End Sub
 
+Public Sub ShowOptions()
 
+    On Error GoTo errHandler
+    Dim intErr As Long
+        
+    Dim objActWkBk As Workbook: Set objActWkBk = ActiveWorkbook
+    Dim fOptions As frmOptions
+    
+
+    Set fOptions = New frmOptions: fOptions.Init objActWkBk
+        
+    fOptions.Show
+        
+    Set fOptions = Nothing
+    
+    On Error GoTo 0
+    Exit Sub
+
+errHandler:
+    intErr = Err.Number
+    MsgBox "Error " & intErr & " (" & Err.Description & ") in procedure ShowOptions, line " & Erl & ".", vbCritical, AppProjectName
+    LogError "ShowOptions", intErr, Erl
+
+End Sub
 

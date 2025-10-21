@@ -178,7 +178,7 @@ Private Sub BuildCellCtxMenuCache()
 
         For lngIdx = 1 To cbrCell.Controls.Count
             Set m_acbcCellCtxCtrls(lngIdx) = cbrCell.Controls(lngIdx)
-            If cbrCell.Controls(lngIdx).BuiltIn Then Debug.Print cbrCell.Controls(lngIdx).Caption
+            'If cbrCell.Controls(lngIdx).BuiltIn Then Debug.Print cbrCell.Controls(lngIdx).Caption
             m_astrCellCtxCaps(lngIdx) = m_acbcCellCtxCtrls(lngIdx).Caption
         Next
     End If

@@ -123,26 +123,18 @@ End Sub
 
 'Callback for RB75dd2c44_BtnShowOptions onAction
 Sub RB75dd2c44_BtnShowOptions_OnAction(control As IRibbonControl)
-End Sub
-
-'Callback for RB75dd2c44_BtnShowOptions getEnabled
-Sub RB75dd2c44_BtnShowOptions_getEnabled(control As IRibbonControl, ByRef returnedVal)
+    Call modMain.ShowOptions
 End Sub
 
 'Callback for RB75dd2c44_BtnShowLog onAction
 Sub RB75dd2c44_BtnShowLog_OnAction(control As IRibbonControl)
+    Call modMain.ShowLog
 End Sub
 
-'Callback for RB75dd2c44_BtnShowLog getEnabled
-Sub RB75dd2c44_BtnShowLog_getEnabled(control As IRibbonControl, ByRef returnedVal)
-End Sub
 
 'Callback for RB75dd2c44_BtnShowManual onAction
 Sub RB75dd2c44_BtnShowManual_OnAction(control As IRibbonControl)
-End Sub
-
-'Callback for RB75dd2c44_BtnShowManual getEnabled
-Sub RB75dd2c44_BtnShowManual_getEnabled(control As IRibbonControl, ByRef returnedVal)
+    Call modMain.ShowManual
 End Sub
 
 'Callback for RB75dd2c44_lblAddInVersion getLabel
