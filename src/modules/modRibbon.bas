@@ -9,12 +9,12 @@ Sub RB75dd2c44_Ribbon_OnLoad(ribbon As IRibbonUI)
 End Sub
 
 'Callback for RB75dd2c44_btnAddRoom onAction
-Sub RB75dd2c44_BtnAddRoom_OnAction(control As IRibbonControl)
-    Call modRooms.AddRoom
+Sub RB75dd2c44_btnAddRoom_OnAction(control As IRibbonControl)
+    Call modMain.AddNewRoom
 End Sub
 
 'Callback for RB75dd2c44_btnAddRoom getEnabled
-Sub RB75dd2c44_BtnAddRoom_getEnabled(control As IRibbonControl, ByRef returnedVal)
+Sub RB75dd2c44_btnAddRoom_getEnabled(control As IRibbonControl, ByRef returnedVal)
     returnedVal = (Workbooks.Count > 0)
 End Sub
 
@@ -24,37 +24,37 @@ Sub RB75dd2c44_BtnRemoveRoom_OnAction(control As IRibbonControl)
 End Sub
 
 'Callback for RB75dd2c44_btnRemoveRoom getEnabled
-Sub RB75dd2c44_BtnRemoveRoom_getEnabled(control As IRibbonControl, ByRef returnedVal)
-If modMain.IsAddinWorkbook(ActiveWorkbook) Then
+Sub RB75dd2c44_btnRemoveRoom_getEnabled(control As IRibbonControl, ByRef returnedVal)
+If modMain.IsAddinWorkbook(ActiveWorkbook) And modRooms.IsRoomSheet(ActiveSheet) Then
     returnedVal = (Workbooks.Count > 0)
 End If
 End Sub
 
 'Callback for RB75dd2c44_BtnUpdateLists onAction
-Sub RB75dd2c44_BtnUpdateLists_OnAction(control As IRibbonControl)
+Sub RB75dd2c44_btnUpdateLists_OnAction(control As IRibbonControl)
     Call modRooms.UpdateLists '
 End Sub
 
 'Callback for RB75dd2c44_BtnUpdateLists getEnabled
-Sub RB75dd2c44_BtnUpdateLists_getEnabled(control As IRibbonControl, ByRef returnedVal)
+Sub RB75dd2c44_btnUpdateLists_getEnabled(control As IRibbonControl, ByRef returnedVal)
 If modMain.IsAddinWorkbook(ActiveWorkbook) Then
     returnedVal = (Workbooks.Count > 0)
     End If
 End Sub
 
 'Callback for RB75dd2c44_BtnSyncLists onAction
-Sub RB75dd2c44_BtnSyncLists_OnAction(control As IRibbonControl)
+Sub RB75dd2c44_btnSyncLists_OnAction(control As IRibbonControl)
 End Sub
 
 'Callback for RB75dd2c44_BtnSyncLists getEnabled
-Sub RB75dd2c44_BtnSyncLists_getEnabled(control As IRibbonControl, ByRef returnedVal)
+Sub RB75dd2c44_btnSyncLists_getEnabled(control As IRibbonControl, ByRef returnedVal)
 If modMain.IsAddinWorkbook(ActiveWorkbook) Then
     returnedVal = (Workbooks.Count > 0)
     End If
 End Sub
 
 'Callback for RB75dd2c44_btnValidate onAction
-Sub RB75dd2c44_BtnValidate_OnAction(control As IRibbonControl)
+Sub RB75dd2c44_btnValidate_OnAction(control As IRibbonControl)
 End Sub
 
 'Callback for RB75dd2c44_btnValidate getEnabled
@@ -64,7 +64,7 @@ End If
 End Sub
 
 'Callback for RB75dd2c44_btnRefreshList onAction
-Sub RB75dd2c44_BtnRefreshList_OnAction(control As IRibbonControl)
+Sub RB75dd2c44_btnRefreshList_OnAction(control As IRibbonControl)
 End Sub
 
 'Callback for RB75dd2c44_btnRefreshList getEnabled
@@ -74,7 +74,7 @@ End If
 End Sub
 
 'Callback for RB75dd2c44_btnBuildData onAction
-Sub RB75dd2c44_BtnBuildData_OnAction(control As IRibbonControl)
+Sub RB75dd2c44_btnBuildData_OnAction(control As IRibbonControl)
 End Sub
 
 'Callback for RB75dd2c44_btnBuildData getEnabled
@@ -84,7 +84,7 @@ End If
 End Sub
 
 'Callback for RB75dd2c44_btnBuildChart onAction
-Sub RB75dd2c44_BtnBuildChart_OnAction(control As IRibbonControl)
+Sub RB75dd2c44_btnBuildChart_OnAction(control As IRibbonControl)
 End Sub
 
 'Callback for RB75dd2c44_btnBuildChart getEnabled
@@ -94,7 +94,7 @@ End If
 End Sub
 
 'Callback for RB75dd2c44_btnUpdateChart onAction
-Sub RB75dd2c44_BtnUpdateChart_OnAction(control As IRibbonControl)
+Sub RB75dd2c44_btnUpdateChart_OnAction(control As IRibbonControl)
 End Sub
 
 'Callback for RB75dd2c44_btnUpdateChart getEnabled
@@ -102,7 +102,7 @@ Sub RB75dd2c44_btnUpdateChart_getEnabled(control As IRibbonControl, ByRef return
 End Sub
 
 'Callback for RB75dd2c44_btnExportPdf onAction
-Sub RB75dd2c44_BtnExportPdf_OnAction(control As IRibbonControl)
+Sub RB75dd2c44_btnExportPdf_OnAction(control As IRibbonControl)
 End Sub
 
 'Callback for RB75dd2c44_btnExportPdf getEnabled
@@ -112,7 +112,7 @@ End If
 End Sub
 
 'Callback for RB75dd2c44_btnExportCsv onAction
-Sub RB75dd2c44_BtnExportCsv_OnAction(control As IRibbonControl)
+Sub RB75dd2c44_btnExportCsv_OnAction(control As IRibbonControl)
 End Sub
 
 'Callback for RB75dd2c44_btnExportCsv getEnabled
@@ -122,25 +122,29 @@ End If
 End Sub
 
 'Callback for RB75dd2c44_BtnShowOptions onAction
-Sub RB75dd2c44_BtnShowOptions_OnAction(control As IRibbonControl)
+Sub RB75dd2c44_btnShowOptions_OnAction(control As IRibbonControl)
     Call modMain.ShowOptions
 End Sub
 
 'Callback for RB75dd2c44_BtnShowLog onAction
-Sub RB75dd2c44_BtnShowLog_OnAction(control As IRibbonControl)
+Sub RB75dd2c44_btnShowLog_OnAction(control As IRibbonControl)
     Call modMain.ShowLog
 End Sub
 
 
 'Callback for RB75dd2c44_BtnShowManual onAction
-Sub RB75dd2c44_BtnShowManual_OnAction(control As IRibbonControl)
+Sub RB75dd2c44_btnShowManual_OnAction(control As IRibbonControl)
     Call modMain.ShowManual
 End Sub
 
 'Callback for RB75dd2c44_lblAddInVersion getLabel
-Sub RB75dd2c44_GetAddInVersion(control As IRibbonControl, ByRef returnedVal)
-    Dim strVer As String: strVer = GetVersionString()
+Sub RB75dd2c44_btnAddInVersion_GetLabel(control As IRibbonControl, ByRef returnedVal)
+    Dim strVer As String: strVer = modMain.AppVersion
     returnedVal = strVer
+End Sub
+
+Sub RB75dd2c44_btnAddInVersion_OnAction(control As IRibbonControl)
+    Call modMain.ShowAbout
 End Sub
 
 '  Context menus
@@ -187,8 +191,4 @@ End Sub
 'Callback for RB75dd2c44_btnDynCtxMnu2 onAction
 Sub RB75dd2c44_btnDynCtxMnu2_onAction(control As IRibbonControl)
 End Sub
-
-Private Function GetVersionString() As String
-    GetVersionString = GetDocumentPropertyValue(ThisWorkbook, "RDD_AddInVersion", "0.0.0")
-End Function
 

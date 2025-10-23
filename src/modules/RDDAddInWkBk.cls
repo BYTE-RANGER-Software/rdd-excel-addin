@@ -26,5 +26,11 @@ Private Sub Workbook_BeforeClose(Cancel As Boolean)
     modMain.AppStop
 End Sub
 
+Private Sub Workbook_SheetBeforeRightClick(ByVal Sh As Object, ByVal Target As Range, Cancel As Boolean)
+    clsState.CellCtxMnuNeedsPrepare = True
 
-
+    EvaluateCellCtxMnu Sh, Target
+  
+    clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu1"
+    clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu2"
+End Sub

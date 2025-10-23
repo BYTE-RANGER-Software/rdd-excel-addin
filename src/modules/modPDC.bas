@@ -465,14 +465,14 @@ Public Sub ValidateModel()
                 lngLastRow = wks.Cells(wks.Rows.Count, rngHeader.Column).End(xlUp).Row
                 Dim dicCols As Object: Set dicCols = MapColumns(wks.Rows(rngHeader.Row))
                 For lngRow = rngHeader.Row + 1 To lngLastRow
-                    Dim strId As String: strId = Trim$(CStr(wks.Cells(lngRow, dicCols("PuzzleID")).Value))
-                    If Len(strId) > 0 Then
-                        If dicIds.Exists(strId) Then
+                    Dim strID As String: strID = Trim$(CStr(wks.Cells(lngRow, dicCols("PuzzleID")).Value))
+                    If Len(strID) > 0 Then
+                        If dicIds.Exists(strID) Then
                             wksIssues.Cells(lngRowOut, 1).Value = "Duplicate"
-                            wksIssues.Cells(lngRowOut, 2).Value = "PuzzleID appears multiple times: " & strId
+                            wksIssues.Cells(lngRowOut, 2).Value = "PuzzleID appears multiple times: " & strID
                             lngRowOut = lngRowOut + 1
                         Else
-                            dicIds(strId) = True
+                            dicIds(strID) = True
                         End If
                     End If
                 Next lngRow

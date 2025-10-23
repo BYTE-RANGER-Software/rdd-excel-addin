@@ -29,7 +29,7 @@ Public Sub InitCellCtxMnu()
     BuildCellCtxMenuCache
     HideAllBuildInCellCtxMenuEntries
 
-    m_vntCtxMenuWhitelist = Array("K&opieren", "&Copy", "Kom&mentar einfügen", "Insert Co&mment", "Neuer Kommentar", "New Co&mment", "Neue Notiz", "&New Note")
+    m_vntCtxMenuWhitelist = Array("K&opieren", "&Copy", "Kom&mentar einfügen", "Insert Co&mment", "Neuer Kommentar", "New Co&mment", "Neue Notiz", "&New Note", "K&ommentare ein-/ausblenden", "&Kommentar löschen")
 
     For Each vntCtxCpt In m_vntCtxMenuWhitelist
         ShowCellCtxByCachedCaption vntCtxCpt
@@ -178,7 +178,7 @@ Private Sub BuildCellCtxMenuCache()
 
         For lngIdx = 1 To cbrCell.Controls.Count
             Set m_acbcCellCtxCtrls(lngIdx) = cbrCell.Controls(lngIdx)
-            'If cbrCell.Controls(lngIdx).BuiltIn Then Debug.Print cbrCell.Controls(lngIdx).Caption
+            If cbrCell.Controls(lngIdx).BuiltIn Then Debug.Print cbrCell.Controls(lngIdx).Caption
             m_astrCellCtxCaps(lngIdx) = m_acbcCellCtxCtrls(lngIdx).Caption
         Next
     End If

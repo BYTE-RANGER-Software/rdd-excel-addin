@@ -22,40 +22,70 @@ Option Private Module
 '   - Creates a new sheet from SHEET_ROOM_TEMPLATE; name = ROOM_SHEET_PREFIX & index.
 '   - Calls SetupRoom to wire controls/values; toggles HideOpMode during operations.
 ' -----------------------------------------------------------------------------------
-Public Sub AddRoom()
-    Dim wksTmpl As Worksheet, wksTarget As Worksheet, lngIdx As Long, strNewName As String
+Public Sub AddRoom(ByRef strNewName As String, ByRef lngIdx As Long)
+    Dim wksTmpl As Worksheet, wksTarget As Worksheet
+    
+    Dim objActWks As Worksheet: Set objActWks = ActiveSheet
+    Dim objActWb As Workbook: Set objActWb = ActiveWorkbook
+    
+    Application.StatusBar = False
     
     modUtil.HideOpMode True
         
-    modMain.EnsureWorkbookIsTagged ActiveWorkbook
+    modMain.EnsureWorkbookIsTagged objActWb
     
-    If Not modSheets.SheetCodeNameExists(modConst.SHEET_DISPATCHER) And Not modTags.SheetWithTagExists(ActiveSheet, SHEET_DISPATCHER) Then
+    If Not modSheets.SheetCodeNameExists(modConst.SHEET_DISPATCHER, objActWb) And Not modTags.SheetWithTagExists(objActWb, SHEET_DISPATCHER) Then
         Set wksTmpl = RDDAddInWkBk.Worksheets(modConst.SHEET_DISPATCHER)
         wksTmpl.Visible = xlSheetVisible
-        wksTmpl.Copy After:=ActiveWorkbook.Sheets(ActiveWorkbook.Sheets.Count)
+        wksTmpl.Copy After:=objActWb.Sheets(objActWb.Sheets.Count)
         Set wksTarget = ActiveSheet
         wksTarget.Visible = xlSheetHidden
         wksTarget.Name = "DO_NOT_DELETE"
+        modProps.ClearAllCustomProperties wksTarget
         modTags.TagSheet wksTarget, SHEET_DISPATCHER
         Set wksTmpl = Nothing
         Set wksTarget = Nothing
     End If
             
     Set wksTmpl = RDDAddInWkBk.Worksheets(modConst.SHEET_ROOM_TEMPLATE)
-    lngIdx = NextRoomIndex()
-    strNewName = modConst.ROOM_SHEET_PREFIX & Format(lngIdx, "000")
     wksTmpl.Visible = xlSheetVisible
-    wksTmpl.Copy After:=ActiveWorkbook.Sheets(ActiveWorkbook.Sheets.Count)
+    wksTmpl.Copy After:=objActWb.Sheets(objActWb.Sheets.Count)
     Set wksTarget = ActiveSheet
     wksTarget.Name = strNewName
-    modTags.TagSheet wksTarget, strNewName
+    modProps.ClearAllCustomProperties wksTarget
+    modTags.TagSheet wksTarget, ROOM_SHEET_ID_TAG_NAME, GetFormattedRoomID(lngIdx)
     
-    SetupRoom wksTarget
+    SetupRoom wksTarget, lngIdx
     
-    HideOpMode False
+    modUtil.HideOpMode False
     
     Application.GoTo wksTarget.Range("A1"), True
 End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : IsRoomSheet
+' Purpose   : checks if active sheet is as room sheet
+'
+' Parameters:
+'
+'   wks  [Worksheet] - sheet to test
+'
+'
+'
+' Returns   : $P[METHOD_RETURN_TYPE_ALIASED_NAME] - True if it is a room sheet
+'
+'
+' Behavior  : -
+' Notes     : -
+' -----------------------------------------------------------------------------------
+Public Function IsRoomSheet(ByRef wks As Worksheet) As Boolean
+    If Left$(wks.Name, Len(ROOM_SHEET_PREFIX)) <> ROOM_SHEET_PREFIX Then
+        IsRoomSheet = False
+        
+        Exit Function
+    End If
+    IsRoomSheet = True
+End Function
 
 ' -----------------------------------------------------------------------------------
 ' Function  : RemoveRoom
@@ -74,10 +104,11 @@ End Sub
 '   - Toggles HideOpMode; calls UpdateLists after deletion.
 ' -----------------------------------------------------------------------------------
 Public Sub RemoveRoom()
-    Dim wksActive As Worksheet
-    Set wksActive = ActiveSheet
+    Dim wksActive As Worksheet: Set wksActive = ActiveSheet
     
-    If Left$(wksActive.Name, Len(ROOM_SHEET_PREFIX)) <> ROOM_SHEET_PREFIX Then
+    Application.StatusBar = False
+    
+    If Not IsRoomSheet(wksActive) Then
         MsgBox "Active sheet is not a 'Room' sheet.", vbInformation
         Exit Sub
     End If
@@ -91,9 +122,16 @@ Public Sub RemoveRoom()
     Set colUsedIn = GetSheetsUsingRoomName(wksActive.Name, dicRooms)
     
     If colUsedIn.Count > 0 Then
-        Dim sList As String
-        sList = JoinCollection(colUsedIn, ", ")
-        MsgBox "Raum Arbeitsblatt wird in " & sList & " Arbeitsblatt verwendet, und kann nicht gelöscht werden.", vbCritical
+        Dim strList As String
+        Dim strMsgPart As String
+        strList = JoinCollection(colUsedIn, ", ")
+        If colUsedIn.Count > 1 Then
+            strMsgPart = "worksheets"
+        Else
+            strMsgPart = "worksheet"
+        End If
+        
+        MsgBox "The worksheet is used in the following " & strMsgPart & " and cannot be deleted.: " & vbNewLine & strList, vbCritical
         Exit Sub
     End If
     
@@ -102,15 +140,15 @@ Public Sub RemoveRoom()
     response = MsgBox("Are you sure you want to delete the sheet '" & wksActive.Name & "'?" & vbCrLf & _
                       "This action cannot be undone.", vbYesNo + vbExclamation, "Confirm Sheet Deletion")
     If response <> vbYes Then
-        MsgBox "Deletion cancelled.", vbInformation
+        Application.StatusBar = "Deletion cancelled."
         Exit Sub
     End If
     
-    HideOpMode True
+    modUtil.HideOpMode True
     wksActive.Delete
     Set wksActive = Nothing
     UpdateLists
-    HideOpMode True
+    modUtil.HideOpMode True
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -120,20 +158,21 @@ End Sub
 '
 ' Parameters:
 '   wks       [Worksheet]  - Target Room worksheet to initialize.
+'   lngIdx    [Long]
 '
 ' Returns   :
 '
 ' Notes     :
-'   - Sets named cell NAME_ROOM_ID to the sheet name.
+'   - Sets named cell NAME_CELL_ROOM_ID to the sheet ID.
 '   - Deletes workbook Names that still refer to the add-in workbook.
 '   - Sets button OnAction to MACRO_BTN_INSERT_PICTURE via BTN_INSERT_ROOM_PICTURE.
 ' -----------------------------------------------------------------------------------
-Private Sub SetupRoom(wks As Worksheet)
+Private Sub SetupRoom(wks As Worksheet, ByVal lngIdx As Long)
     Dim shpBtn As Shape
     Dim wksDisp As Worksheet
     
     'Set 'RoomID' named cell on the template
-    wks.Range(modConst.NAME_ROOM_ID_CELL).Value = wks.Name
+    wks.Range(modConst.NAME_CELL_ROOM_ID).Value = GetFormattedRoomID(lngIdx)
     
     ' remove wrong links
     Dim nm As Name
@@ -152,29 +191,30 @@ Private Sub SetupRoom(wks As Worksheet)
 End Sub
 
 ' -----------------------------------------------------------------------------------
-' Function  : NextRoomIndex
+' Function  : GetNextRoomIndex
 ' Purpose   : Computes the next free numeric index by scanning existing Room sheets
 '             and returning (max index + 1).
 '
 ' Parameters:
-'   (none)
+'   wb      [Workbook]
 '
 ' Returns   : Long - Next available Room index.
 '
 ' Notes     :
-'   - Detects Room sheets via ROOM_SHEET_PREFIX.
-'   - Extracts trailing number with Mid$/Val; assumes names like "Room000".
+'   - Detects Room sheets via ROOM_SHEET_ID_TAG.
+'
 ' -----------------------------------------------------------------------------------
-Private Function NextRoomIndex() As Long
-    ' Returns next free numeric index based on existing Room* sheets
+Public Function GetNextRoomIndex(ByVal wb As Workbook) As Long
+    ' Returns next free numeric index based on existing taged Room* sheets
     Dim wks As Worksheet, lngNum As Long, lngMax As Long
-    For Each wks In ActiveWorkbook.Worksheets
-        If Left$(wks.Name, Len(ROOM_SHEET_PREFIX)) = ROOM_SHEET_PREFIX Then
-            lngNum = val(Mid$(wks.Name, 5))
+    Dim strValue As String
+    For Each wks In wb.Worksheets
+        If modTags.HasSheetTag(wks, ROOM_SHEET_ID_TAG_NAME, strValue) Then
+            lngNum = val(Mid$(CStr(strValue), Len(ROOM_SHEET_ID_TAG_VAL_PRE) + 1))
             If lngNum > lngMax Then lngMax = lngNum
         End If
     Next wks
-    NextRoomIndex = lngMax + 1
+    GetNextRoomIndex = lngMax + 1
 End Function
 
 ' -----------------------------------------------------------------------------------
@@ -205,12 +245,12 @@ Public Sub UpdateLists()
     For Each wks In wbActive.Worksheets
         If Left$(wks.Name, Len(ROOM_SHEET_PREFIX)) = ROOM_SHEET_PREFIX Then
             On Error Resume Next
-            Dim strRoomId As String: strRoomId = Trim$(CStr(wks.Range(modConst.NAME_ROOM_ID_CELL).Value))
+            Dim strRoomId As String: strRoomId = Trim$(CStr(wks.Range(modConst.NAME_CELL_ROOM_ID).Value))
             On Error GoTo 0
             If Len(strRoomId) = 0 Then strRoomId = wks.Name
             If Len(strRoomId) > 0 Then dicRooms(strRoomId) = True
             
-            Dim strSceneId As String: strSceneId = modLists.GetNamedOrHeaderValue(wks, NAME_SCENE_ID_CELL, Array("Scene ID", NAME_SCENE_ID_CELL, "Szene ID"))
+            Dim strSceneId As String: strSceneId = modLists.GetNamedOrHeaderValue(wks, NAME_CELL_SCENE_ID, Array("Scene ID", NAME_CELL_SCENE_ID, "Szene ID"))
             If Len(strSceneId) > 0 Then dicScenes(strSceneId) = True
             
             Call modLists.CollectColumnBlockGroupValues(wks, ROOM_OBJ_GROUP_HEADER_ROW, _
@@ -279,13 +319,13 @@ Public Sub SyncLists()
     For Each wks In wbActive.Worksheets
         If Left$(wks.Name, Len(ROOM_SHEET_PREFIX)) = ROOM_SHEET_PREFIX Then
             On Error Resume Next
-            Dim strRoomId As String: strRoomId = Trim$(CStr(wks.Range(modConst.NAME_ROOM_ID_CELL).Value))
+            Dim strRoomId As String: strRoomId = Trim$(CStr(wks.Range(modConst.NAME_CELL_ROOM_ID).Value))
             On Error GoTo 0
             If Len(strRoomId) = 0 Then strRoomId = wks.Name
             If Len(strRoomId) > 0 Then dicRooms(strRoomId) = True
             
             Dim strSceneId As String
-            strSceneId = modLists.GetNamedOrHeaderValue(wks, NAME_SCENE_ID_CELL, Array("Scene ID", NAME_SCENE_ID_CELL, "Szene ID"))
+            strSceneId = modLists.GetNamedOrHeaderValue(wks, NAME_CELL_SCENE_ID, Array("Scene ID", NAME_CELL_SCENE_ID, "Szene ID"))
             If Len(strSceneId) > 0 Then dicScenes(strSceneId) = True
             
             Call modLists.CollectColumnBlockGroupValues( _
@@ -335,9 +375,6 @@ End Sub
 ' Returns   : Collection - Sheet names that reference sRoomName.
 '
 ' Notes     :
-'   - Uses FindFramedRangeByHeading("DOORS TO", partial match) then RangeHasValue.
-'   - Uses GetColumnRangeByHeader("RoomID") then RangeHasValue.
-'   - Skips sheets with no matching framed area/column.
 ' -----------------------------------------------------------------------------------
 Private Function GetSheetsUsingRoomName(ByVal sRoomName As String, ByVal dicRooms As Object) As Collection
     ' Returns a collection of sheet names that reference sRoomName
@@ -348,8 +385,8 @@ Private Function GetSheetsUsingRoomName(ByVal sRoomName As String, ByVal dicRoom
     For Each vKey In dicRooms.Keys
         Set wks = dicRooms(vKey)
         
-        ' Framed area "DOORS TO..." (partial match for the header)
-        Set rng = FindFramedRangeByHeading(wks, "DOORS TO", False)
+        ' Framed area "DOORS TO..."
+        Set rng = wks.Range(NAME_RANGE_DOORS_TO) 'FindFramedRangeByHeading(wks, "DOORS TO", False)
         If Not rng Is Nothing Then
             If RangeHasValue(rng, sRoomName, True, False) Then
                 col.Add wks.Name
@@ -357,8 +394,8 @@ Private Function GetSheetsUsingRoomName(ByVal sRoomName As String, ByVal dicRoom
             End If
         End If
         
-        ' Column "RoomID"
-        Set rng = GetColumnRangeByHeader(wks, "RoomID", True, True)
+        ' Column "RoomID" in Framed area "PUZZLES"
+        Set rng = wks.Range(NAME_RANGE_PUZZLES_ROOM_ID)  'GetColumnRangeByHeader(wks, "RoomID", True, True)
         If Not rng Is Nothing Then
             If RangeHasValue(rng, sRoomName, True, False) Then
                 col.Add wks.Name
@@ -372,3 +409,9 @@ NextSheet:
     
     Set GetSheetsUsingRoomName = col
 End Function
+
+Public Function GetFormattedRoomID(ByVal lngIdx As Long) As String
+    GetFormattedRoomID = ROOM_SHEET_ID_TAG_VAL_PRE & Format(lngIdx, "000")
+End Function
+
+

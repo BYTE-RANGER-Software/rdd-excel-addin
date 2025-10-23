@@ -338,3 +338,66 @@ errHandler:
 
 End Sub
 
+
+Public Sub ShowAbout()
+    On Error GoTo errHandler
+    Dim intErr As Long
+    
+    Dim objActWkBk As Workbook: Set objActWkBk = ActiveWorkbook
+    Dim fAbout As frmAbout
+    
+    Set fAbout = New frmAbout
+    
+    fAbout.Show
+    
+    Set fAbout = Nothing
+    
+    On Error GoTo 0
+    Exit Sub
+    
+errHandler:
+    intErr = Err.Number
+    MsgBox "Error " & intErr & " (" & Err.Description & ") in procedure ShowAbout, line " & Erl & ".", vbCritical, AppProjectName
+    LogError "ShowAbout", intErr, Erl
+End Sub
+
+Public Sub AddNewRoom()
+    On Error GoTo errHandler
+    Dim intErr As Long
+    
+    Dim objActWkSh As Worksheet: Set objActWkSh = ActiveSheet
+    Dim objActWkBk As Workbook: Set objActWkBk = ActiveWorkbook
+    Dim lngIdx As Long
+    Dim strID As String
+    
+    Dim fNewItem As frmNewItem: Set fNewItem = New frmNewItem
+        
+    
+    With fNewItem
+        .FormCaption = "New Room Sheet"
+        .NameLabel = "Room Name"
+        .IDLabel = "Room ID"
+        .IDVisible = True
+        lngIdx = modRooms.GetNextRoomIndex(objActWkBk)
+        strID = modRooms.GetFormattedRoomID(lngIdx)
+        .IDText = strID
+        .NameText = strID
+
+        .Show                       ' modal
+        If Not .Cancelled Then
+            Call modRooms.AddRoom(.NameText, lngIdx)
+        End If
+        Unload fNewItem
+    End With
+                        
+    Set fNewItem = Nothing
+                
+    On Error GoTo 0
+    Exit Sub
+    
+errHandler:
+    intErr = Err.Number
+    MsgBox "Error " & intErr & " (" & Err.Description & ") in procedure AddNewRoom, line " & Erl & ".", vbCritical, AppProjectName
+    LogError "AddNewRoom", intErr, Erl
+End Sub
+

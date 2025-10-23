@@ -38,7 +38,7 @@ Public Function FindFramedRangeByHeading(wks As Worksheet, strHeading As String,
     Dim enuLookAtMode As XlLookAt
     enuLookAtMode = IIf(blnMatchWhole, xlWhole, xlPart)
     
-    Set rngFound = wks.Cells.Find(What:=strHeading, LookIn:=xlValues, LookAt:=enuLookAtMode, _
+    Set rngFound = wks.Cells.Find(What:=strHeading, LookIn:=xlValues, lookat:=enuLookAtMode, _
                                   MatchCase:=False, SearchOrder:=xlByRows, SearchDirection:=xlNext)
     If rngFound Is Nothing Then Exit Function
     
@@ -115,7 +115,7 @@ Public Function GetColumnRangeByHeader( _
     Dim eLook As XlLookAt: eLook = IIf(blnMatchWhole, xlWhole, xlPart)
     
     ' Locate the header cell
-    Set rngHeader = ws.Cells.Find(What:=strHeader, LookIn:=xlValues, LookAt:=eLook, _
+    Set rngHeader = ws.Cells.Find(What:=strHeader, LookIn:=xlValues, lookat:=eLook, _
                                   MatchCase:=False, SearchOrder:=xlByRows, SearchDirection:=xlNext)
     If rngHeader Is Nothing Then Exit Function
     If rngHeader.MergeCells Then Set rngHeader = rngHeader.MergeArea.Cells(1, 1)

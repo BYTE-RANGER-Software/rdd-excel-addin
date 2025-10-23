@@ -17,9 +17,11 @@ Option Private Module
 '             exists. Optionally returns the property object via r_cp.
 '
 ' Parameters:
-'   wks      [Worksheet]        - Target worksheet.
-'   strPropName [String]        - Property name to look for.
-'   r_cp     [CustomProperty]   - (Optional, ByRef) returns the found property object.
+'   wks           [Worksheet]       - Target worksheet.
+'   strPropName   [String]          - Property name to look for.
+'   r_cp          [CustomProperty]  - (Optional, ByRef) returns the found property object.
+'   blnMatchWhole [Boolean]         - (optional) if True, Whole property name must be match strPropName,
+'                                      if False, property name must start with strPropName
 '
 ' Returns   : Boolean - True if found; otherwise False.
 '
@@ -28,8 +30,8 @@ Option Private Module
 Public Function CustomPropertyExists( _
     ByVal wks As Worksheet, _
     ByVal strPropName As String, _
-    Optional ByRef r_cp As CustomProperty _
-    ) As Boolean
+    Optional ByRef r_cp As CustomProperty) As Boolean
+    
     Dim cp As CustomProperty
     On Error GoTo errHandler         ' fail-safe error handling
     Err.Clear
@@ -149,10 +151,19 @@ End Function
 Public Sub SetCustomProperty(ByVal wks As Worksheet, ByVal strPropName As String, ByVal strPropValue As String)
     Dim cp As CustomProperty
     If CustomPropertyExists(wks, strPropName, cp) Then
-        cp.Value = strPropValue
+        cp.Value = CStr(strPropValue)
     Else
-        wks.CustomProperties.Add Name:=strPropName, Value:=strPropValue
+        wks.CustomProperties.Add Name:=strPropName, Value:=IIf(LenB(strPropValue) = 0, "-", strPropValue)
     End If
+End Sub
+
+' Deletes all CustomProperties from the given worksheet.
+Public Sub ClearAllCustomProperties(ByVal wks As Worksheet)
+
+    On Error Resume Next
+    Do While wks.CustomProperties.Count > 0
+        wks.CustomProperties(1).Delete
+    Loop
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -326,3 +337,5 @@ Public Sub DelDocumentProperty(ByVal wb As Workbook, ByVal propName As String)
     Dim p As DocumentProperty
     If DocumentPropertyExists(wb, propName, p) Then p.Delete
 End Sub
+
+

@@ -11,16 +11,21 @@ Public Const WILDCARD_MY_DOCUMENTS As String = "%MyDocuments%"
 Public Const SHEET_ROOM_TEMPLATE As String = "Room_Template"
 Public Const SHEET_DISPATCHER As String = "Dispatcher" ' contains data for the drop-down lists and macro code for automation
 
-Public Const NAME_ROOM_ID_CELL As String = "RoomID"
-Public Const NAME_SCENE_ID_CELL As String = "SceneID"
-Public Const NAME_PARALLAX_CELL As String = "Parallax"
+Public Const NAME_CELL_ROOM_ID As String = "Cell_RoomID"
+Public Const NAME_CELL_SCENE_ID As String = "Cell_SceneID"
+Public Const NAME_CELL_PARALLAX As String = "Cell_Parallax"
 Public Const NAME_LIST_ROOM_IDS As String = "List_RoomIDs"
 Public Const NAME_LIST_SCENE_IDS As String = "List_SceneIDs"
 Public Const NAME_LIST_OBJECTS As String = "List_Objects"
 Public Const NAME_LIST_ACTORS As String = "List_Actors"
-Public Const NAME_ADD_PARALLAX_RANGE As String = "AddParallaxSet"
+Public Const NAME_RANGE_ADD_PARALLAX As String = "Range_AddParallaxSetWithHeader"
+Public Const NAME_RANGE_DOORS_TO As String = "Range_DoorsTo"
+Public Const NAME_RANGE_PUZZLES_ROOM_ID As String = "Range_Puzzles_RoomID"
 
 Public Const ROOM_SHEET_PREFIX As String = "Room"
+Public Const ROOM_SHEET_ID_TAG_NAME As String = "RoomID"
+Public Const ROOM_SHEET_ID_TAG_VAL_PRE As String = "R"
+
 Public Const ROOM_OBJ_GROUP_HEADER_ROW As Long = 42
 Public Const ROOM_OBJ_GROUP_CATEGORY_COLUMN_WIDTH As Long = 4
 Public Const ROOM_OBJ_GROUP_END_ROW As Long = 51
