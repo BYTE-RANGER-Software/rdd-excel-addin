@@ -503,3 +503,6 @@ Public Sub ValidateModel()
     wksIssues.Columns.AutoFit
 End Sub
 
+Public Sub RefreshList()
+
+End Sub

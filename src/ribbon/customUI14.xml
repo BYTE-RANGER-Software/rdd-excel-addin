@@ -1,0 +1,37 @@
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" onLoad="RB75dd2c44_Ribbon_OnLoad">
+  <ribbon>
+    <tabs>
+      <tab id="tabRDD" label="RDD">
+        <group id="grpRooms" label="Rooms">
+          <button id="RB75dd2c44_btnAddRoom" label="Add Room" size="large" onAction="RB75dd2c44_btnAddRoom_OnAction" image="imgAddRoom" screentip="Create a new Room" supertip="Create a new room from the template and wire up IDs and validations" getEnabled="RB75dd2c44_btnAddRoom_getEnabled"/>
+          <button id="RB75dd2c44_btnRemoveRoom" label="Remove Room" size="large" onAction="RB75dd2c44_btnRemoveRoom_OnAction" image="imgRemoveRoom" screentip="Delete the current Room" supertip="Deletes the active room after automatic dependency review" getEnabled="RB75dd2c44_btnRemoveRoom_getEnabled"/>
+          <button id="RB75dd2c44_btnSyncLists" label="Synchronize Lists" size="large" onAction="RB75dd2c44_btnSyncLists_OnAction" image="imgSyncLists" screentip="Synchronize Dropdown Lists" supertip="Rebuild dropdown lists from rooms and remove outdated entries" getEnabled="RB75dd2c44_btnSyncLists_getEnabled"/>
+          <button id="RB75dd2c44_btnValidate" label="Validate" size="large" onAction="RB75dd2c44_btnValidate_OnAction" image="imgValidate" screentip="Validate Data" supertip="Check for duplicate IDs, missing references, and potential cycles" getEnabled="RB75dd2c44_btnValidate_getEnabled"/>
+        </group>
+        <group id="grpPDC" label="Dependency Chart">
+          <button id="RB75dd2c44_btnBuildData" label="Generate Data" size="large" onAction="RB75dd2c44_btnBuildData_OnAction" image="imgBuildData" screentip="Build Edges" supertip="Generate the edges from all room sheets" getEnabled="RB75dd2c44_btnBuildData_getEnabled"/>
+          <button id="RB75dd2c44_btnBuildChart" label="Create Chart" size="large" onAction="RB75dd2c44_btnBuildChart_OnAction" image="imgBuildChart" screentip="Build Chart" supertip="(Re-)Build the Puzzle Dependency Chart and apply layout and styles from current edges" getEnabled="RB75dd2c44_btnBuildChart_getEnabled"/>
+          <button id="RB75dd2c44_btnUpdateChart" label="Update Chart" size="large" onAction="RB75dd2c44_btnUpdateChart_OnAction" image="imgUpdateChart" screentip="Refresh Chart" supertip="Updates the Puzzle Dependency Chart using current edges and refreshes its layout" getEnabled="RB75dd2c44_btnUpdateChart_getEnabled"/>
+        </group>
+        <group id="grpExport" label="Export">
+          <button id="RB75dd2c44_btnExportPdf" label="Export PDF" size="large" image="imgExportPdf" onAction="RB75dd2c44_btnExportPdf_OnAction" screentip="Export PDF" supertip="Export RDD views and dependency chart to PDF" getEnabled="RB75dd2c44_btnExportPdf_getEnabled"/>
+          <button id="RB75dd2c44_btnExportCsv" label="Export CSV" size="large" image="imgExportCsv" onAction="RB75dd2c44_btnExportCsv_OnAction" screentip="Export CSV" supertip="Export puzzles, edges, and rooms as CSV files" getEnabled="RB75dd2c44_btnExportCsv_getEnabled"/>
+        </group>
+        <group id="grpExtra" label="Extra">
+            <button id="RB75dd2c44_BtnShowOptions" label="Show Options" size="large" image="imgOptions" onAction="RB75dd2c44_btnShowOptions_OnAction" screentip="Show Options" supertip="Open the add-in options, paths, defaults, and advanced settings"/>          
+        </group>
+        <group id="grpAbout" label="About">
+            <button id="RB75dd2c44_btnShowLog" label="Show Log" size="large" image="imgShowLog" onAction="RB75dd2c44_btnShowLog_OnAction" screentip="Show Log" supertip="Open the logging page with recent events, warnings, and validation messages"/>
+            <button id="RB75dd2c44_btnShowManual" label="Show Manual" size="large" image="imgShowManual" onAction="RB75dd2c44_btnShowManual_OnAction" screentip="Show Manual" supertip="Open the built-in documentation, RDD structure, and Dependency Chart guide"/>         
+            <button id="RB75dd2c44_btnAddInVersion" getLabel="RB75dd2c44_btnAddInVersion_GetLabel" size="large" image="imgVersion" onAction="RB75dd2c44_btnAddInVersion_OnAction" screentip="Add-in Version" supertip="Shows the current add-in version, build, path"/>
+        </group>
+      </tab>
+    </tabs>
+  </ribbon>
+  <contextMenus>
+    <contextMenu idMso="ContextMenuCell">
+      <button id="RB75dd2c44_btnDynCtxMnu1" getLabel="RB75dd2c44_btnDynCtxMnu1_getLabel" getVisible="RB75dd2c44_btnDynCtxMnu1_getVisible" onAction="RB75dd2c44_btnDynCtxMnu1_onAction" insertBeforeMso="Cut"/>
+      <button id="RB75dd2c44_btnDynCtxMnu2" getLabel="RB75dd2c44_btnDynCtxMnu2_getLabel" getVisible="RB75dd2c44_btnDynCtxMnu2_getVisible" onAction="RB75dd2c44_btnDynCtxMnu2_onAction" insertBeforeMso="Cut"/>
+    </contextMenu>
+  </contextMenus>
+</customUI>

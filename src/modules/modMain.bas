@@ -240,7 +240,7 @@ Public Function IsAddinWorkbook(ByVal wb As Workbook) As Boolean
     
     Dim val As String
     val = modProps.GetDocumentPropertyValue(wb, APP_DOC_TAG_KEY, "")
-    IsAddinWorkbook = (StrComp(val, APP_DOC_TAG_VAL, vbTextCompare) = 0)
+    IsAddinWorkbook = (StrComp(val, APP_DOC_TAG_VAL, vbBinaryCompare) = 0)
     Exit Function
 SafeExit:
     IsAddinWorkbook = False
@@ -363,7 +363,6 @@ End Sub
 
 Public Sub AddNewRoom()
     On Error GoTo errHandler
-    Dim intErr As Long
     
     Dim objActWkSh As Worksheet: Set objActWkSh = ActiveSheet
     Dim objActWkBk As Workbook: Set objActWkBk = ActiveWorkbook
@@ -396,8 +395,36 @@ Public Sub AddNewRoom()
     Exit Sub
     
 errHandler:
+    Dim intErr As Long
     intErr = Err.Number
     MsgBox "Error " & intErr & " (" & Err.Description & ") in procedure AddNewRoom, line " & Erl & ".", vbCritical, AppProjectName
     LogError "AddNewRoom", intErr, Erl
 End Sub
 
+' Jumps to the Room sheet referenced by the active cell value.
+Public Sub GotoRoomFromCell()
+    On Error GoTo errHandler
+    
+    Dim strRoomID As String
+    Dim wb As Workbook: Set wb = ActiveWorkbook
+    Dim rngActCell As Range: Set rngActCell = ActiveCell
+    
+    strRoomID = Trim$(CStr(rngActCell.Value))
+    If Len(strRoomID) = 0 Then
+        MsgBox "No Room ID in the selected cell.", vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    Dim wks As Worksheet
+    If modRooms.HasRoomSheet(wb, strRoomID, wks) Then
+    Application.Goto wks.Range("A1"), True
+    End If
+    
+    MsgBox "Room '" & strRoomID & "' not found.", vbInformation, AppProjectName
+    Exit Sub
+
+errHandler:
+    Dim intErr As Long: intErr = Err.Number
+    MsgBox "Error " & intErr & " (" & Err.Description & ") in procedure GotoRoomFromCell, line " & Erl & ".", vbCritical, AppProjectName
+    LogError "GotoRoomFromCell", intErr, Erl
+End Sub

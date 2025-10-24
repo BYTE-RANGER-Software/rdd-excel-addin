@@ -59,7 +59,7 @@ Public Sub AddRoom(ByRef strNewName As String, ByRef lngIdx As Long)
     
     modUtil.HideOpMode False
     
-    Application.GoTo wksTarget.Range("A1"), True
+    Application.Goto wksTarget.Range("A1"), True
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -69,22 +69,20 @@ End Sub
 ' Parameters:
 '
 '   wks  [Worksheet] - sheet to test
+' strID  [String]    - (Optional, ByRef) returns the room ID if it is a room sheet.
 '
 '
-'
-' Returns   : $P[METHOD_RETURN_TYPE_ALIASED_NAME] - True if it is a room sheet
+' Returns   : [Boolean] - True if the sheet is a room sheet
 '
 '
 ' Behavior  : -
 ' Notes     : -
 ' -----------------------------------------------------------------------------------
-Public Function IsRoomSheet(ByRef wks As Worksheet) As Boolean
-    If Left$(wks.Name, Len(ROOM_SHEET_PREFIX)) <> ROOM_SHEET_PREFIX Then
-        IsRoomSheet = False
-        
-        Exit Function
+Public Function IsRoomSheet(ByRef wks As Worksheet, Optional ByRef strID As String = vbNullString) As Boolean
+    Dim strValue As String
+    If modTags.HasSheetTag(wks, ROOM_SHEET_ID_TAG_NAME, strID) Then
+        IsRoomSheet = True
     End If
-    IsRoomSheet = True
 End Function
 
 ' -----------------------------------------------------------------------------------
@@ -217,6 +215,20 @@ Public Function GetNextRoomIndex(ByVal wb As Workbook) As Long
     GetNextRoomIndex = lngMax + 1
 End Function
 
+Public Function HasRoomSheet(ByVal wb As Workbook, ByVal strRoomID As String, Optional ByRef r_wks As Worksheet = Nothing) As Boolean
+    Dim wks As Worksheet
+    Dim strValue As String
+    For Each wks In wb.Worksheets
+        If modTags.HasSheetTag(wks, ROOM_SHEET_ID_TAG_NAME, strValue) Then
+            If StrComp(strRoomID, strValue, vbBinaryCompare) = 0 Then
+                Set r_wks = wks
+                HasRoomSheet = True
+                Exit Function
+            End If
+        End If
+    Next wks
+End Function
+
 ' -----------------------------------------------------------------------------------
 ' Function  : UpdateLists
 ' Purpose   : Aggregates Room IDs, Objects, and Scene IDs from all Room sheets into
@@ -245,10 +257,10 @@ Public Sub UpdateLists()
     For Each wks In wbActive.Worksheets
         If Left$(wks.Name, Len(ROOM_SHEET_PREFIX)) = ROOM_SHEET_PREFIX Then
             On Error Resume Next
-            Dim strRoomId As String: strRoomId = Trim$(CStr(wks.Range(modConst.NAME_CELL_ROOM_ID).Value))
+            Dim strRoomID As String: strRoomID = Trim$(CStr(wks.Range(modConst.NAME_CELL_ROOM_ID).Value))
             On Error GoTo 0
-            If Len(strRoomId) = 0 Then strRoomId = wks.Name
-            If Len(strRoomId) > 0 Then dicRooms(strRoomId) = True
+            If Len(strRoomID) = 0 Then strRoomID = wks.Name
+            If Len(strRoomID) > 0 Then dicRooms(strRoomID) = True
             
             Dim strSceneId As String: strSceneId = modLists.GetNamedOrHeaderValue(wks, NAME_CELL_SCENE_ID, Array("Scene ID", NAME_CELL_SCENE_ID, "Szene ID"))
             If Len(strSceneId) > 0 Then dicScenes(strSceneId) = True
@@ -319,10 +331,10 @@ Public Sub SyncLists()
     For Each wks In wbActive.Worksheets
         If Left$(wks.Name, Len(ROOM_SHEET_PREFIX)) = ROOM_SHEET_PREFIX Then
             On Error Resume Next
-            Dim strRoomId As String: strRoomId = Trim$(CStr(wks.Range(modConst.NAME_CELL_ROOM_ID).Value))
+            Dim strRoomID As String: strRoomID = Trim$(CStr(wks.Range(modConst.NAME_CELL_ROOM_ID).Value))
             On Error GoTo 0
-            If Len(strRoomId) = 0 Then strRoomId = wks.Name
-            If Len(strRoomId) > 0 Then dicRooms(strRoomId) = True
+            If Len(strRoomID) = 0 Then strRoomID = wks.Name
+            If Len(strRoomID) > 0 Then dicRooms(strRoomID) = True
             
             Dim strSceneId As String
             strSceneId = modLists.GetNamedOrHeaderValue(wks, NAME_CELL_SCENE_ID, Array("Scene ID", NAME_CELL_SCENE_ID, "Szene ID"))
