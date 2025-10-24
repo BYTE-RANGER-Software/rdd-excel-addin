@@ -197,7 +197,7 @@ End Sub
 
 Sub RB75dd2c44_btnDynCtxMnu2_onAction(control As IRibbonControl)
     If clsState.CellCtxMenuType = CCM_Rooms Then
-        'modMain.GotoRoomFromCell ' TODO: write sub GotoRoomFromCell
+        modMain.GotoRoomFromCell
     End If
 End Sub
 

@@ -167,6 +167,85 @@ NextWS:
     Set BuildDictFromSheetsByName = dic
 End Function
 
+' -----------------------------------------------------------------------------------
+' Function  : BuildDictFromSheetsByTag
+' Purpose   : Build a dictionary of worksheets in a workbook that carry a given tag
+'             (stored as a worksheet CustomProperty via your tagging system).
+'
+' Parameters:
+'   wb                    [Workbook] - Source workbook to scan.
+'   strTagName            [String]   - Tag name (free-text as used with modTags.*).
+'   wksExclude            [Worksheet]- (Optional) Sheet to exclude from results.
+'   blnExcludeHidden      [Boolean]  - (Optional) Exclude hidden/very hidden sheets.
+'   strTagValueFilter     [String]   - (Optional) When provided, only include sheets
+'                                      whose tag value equals this string.
+'   blnValueCaseSensitive [Boolean]  - (Optional) Case-sensitive value comparison.
+'
+' Returns   : Object (Scripting.Dictionary) with Keys = Worksheet.Name,
+'             Items = Worksheet object. Never returns Nothing (empty on no matches).
+'
+' Notes     :
+'   - Uses modTags.HasSheetTag(wks, strTagName, rValue) to probe for tags.
+'   - If strTagValueFilter is empty, only the presence of the tag is required.
+' -----------------------------------------------------------------------------------
+Public Function BuildDictFromSheetsByTag( _
+        ByVal wb As Workbook, _
+        ByVal strTagName As String, _
+        Optional ByVal wksExclude As Worksheet = Nothing, _
+        Optional ByVal blnExcludeHidden As Boolean = False, _
+        Optional ByVal strTagValueFilter As String = vbNullString, _
+        Optional ByVal blnValueCaseSensitive As Boolean = False _
+    ) As Object
+
+    On Error GoTo errHandler
+
+    Dim dic As Object
+    Set dic = CreateObject("Scripting.Dictionary")
+
+    If wb Is Nothing Then
+        Set BuildDictFromSheetsByTag = dic
+        Exit Function
+    End If
+
+    Dim wks As Worksheet
+    Dim sVal As String
+    Dim cmp As VbCompareMethod
+    cmp = IIf(blnValueCaseSensitive, vbBinaryCompare, vbTextCompare)
+
+    For Each wks In wb.Worksheets
+        ' exclude a specific sheet if requested
+        If Not wksExclude Is Nothing Then
+            If wks.Name = wksExclude.Name Then GoTo NextSheet
+        End If
+
+        ' optionally skip hidden sheets
+        If blnExcludeHidden Then
+            If (wks.Visible = xlSheetHidden) Or (wks.Visible = xlSheetVeryHidden) Then GoTo NextSheet
+        End If
+
+        ' tag check (presence and optional value filter)
+        If modTags.HasSheetTag(wks, strTagName, sVal) Then
+            If LenB(strTagValueFilter) = 0 Then
+                dic(wks.Name) = wks
+            ElseIf StrComp(CStr(sVal), CStr(strTagValueFilter), cmp) = 0 Then
+                dic(wks.Name) = wks
+            End If
+        End If
+
+NextSheet:
+    Next wks
+
+    Set BuildDictFromSheetsByTag = dic
+    Exit Function
+
+errHandler:
+    ' Fail-safe: still return an empty dictionary
+    Dim dicSafe As Object
+    Set dicSafe = CreateObject("Scripting.Dictionary")
+    Set BuildDictFromSheetsByTag = dicSafe
+    Err.Clear
+End Function
+
 ' Helper: compare a name with pattern using the selected mode
 Private Function SheetNameMatches(ByVal strName As String, ByVal strPat As String, _
                              ByVal mode As SheetNameMatchMode, _

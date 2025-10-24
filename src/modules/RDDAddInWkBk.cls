@@ -11,18 +11,18 @@ Option Explicit
 
 
 Private Sub Workbook_AddinInstall()
-    'Debug.Print "Workbook_AddinInstall()"
+    Debug.Print "Workbook_AddinInstall()"
     modMain.AppInstall
 End Sub
 
 Private Sub Workbook_Open()
-    'Debug.Print "Workbook_Open()"
+    Debug.Print "Workbook_Open()"
     modMain.AppStart
 End Sub
 
 
 Private Sub Workbook_BeforeClose(Cancel As Boolean)
-    'Debug.Print "Workbook_BeforeClose()"
+    Debug.Print "Workbook_BeforeClose()"
     modMain.AppStop
 End Sub
 

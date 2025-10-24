@@ -61,7 +61,7 @@ Private Sub App_SheetChange(ByVal Sh As Object, ByVal Target As Range)
 End Sub
 
 Private Sub App_SheetBeforeRightClick(ByVal Sh As Object, ByVal Target As Range, Cancel As Boolean)
-
+    Debug.Print "App_SheetBeforeRightClick()"
     clsState.CellCtxMnuNeedsPrepare = True
 
     EvaluateCellCtxMnu Sh, Target

@@ -211,67 +211,40 @@ Public Function RangeHasValue( _
         Optional ByVal blnExact As Boolean = True, _
         Optional ByVal blnCaseSensitive As Boolean = False _
     ) As Boolean
-    
-    Dim c As Range
-    Dim vCell As Variant
+
+    On Error GoTo errHandler
+
+    If rngSearch Is Nothing Then Exit Function
+
+    Dim vData As Variant
+    vData = rngSearch.Value2  ' could be scalar for 1x1
+
     Dim cmpType As VbCompareMethod
     cmpType = IIf(blnCaseSensitive, vbBinaryCompare, vbTextCompare)
-    
-    If rngSearch Is Nothing Then Exit Function
-    
-    For Each c In rngSearch.Cells
-        vCell = c.Value
-        
-        If IsEmpty(vCell) Then GoTo NextCell
-        
-        Select Case VarType(vntValue)
-            Case vbString
-                If VarType(vCell) = vbString Then
-                    If blnExact Then
-                        If StrComp(vCell, vntValue, cmpType) = 0 Then
-                            RangeHasValue = True
-                            Exit Function
-                        End If
-                    Else
-                        If InStr(1, vCell, vntValue, cmpType) > 0 Then
-                            RangeHasValue = True
-                            Exit Function
-                        End If
-                    End If
+
+    Dim r As Long, c As Long
+    Dim rL As Long, rU As Long, cL As Long, cU As Long
+
+    If IsArray(vData) Then
+        rL = LBound(vData, 1): rU = UBound(vData, 1)
+        cL = LBound(vData, 2): cU = UBound(vData, 2)
+        For r = rL To rU
+            For c = cL To cU
+                If CellMatches(vData(r, c), vntValue, blnExact, cmpType) Then
+                    RangeHasValue = True
+                    Exit Function
                 End If
-            
-            Case vbDouble, vbSingle, vbCurrency, vbInteger, vbLong, vbDecimal
-                If IsNumeric(vCell) Then
-                    If CDbl(vCell) = CDbl(vntValue) Then
-                        RangeHasValue = True
-                        Exit Function
-                    End If
-                End If
-            
-            Case vbDate
-                If IsDate(vCell) Then
-                    If CLng(vCell) = CLng(vntValue) Then
-                        RangeHasValue = True
-                        Exit Function
-                    End If
-                End If
-            
-            Case Else
-                ' fallback to string compare
-                If blnExact Then
-                    If StrComp(CStr(vCell), CStr(vntValue), cmpType) = 0 Then
-                        RangeHasValue = True
-                        Exit Function
-                    End If
-                Else
-                    If InStr(1, CStr(vCell), CStr(vntValue), cmpType) > 0 Then
-                        RangeHasValue = True
-                        Exit Function
-                    End If
-                End If
-        End Select
-NextCell:
-    Next c
+            Next c
+        Next r
+    Else
+        ' 1x1 range: vData is scalar
+        RangeHasValue = CellMatches(vData, vntValue, blnExact, cmpType)
+    End If
+
+    Exit Function
+errHandler:
+    RangeHasValue = False
+    Err.Clear
 End Function
 
 
@@ -334,5 +307,41 @@ Private Function CellHasBorder(rngCell As Range, xlEdge As XlBordersIndex, Optio
     With rngCell.Borders(xlEdge)
         CellHasBorder = (.LineStyle = xlContinuous And .Weight = xlWeight)
     End With
+End Function
+
+' Helper: compare one cell value against target
+Private Function CellMatches(ByVal vCell As Variant, ByVal vTarget As Variant, _
+                             ByVal blnExact As Boolean, ByVal cmpType As VbCompareMethod) As Boolean
+    If IsEmpty(vCell) Then Exit Function
+
+    Select Case VarType(vTarget)
+        Case vbString
+            If VarType(vCell) = vbString Then
+                If blnExact Then
+                    CellMatches = (StrComp(vCell, vTarget, cmpType) = 0)
+                Else
+                    CellMatches = (InStr(1, vCell, vTarget, cmpType) > 0)
+                End If
+            End If
+
+        Case vbDouble, vbSingle, vbCurrency, vbInteger, vbLong, vbDecimal
+            If IsNumeric(vCell) Then
+                CellMatches = (CDbl(vCell) = CDbl(vTarget))
+            End If
+
+        Case vbDate
+            If IsDate(vCell) Then
+                ' Compare Excel serials (Value2 is serial for dates)
+                CellMatches = (CLng(CDbl(vCell)) = CLng(CDbl(vTarget)))
+            End If
+
+        Case Else
+            ' Fallback as string compare
+            If blnExact Then
+                CellMatches = (StrComp(CStr(vCell), CStr(vTarget), cmpType) = 0)
+            Else
+                CellMatches = (InStr(1, CStr(vCell), CStr(vTarget), cmpType) > 0)
+            End If
+    End Select
 End Function
 

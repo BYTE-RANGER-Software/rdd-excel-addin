@@ -4,6 +4,7 @@ Option Private Module
 
 Private m_objLog As clsLog          ' central Logger
 Private m_strAppTempPath As String
+Private m_strAppProjectName As String
 
 Private m_objAppEvents As clsAppEvents
 Private m_wbActiveWorkbook As Workbook
@@ -13,13 +14,10 @@ Private m_wbActiveWorkbook As Workbook
 ' Purpose   : Returns the VBA project name (best-effort).
 ' Parameters: -
 ' Returns   : String - Project name
-' Notes     : Uses Err.Source trick; consider a constant or document property instead.
+' Notes     : Ensure that SetAppProjectName was executed before the first query.
 ' -----------------------------------------------------------------------------------
 Public Property Get AppProjectName() As String
-    On Error Resume Next
-    Err.Raise 999
-    AppProjectName = Err.Source
-    On Error GoTo 0
+    AppProjectName = m_strAppProjectName
 End Property
 
 ' -----------------------------------------------------------------------------------
@@ -69,7 +67,7 @@ End Sub
 ' Purpose   : Application startup: init logging, wire App events, init state, refresh UI.
 ' Parameters: (none)
 ' Returns   :
-' Notes     : Requires clsAppEvents and (falls genutzt) eine State-Instanz.
+' Notes     : Requires clsAppEvents and clsState
 ' -----------------------------------------------------------------------------------
 Public Sub AppStart()
     
@@ -79,6 +77,9 @@ Public Sub AppStart()
     m_strAppTempPath = m_strAppTempPath & "\" & AppProjectName & "\"
     If Dir(m_strAppTempPath, vbDirectory) = "" Then MkDir m_strAppTempPath
         
+    '
+    SetAppProjectName
+    
     ' Logger
     Call OpenLog
     
@@ -117,6 +118,13 @@ Public Sub AppStop()
         m_objLog.CloseLog
     End If
     Set m_objLog = Nothing
+End Sub
+
+Private Sub SetAppProjectName()
+    On Error Resume Next
+    Err.Raise 999
+    m_strAppProjectName = Err.Source
+    On Error GoTo 0
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -385,6 +393,7 @@ Public Sub AddNewRoom()
         .Show                       ' modal
         If Not .Cancelled Then
             Call modRooms.AddRoom(.NameText, lngIdx)
+            Call modRooms.UpdateLists
         End If
         Unload fNewItem
     End With
@@ -417,7 +426,8 @@ Public Sub GotoRoomFromCell()
     
     Dim wks As Worksheet
     If modRooms.HasRoomSheet(wb, strRoomID, wks) Then
-    Application.Goto wks.Range("A1"), True
+        Application.Goto wks.Range("A1"), True
+        Exit Sub
     End If
     
     MsgBox "Room '" & strRoomID & "' not found.", vbInformation, AppProjectName
@@ -428,3 +438,4 @@ errHandler:
     MsgBox "Error " & intErr & " (" & Err.Description & ") in procedure GotoRoomFromCell, line " & Erl & ".", vbCritical, AppProjectName
     LogError "GotoRoomFromCell", intErr, Erl
 End Sub
+

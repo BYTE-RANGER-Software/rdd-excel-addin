@@ -20,8 +20,6 @@ Option Private Module
 '   wks           [Worksheet]       - Target worksheet.
 '   strPropName   [String]          - Property name to look for.
 '   r_cp          [CustomProperty]  - (Optional, ByRef) returns the found property object.
-'   blnMatchWhole [Boolean]         - (optional) if True, Whole property name must be match strPropName,
-'                                      if False, property name must start with strPropName
 '
 ' Returns   : Boolean - True if found; otherwise False.
 '
@@ -69,7 +67,7 @@ End Function
 ' Notes     : The output array is erased if no matches are found.
 ' -----------------------------------------------------------------------------------
 Public Function GetAllSheetsNamesByCustomProperty(ByVal wb As Workbook, ByRef r_astrWkShNames() As String, ByVal strPropName As String) As Boolean
-    Dim lngCount As Integer
+    Dim lngCount As Long
     Dim wks As Worksheet
     Dim cp As CustomProperty
     
@@ -90,6 +88,8 @@ Public Function GetAllSheetsNamesByCustomProperty(ByVal wb As Workbook, ByRef r_
     Else
         Erase r_astrWkShNames()
     End If
+
+    Exit Function
     
 errHandler:
     Erase r_astrWkShNames
@@ -110,7 +110,7 @@ End Function
 '
 ' Returns   : Worksheet - The first worksheet that matches; Nothing if not found.
 '
-' Notes     : Case-sensitive value comparison (as per original code).
+' Notes     : Value comparison uses case-insensitive StrComp like the name check.
 ' -----------------------------------------------------------------------------------
 Public Function GetSheetByCustomProperty(ByVal wb As Workbook, ByVal strPropName As String, Optional ByVal strPropValue As String = "") As Worksheet
     Dim wks As Worksheet
@@ -157,7 +157,17 @@ Public Sub SetCustomProperty(ByVal wks As Worksheet, ByVal strPropName As String
     End If
 End Sub
 
-' Deletes all CustomProperties from the given worksheet.
+' -----------------------------------------------------------------------------------
+' Procedure : ClearAllCustomProperties
+' Purpose   : Delete all worksheet-level CustomProperties from the given worksheet.
+'
+' Parameters:
+'   wks [Worksheet] - Target worksheet.
+'
+' Returns   : (none)
+'
+' Notes     : Uses a simple loop deleting the first item until none remain.
+' -----------------------------------------------------------------------------------
 Public Sub ClearAllCustomProperties(ByVal wks As Worksheet)
 
     On Error Resume Next
@@ -196,6 +206,8 @@ errHandler:
     GetCustomPropertyValue = vbNullString
     Err.Clear
 End Function
+
+' ===== Public API : Workbook DocumentProperties ====================================
 
 ' -----------------------------------------------------------------------------------
 ' Function  : DocumentPropertyExists
@@ -333,6 +345,18 @@ Public Sub SetDocumentProperty(ByVal wb As Workbook, ByVal strPropName As String
     End If
 End Sub
 
+' -----------------------------------------------------------------------------------
+' Procedure : DelDocumentProperty
+' Purpose   : Delete a workbook-level CustomDocumentProperty when present.
+'
+' Parameters:
+'   wb        [Workbook] - Target workbook.
+'   propName  [String]   - Property name to remove.
+'
+' Returns   : (none)
+'
+' Notes     : Safe no-op if the property does not exist.
+' -----------------------------------------------------------------------------------
 Public Sub DelDocumentProperty(ByVal wb As Workbook, ByVal propName As String)
     Dim p As DocumentProperty
     If DocumentPropertyExists(wb, propName, p) Then p.Delete

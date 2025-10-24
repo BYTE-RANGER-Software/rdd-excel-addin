@@ -160,6 +160,35 @@ Public Sub CollectColumnBlockGroupValues( _
     Next lngCatIndex
 End Sub
 
+Public Sub CollectNamedRangeValues(ByVal wks As Worksheet, strRangeName As String, ByVal dicValues As Object)
+    Dim rngNamed As Range
+    Dim rngCell As Range
+    Dim nm As Name
+    
+    If Len(strRangeName) > 0 Then Set rngNamed = wks.Range(strRangeName)
+    ' Iterate through all names in the workbook
+    For Each nm In wks.Parent.Names
+        ' Check whether the name refers to the desired worksheet
+        If nm.RefersTo Like "=" & wks.Name & "!*" Then
+            On Error Resume Next
+            Set rngNamed = wks.Range(nm.Name)
+            On Error GoTo 0
+            
+            If Not rngNamed Is Nothing Then
+                For Each rngCell In rngNamed.Cells
+                    If Not IsEmpty(rngCell.Value) Then
+                        If Not dicValues.exists(rngCell.Address) Then
+                            dicValues.Add rngCell.Value, True
+                        Else
+                            dicValues(rngCell.Value) = True
+                        End If
+                    End If
+                Next rngCell
+            End If
+        End If
+    Next nm
+End Sub
+
 ' -----------------------------------------------------------------------------------
 ' Procedure : UpdateNamedListRange
 ' Purpose   : Updates or creates a named range in the workbook referring to a
@@ -184,9 +213,9 @@ Public Sub UpdateNamedListRange(ByVal strName As String, ByVal wks As Worksheet,
     Dim strRef As String
     strRef = "='" & wks.Name & "'!" & wks.Range(wks.Cells(2, lngCol), wks.Cells(lngLastRow, lngCol)).Address
     On Error Resume Next
-    wbActive.names(strName).RefersTo = strRef
+    wbActive.Names(strName).RefersTo = strRef
     If Err.Number <> 0 Then
-        wbActive.names.Add Name:=strName, RefersTo:=strRef
+        wbActive.Names.Add Name:=strName, RefersTo:=strRef
     End If
     On Error GoTo 0
 End Sub
@@ -264,7 +293,7 @@ Public Sub AppendMissingDictKeysToColumn( _
     For Each vntKey In dicNewKeys.Keys
         strValue = Trim$(CStr(vntKey))
         If Len(strValue) > 0 Then
-            If Not dicExisting.Exists(strValue) Then
+            If Not dicExisting.exists(strValue) Then
                 wks.Cells(lngNextRow, lngCol).Value = strValue
                 dicExisting(strValue) = True
                 lngNextRow = lngNextRow + 1

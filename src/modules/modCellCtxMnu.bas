@@ -92,7 +92,7 @@ End Sub
 '             the menu accordingly.
 '
 ' Parameters:
-'   ws     [Worksheet] - Worksheet containing the target cell
+'   wks     [Worksheet] - Worksheet containing the target cell
 '   Target [Range]     - Target cell whose context is evaluated
 '
 ' Returns:
@@ -110,13 +110,13 @@ End Sub
 '   - Uses On Error Resume Next around Validation access.
 '   - Updates global clsState.CellCtxMenuType and returns it.
 ' -----------------------------------------------------------------------------------
-Public Function EvaluateCellCtxMnu(ws As Worksheet, Target As Range) As Integer
+Public Function EvaluateCellCtxMnu(wks As Worksheet, Target As Range) As Integer
     On Error Resume Next
     
     Dim vldTarget As Validation
     clsState.CellCtxMenuType = CCM_Default
     
-    If Left$(ws.Name, Len(ROOM_SHEET_PREFIX)) = ROOM_SHEET_PREFIX Then
+    If modRooms.IsRoomSheet(wks) Then
         Set vldTarget = Target.Validation
         If vldTarget.Type = xlValidateList Then
         
@@ -178,7 +178,7 @@ Private Sub BuildCellCtxMenuCache()
 
         For lngIdx = 1 To cbrCell.Controls.Count
             Set m_acbcCellCtxCtrls(lngIdx) = cbrCell.Controls(lngIdx)
-            If cbrCell.Controls(lngIdx).BuiltIn Then Debug.Print cbrCell.Controls(lngIdx).Caption
+            'If cbrCell.Controls(lngIdx).BuiltIn Then Debug.Print cbrCell.Controls(lngIdx).Caption
             m_astrCellCtxCaps(lngIdx) = m_acbcCellCtxCtrls(lngIdx).Caption
         Next
     End If

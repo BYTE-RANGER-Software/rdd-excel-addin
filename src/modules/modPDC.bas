@@ -194,7 +194,7 @@ Sub SyncPuzzleChart()
     For Each shp In wksChart.Shapes
         If Not shp.Connector Then
             On Error Resume Next
-            If Not dicNodes.Exists(shp.Name) Then
+            If Not dicNodes.exists(shp.Name) Then
                 dicNodes.Add shp.Name, shp
             End If
             On Error GoTo 0
@@ -210,7 +210,7 @@ Sub SyncPuzzleChart()
         strNodeName = wksData.Cells(lngRow, 2).Value
         strNodeType = wksData.Cells(lngRow, 3).Value
 
-        If dicNodes.Exists(strNodeId) Then
+        If dicNodes.exists(strNodeId) Then
             ' Vorhandene Shape ? aktualisieren
             Set shp = dicNodes(strNodeId)
             shp.TextFrame.Characters.Text = strNodeName
@@ -224,7 +224,7 @@ Sub SyncPuzzleChart()
             shp.TextFrame.HorizontalAlignment = xlHAlignCenter
             
             ' Neues Shape ins Dictionary
-            If dicNodes.Exists(strNodeId) Then
+            If dicNodes.exists(strNodeId) Then
                 dicNodes.Remove strNodeId
             End If
             dicNodes.Add strNodeId, shp
@@ -250,7 +250,7 @@ Sub SyncPuzzleChart()
         strFromId = Trim(wksData.Cells(lngRow, 5).Value)
         strToId = Trim(wksData.Cells(lngRow, 6).Value)
 
-        If dicNodes.Exists(strFromId) And dicNodes.Exists(strToId) Then
+        If dicNodes.exists(strFromId) And dicNodes.exists(strToId) Then
             Set shpFrom = dicNodes(strFromId)
             Set shpTo = dicNodes(strToId)
 
@@ -467,7 +467,7 @@ Public Sub ValidateModel()
                 For lngRow = rngHeader.Row + 1 To lngLastRow
                     Dim strID As String: strID = Trim$(CStr(wks.Cells(lngRow, dicCols("PuzzleID")).Value))
                     If Len(strID) > 0 Then
-                        If dicIds.Exists(strID) Then
+                        If dicIds.exists(strID) Then
                             wksIssues.Cells(lngRowOut, 1).Value = "Duplicate"
                             wksIssues.Cells(lngRowOut, 2).Value = "PuzzleID appears multiple times: " & strID
                             lngRowOut = lngRowOut + 1
@@ -487,12 +487,12 @@ Public Sub ValidateModel()
     For lngIndex = 2 To lngLast
         Dim strFrom As String: strFrom = Trim$(CStr(wksData.Cells(lngIndex, 2).Value))
         Dim strTo As String: strTo = Trim$(CStr(wksData.Cells(lngIndex, 3).Value))
-        If Len(strFrom) > 0 And Not dicIds.Exists(strFrom) Then
+        If Len(strFrom) > 0 And Not dicIds.exists(strFrom) Then
             wksIssues.Cells(lngRowOut, 1).Value = "MissingRef"
             wksIssues.Cells(lngRowOut, 2).Value = "From not found: " & strFrom
             lngRowOut = lngRowOut + 1
         End If
-        If Len(strTo) > 0 And Not dicIds.Exists(strTo) Then
+        If Len(strTo) > 0 And Not dicIds.exists(strTo) Then
             wksIssues.Cells(lngRowOut, 1).Value = "MissingRef"
             wksIssues.Cells(lngRowOut, 2).Value = "To not found: " & strTo
             lngRowOut = lngRowOut + 1

@@ -14,6 +14,10 @@ Public Const SHEET_DISPATCHER As String = "Dispatcher" ' contains data for the d
 Public Const NAME_CELL_ROOM_ID As String = "Cell_RoomID"
 Public Const NAME_CELL_SCENE_ID As String = "Cell_SceneID"
 Public Const NAME_CELL_PARALLAX As String = "Cell_Parallax"
+Public Const NAME_RANGE_PICKUPABLE_OBJ As String = "Range_PickupableObjects"
+Public Const NAME_RANGE_MULTISTATE_OBJ As String = "Range_MultipleStateObjects"
+Public Const NAME_RANGE_TOUCHABLE_OBJ As String = "Range_TouchableObjects"
+
 Public Const NAME_LIST_ROOM_IDS As String = "List_RoomIDs"
 Public Const NAME_LIST_SCENE_IDS As String = "List_SceneIDs"
 Public Const NAME_LIST_OBJECTS As String = "List_Objects"
@@ -26,12 +30,6 @@ Public Const ROOM_SHEET_PREFIX As String = "Room"
 Public Const ROOM_SHEET_ID_TAG_NAME As String = "RoomID"
 Public Const ROOM_SHEET_ID_TAG_VAL_PRE As String = "R"
 
-Public Const ROOM_OBJ_GROUP_HEADER_ROW As Long = 42
-Public Const ROOM_OBJ_GROUP_CATEGORY_COLUMN_WIDTH As Long = 4
-Public Const ROOM_OBJ_GROUP_END_ROW As Long = 51
-Public Const ROOM_HDR_NM_PICKUPABLE_OBJ As String = "PICKUPABLE OBJECTS"
-Public Const ROOM_HDR_NM_MULTISTATE_OBJ As String = "MULTIPLE STATE OBJECTS"
-Public Const ROOM_HDR_NM_TOUCHABLE_OBJ As String = "TOUCHABLE OBJECTS"
 Public Const ROOM_HDR_NM_ADD_PARALLAX_SET As String = "ADDITIONAL PARALLAX SETTINGS"
 Public Const ROOM_ADD_PARALLAX_SET_HIDE_TOKEN As String = "None"
 Public Const ROOM_ADD_PARALLAX_SET_COVER_NAME As String = "COVER_ADD_PARALLAX_SET"

@@ -6,8 +6,9 @@ Attribute VB_Name = "modTags"
 '             normalized (safe) and prefixed with a constant to avoid collisions.
 ''
 ' Notes     :
-'   - The tag value stored in the CustomProperty remains the original (free-text)
-'     input; only the property name is sanitized for safety.
+'   - Only the CustomProperty 'name' is sanitized; the stored 'value' remains
+'     the original free-text input (where provided).
+'   - Uses module 'modProps'
 ' ===================================================================================
 Option Explicit
 Option Private Module
@@ -43,7 +44,7 @@ End Function
 
 ' -----------------------------------------------------------------------------------
 ' Function  : TagPropName
-' Purpose   : Build the CustomProperty name used to store a tag on a sheet.
+' Purpose   : Build the CustomProperty name used to store a tag on a sheet/workbook.
 ' Parameters:
 '   strTagText [String] - Original (free-text) tag input.
 '
@@ -54,7 +55,7 @@ Private Function TagPropName(ByVal strTagText As String) As String
     TagPropName = TAG_PREFIX & SanitizeTag(strTagText)
 End Function
 
-' ===== Public API ==================================================================
+' ===== Public API - Worksheet Tags =================================================
 
 ' -----------------------------------------------------------------------------------
 ' Procedure : TagSheet
@@ -65,7 +66,7 @@ End Function
 '   strValue   [String]    - (Optional) Value of Tag
 '
 ' Returns   : (none)
-' Notes     : Requires SetCustomProperty(ws, name, value).
+' Notes     : Requires SetCustomProperty().
 ' -----------------------------------------------------------------------------------
 Public Sub TagSheet(ByVal wks As Worksheet, ByVal strTagText As String, Optional strValue As String = vbNullString)
     Dim strProp As String
@@ -104,8 +105,9 @@ End Sub
 ' Notes     : Uses CustomPropertyExists to probe presence.
 ' -----------------------------------------------------------------------------------
 Public Function HasSheetTag(ByVal wks As Worksheet, ByVal strTagText As String, Optional ByRef r_strValue As String = vbNullString) As Boolean
-    
     Dim objCp As CustomProperty
+    r_strValue = vbNullString
+    
     If modProps.CustomPropertyExists(wks, TagPropName(strTagText), objCp) Then
         HasSheetTag = True
         On Error Resume Next
@@ -121,7 +123,7 @@ Public Function HasSheetTag(ByVal wks As Worksheet, ByVal strTagText As String, 
 End Function
 
 ' -----------------------------------------------------------------------------------
-' Function  : GetSheetsByTag
+' Function  : GetAllSheetsByTag
 ' Purpose   : Collect all worksheets in a workbook that carry the given tag.
 ' Parameters:
 '   wb         [Workbook] - Source workbook.
@@ -129,7 +131,7 @@ End Function
 ' Returns   : Collection - Collection of Worksheet objects (may be empty).
 ' Notes     : Uses GetAllSheetsNamesByCustomProperty to find matching sheet names.
 ' -----------------------------------------------------------------------------------
-Public Function GetSheetsByTag(ByVal wb As Workbook, ByVal strTagText As String) As Collection
+Public Function GetAllSheetsByTag(ByVal wb As Workbook, ByVal strTagText As String) As Collection
     Dim colSheets As New Collection
     Dim astrNames() As String
     Dim lngIndex As Long
@@ -141,10 +143,42 @@ Public Function GetSheetsByTag(ByVal wb As Workbook, ByVal strTagText As String)
             colSheets.Add wb.Worksheets(astrNames(lngIndex))
         Next
     End If
-    Set GetSheetsByTag = colSheets
+    Set GetAllSheetsByTag = colSheets
 End Function
 
-' Returns True if at least one worksheet in wb has the given tag
+' -----------------------------------------------------------------------------------
+' Function  : GetSheetByTag
+' Purpose   : Get first worksheets in a workbook that matches the given tag.
+' Parameters:
+'   wb         [Workbook] - Source workbook.
+'   strTagText [String]   - Tag text to search for.
+' Returns   : Worksheet - First matching worksheet (Nothing if none found).
+' Notes     :
+' -----------------------------------------------------------------------------------
+Public Function GetSheetByTag(ByVal wb As Workbook, ByVal strTagText As String) As Worksheet
+    Dim wks As Worksheet
+    
+    For Each wks In wb.Worksheets
+        If HasSheetTag(wks, strTagText) Then
+            Set GetSheetByTag = wks
+            Exit Function
+        End If
+    Next
+End Function
+
+' -----------------------------------------------------------------------------------
+' Function  : SheetWithTagExists
+' Purpose   : Check if at least one sheet in the workbook has the given tag.
+'
+' Parameters:
+'   wb         [Workbook] - Source workbook.
+'   strTagText [String]   - Tag text to search for.
+'   r_strValue [String]   - (Optional, ByRef) Returns tag value from the first match.
+'
+' Returns   : Boolean - True if a matching sheet exists; otherwise False.
+'
+' Notes     : Stops at first match for performance.
+' -----------------------------------------------------------------------------------
 Public Function SheetWithTagExists(ByVal wb As Workbook, ByVal strTagText As String, Optional ByRef r_strValue As String = vbNullString) As Boolean
     Dim wks As Worksheet
     For Each wks In wb.Worksheets
@@ -166,9 +200,11 @@ End Function
 ' -----------------------------------------------------------------------------------
 Public Sub TagSelectedSheets(ByVal strTagText As String, Optional strValue As String = vbNullString)
     Dim objSel As Object
-    For Each objSel In ActiveWindow.SelectedSheets
-        If TypeOf objSel Is Worksheet Then TagSheet objSel, strTagText, strValue
-    Next
+    If Not ActiveWindow Is Nothing Then
+        For Each objSel In ActiveWindow.SelectedSheets
+            If TypeOf objSel Is Worksheet Then TagSheet objSel, strTagText, strValue
+        Next
+    End If
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -181,24 +217,74 @@ End Sub
 ' -----------------------------------------------------------------------------------
 Public Sub UntagSelectedSheets(ByVal strTagText As String)
     Dim objSel As Object
-    For Each objSel In ActiveWindow.SelectedSheets
-        If TypeOf objSel Is Worksheet Then UntagSheet objSel, strTagText
-    Next
+    If Not ActiveWindow Is Nothing Then
+        For Each objSel In ActiveWindow.SelectedSheets
+            If TypeOf objSel Is Worksheet Then UntagSheet objSel, strTagText
+        Next
+    End If
 End Sub
 
+' ===== Public API - Workbook Tags ===================================================
+
+' -----------------------------------------------------------------------------------
+' Procedure : TagWorkbook
+' Purpose   : Add a tag to the workbook (CustomDocumentProperty).
+'
+' Parameters:
+'   wb         [Workbook] - Target workbook.
+'   strTagText [String]   - Tag text (free-text). Name is sanitized; value is stored.
+'   strValue   [String]   - (Optional) Value to store with the tag.
+'
+' Returns   : (none)
+'
+' Notes     : Uses SetDocumentProperty.
+' -----------------------------------------------------------------------------------
 Public Sub TagWorkbook(ByVal wb As Workbook, ByVal strTagText As String, Optional ByVal strValue As String = vbNullString)
     modProps.SetDocumentProperty wb, TagPropName(strTagText), strValue
 End Sub
 
+' -----------------------------------------------------------------------------------
+' Procedure : UntagWorkbook
+' Purpose   : Remove a tag from the workbook (CustomDocumentProperty).
+'
+' Parameters:
+'   wb         [Workbook] - Target workbook.
+'   strTagText [String]   - Tag text to remove.
+'
+' Returns   : (none)
+'
+' Notes     : Uses DelDocumentProperty.
+' -----------------------------------------------------------------------------------
 Public Sub UntagWorkbook(ByVal wb As Workbook, ByVal strTagText As String)
     modProps.DelDocumentProperty wb, TagPropName(strTagText)
 End Sub
 
+' -----------------------------------------------------------------------------------
+' Function  : HasWorkbookTag
+' Purpose   : Check whether the workbook has the given tag and (optionally) return it.
+'
+' Parameters:
+'   wb         [Workbook] - Target workbook.
+'   strTagText [String]   - Tag text to check.
+'   r_strValue [String]   - (Optional, ByRef) Returns the tag value if present.
+'
+' Returns   : Boolean - True if the tag exists on the workbook; otherwise False.
+'
+' Notes     : Uses DocumentPropertyExists.
+' -----------------------------------------------------------------------------------
 Public Function HasWorkbookTag(ByVal wb As Workbook, ByVal strTagText As String, Optional ByRef r_strValue As String = vbNullString) As Boolean
     Dim objDp As DocumentProperty
     If modProps.DocumentPropertyExists(wb, TagPropName(strTagText), objDp) Then
         HasWorkbookTag = True
+        On Error Resume Next
         r_strValue = CStr(objDp.Value)
+        If Err.Number <> 0 Then
+          
+            LogError "HasWorkbookTag read value from " & strTagText & " failed on " & wb.Name, Err.Number
+            Err.Clear
+            r_strValue = vbNullString
+        End If
+        On Error GoTo 0
     End If
 End Function
 
