@@ -145,14 +145,14 @@ End Sub
 ' -----------------------------------------------------------------------------------
 Public Sub ConnectEventHandler()
 
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
     
     If m_objAppEvents Is Nothing Then Set m_objAppEvents = New clsAppEvents
     Set m_objAppEvents.App = Application
     
     Exit Sub
     
-errHandler:
+ErrHandler:
     On Error Resume Next
     LogError "ConnectEventHandler", Err.Number, Erl
     
@@ -295,7 +295,7 @@ End Sub
 ' -----------------------------------------------------------------------------------
 Public Sub ShowManual()
 
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
     Dim intErr As Long
     
     Dim strPath As String
@@ -314,7 +314,7 @@ Public Sub ShowManual()
     On Error GoTo 0
     Exit Sub
 
-errHandler:
+ErrHandler:
     intErr = Err.Number
     MsgBox "Error " & intErr & " (" & Err.Description & ") in procedure ShowManual, line " & Erl & ".", vbCritical, AppProjectName
     LogError "ShowManual", intErr, Erl
@@ -323,7 +323,7 @@ End Sub
 
 Public Sub ShowOptions()
 
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
     Dim intErr As Long
         
     Dim objActWkBk As Workbook: Set objActWkBk = ActiveWorkbook
@@ -339,7 +339,7 @@ Public Sub ShowOptions()
     On Error GoTo 0
     Exit Sub
 
-errHandler:
+ErrHandler:
     intErr = Err.Number
     MsgBox "Error " & intErr & " (" & Err.Description & ") in procedure ShowOptions, line " & Erl & ".", vbCritical, AppProjectName
     LogError "ShowOptions", intErr, Erl
@@ -348,7 +348,7 @@ End Sub
 
 
 Public Sub ShowAbout()
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
     Dim intErr As Long
     
     Dim objActWkBk As Workbook: Set objActWkBk = ActiveWorkbook
@@ -363,22 +363,24 @@ Public Sub ShowAbout()
     On Error GoTo 0
     Exit Sub
     
-errHandler:
+ErrHandler:
     intErr = Err.Number
     MsgBox "Error " & intErr & " (" & Err.Description & ") in procedure ShowAbout, line " & Erl & ".", vbCritical, AppProjectName
     LogError "ShowAbout", intErr, Erl
 End Sub
 
-Public Sub AddNewRoom()
-    On Error GoTo errHandler
+Public Sub AddNewRoom(Optional ByVal blnGotoNewRoom As Boolean = True)
+    On Error GoTo ErrHandler
     
     Dim objActWkSh As Worksheet: Set objActWkSh = ActiveSheet
     Dim objActWkBk As Workbook: Set objActWkBk = ActiveWorkbook
+    Dim objNewWkSh As Worksheet
     Dim lngIdx As Long
     Dim strID As String
     
     Dim fNewItem As frmNewItem: Set fNewItem = New frmNewItem
-        
+            
+    Application.StatusBar = False
     
     With fNewItem
         .FormCaption = "New Room Sheet"
@@ -392,8 +394,13 @@ Public Sub AddNewRoom()
 
         .Show                       ' modal
         If Not .Cancelled Then
-            Call modRooms.AddRoom(.NameText, lngIdx)
-            Call modRooms.UpdateLists
+            
+            EnsureWorkbookIsTagged objActWkBk
+     
+            Set objNewWkSh = modRooms.AddRoom(.NameText, lngIdx)
+            If Not objNewWkSh Is Nothing Then
+                If blnGotoNewRoom Then Application.GoTo objNewWkSh.Range("A1"), True
+            End If
         End If
         Unload fNewItem
     End With
@@ -403,16 +410,44 @@ Public Sub AddNewRoom()
     On Error GoTo 0
     Exit Sub
     
-errHandler:
+ErrHandler:
     Dim intErr As Long
     intErr = Err.Number
     MsgBox "Error " & intErr & " (" & Err.Description & ") in procedure AddNewRoom, line " & Erl & ".", vbCritical, AppProjectName
     LogError "AddNewRoom", intErr, Erl
 End Sub
 
+Public Sub RemoveCurrentRoom()
+    On Error GoTo ErrHandler
+
+    Dim wks As Worksheet
+    Set wks = ActiveSheet
+
+    Application.StatusBar = False
+    
+    If Not modRooms.IsRoomSheet(wks) Then
+        MsgBox "Active sheet is not a 'Room' sheet.", vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Confirm with the user
+    If MsgBox("Are you sure you want to delete the sheet '" & wks.Name & "'?" & vbCrLf & _
+        "This action cannot be undone.", vbYesNo + vbExclamation, "Confirm Sheet Deletion") <> vbYes Then
+        Application.StatusBar = "Deletion cancelled."
+        Exit Sub
+    End If
+
+    Call modRooms.RemoveRoom(wks)
+
+    Exit Sub
+ErrHandler:
+    LogError "RemoveCurrentRoom", Err.Number, Erl
+    MsgBox "Error " & Err.Number & " (" & Err.Description & ")", vbCritical, AppProjectName
+End Sub
+
 ' Jumps to the Room sheet referenced by the active cell value.
 Public Sub GotoRoomFromCell()
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
     
     Dim strRoomID As String
     Dim wb As Workbook: Set wb = ActiveWorkbook
@@ -426,14 +461,14 @@ Public Sub GotoRoomFromCell()
     
     Dim wks As Worksheet
     If modRooms.HasRoomSheet(wb, strRoomID, wks) Then
-        Application.Goto wks.Range("A1"), True
+        Application.GoTo wks.Range("A1"), True
         Exit Sub
     End If
     
     MsgBox "Room '" & strRoomID & "' not found.", vbInformation, AppProjectName
     Exit Sub
 
-errHandler:
+ErrHandler:
     Dim intErr As Long: intErr = Err.Number
     MsgBox "Error " & intErr & " (" & Err.Description & ") in procedure GotoRoomFromCell, line " & Erl & ".", vbCritical, AppProjectName
     LogError "GotoRoomFromCell", intErr, Erl

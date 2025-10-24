@@ -24,7 +24,7 @@ End Sub
 ' -----------------------------------------------------------------------------
 
 Sub RB75dd2c44_BtnRemoveRoom_OnAction(control As IRibbonControl)
-    Call modRooms.RemoveRoom
+    Call modMain.RemoveCurrentRoom
 End Sub
 
 Sub RB75dd2c44_btnRemoveRoom_getEnabled(control As IRibbonControl, ByRef returnedVal)
@@ -176,7 +176,7 @@ End Sub
 Sub RB75dd2c44_btnDynCtxMnu1_onAction(control As IRibbonControl)
     Select Case clsState.CellCtxMenuType
         Case CCM_Rooms
-            modMain.AddNewRoom
+            modMain.AddNewRoom (False)
         Case Else
             ' TODO: I need to defined actions for other contexts
     End Select

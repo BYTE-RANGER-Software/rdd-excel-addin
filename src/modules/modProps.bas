@@ -31,7 +31,7 @@ Public Function CustomPropertyExists( _
     Optional ByRef r_cp As CustomProperty) As Boolean
     
     Dim cp As CustomProperty
-    On Error GoTo errHandler         ' fail-safe error handling
+    On Error GoTo ErrHandler         ' fail-safe error handling
     Err.Clear
 
     For Each cp In wks.CustomProperties
@@ -46,7 +46,7 @@ Public Function CustomPropertyExists( _
     Set r_cp = Nothing
     Exit Function
 
-errHandler:
+ErrHandler:
     CustomPropertyExists = False
     Set r_cp = Nothing
     Err.Clear
@@ -71,7 +71,7 @@ Public Function GetAllSheetsNamesByCustomProperty(ByVal wb As Workbook, ByRef r_
     Dim wks As Worksheet
     Dim cp As CustomProperty
     
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
 
     ReDim r_astrWkShNames(wb.Worksheets.Count - 1)
     lngCount = -1
@@ -91,7 +91,7 @@ Public Function GetAllSheetsNamesByCustomProperty(ByVal wb As Workbook, ByRef r_
 
     Exit Function
     
-errHandler:
+ErrHandler:
     Erase r_astrWkShNames
     GetAllSheetsNamesByCustomProperty = False
     Err.Clear
@@ -191,7 +191,7 @@ End Sub
 Public Function GetCustomPropertyValue(ByVal wks As Worksheet, ByVal strPropName As String) As String
     Dim cp As CustomProperty
     
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
 
     If Not wks Is Nothing Then
         For Each cp In wks.CustomProperties
@@ -202,7 +202,7 @@ Public Function GetCustomPropertyValue(ByVal wks As Worksheet, ByVal strPropName
         Next
     End If
     
-errHandler:
+ErrHandler:
     GetCustomPropertyValue = vbNullString
     Err.Clear
 End Function
@@ -224,7 +224,7 @@ End Function
 ' -----------------------------------------------------------------------------------
 Public Function DocumentPropertyExists(ByVal wb As Workbook, ByVal strPropName As String, Optional ByRef r_dp As DocumentProperty = Nothing) As Boolean
     Dim dp As DocumentProperty
-    On Error GoTo errHandler         ' fail-safe error handling
+    On Error GoTo ErrHandler         ' fail-safe error handling
     Err.Clear
   
    
@@ -240,7 +240,7 @@ Public Function DocumentPropertyExists(ByVal wb As Workbook, ByVal strPropName A
     Set r_dp = Nothing
     Exit Function
 
-errHandler:
+ErrHandler:
     DocumentPropertyExists = False
     Set r_dp = Nothing
     Err.Clear

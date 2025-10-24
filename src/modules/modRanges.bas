@@ -212,7 +212,7 @@ Public Function RangeHasValue( _
         Optional ByVal blnCaseSensitive As Boolean = False _
     ) As Boolean
 
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
 
     If rngSearch Is Nothing Then Exit Function
 
@@ -242,7 +242,7 @@ Public Function RangeHasValue( _
     End If
 
     Exit Function
-errHandler:
+ErrHandler:
     RangeHasValue = False
     Err.Clear
 End Function
