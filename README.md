@@ -1,7 +1,11 @@
 ![License](https://img.shields.io/badge/license-MIT-blue)
 [![Project Maintenance](https://img.shields.io/maintenance/yes/2025.svg)](https://github.com/byte-ranger-software/rdd-excel-addin 'GitHub Repository')
+![Status](https://img.shields.io/badge/status-in--development-orange)
 
 # RDD Excel Add‑in (Room Design Document + Puzzle Dependency Chart)
+
+> ⚠️ **This project is currently under active development and not yet ready for production use.**  
+> Features may change, and bugs or incomplete functionality are expected.
 
 **Purpose**, an Excel add‑in that helps you author Room Design Documents and a Puzzle Dependency Chart in one place, then keep them consistent.  
 Designed for Adventure Games made with **Adventure Game Studio** (AGS), with a 9‑verb UI and data‑oriented workflow.
