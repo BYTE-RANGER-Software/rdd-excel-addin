@@ -69,7 +69,7 @@ Private Sub cmdSelectManualPath_Click()
        With Application.FileDialog(msoFileDialogFolderPicker)
         .InitialFileName = ReplaceWildCards(Me.txtManualPath.Text) & "\"
         .AllowMultiSelect = False
-        .Title = "Please select a folder"
+        .title = "Please select a folder"
         .InitialView = msoFileDialogViewList
         .ButtonName = "Select"
        

@@ -28,7 +28,7 @@ Public Sub InsertPicture_Button()
     ' Opens a file picker, inserts the chosen image into a named range "ImageArea",
     ' scales it to fit while keeping aspect ratio, centers it, and replaces any previous image.
 
-    Const TARGET_RANGE_NAME As String = "ImageArea"
+    Const TARGET_RANGE_NAME As String = "Range_ImageArea"
     Const PICTURE_NAME As String = "Scene image"
 
     Dim fd As FileDialog
@@ -47,14 +47,14 @@ Public Sub InsertPicture_Button()
     On Error GoTo 0
     If rng Is Nothing Then
         ' Fallback, adjust if you do not use the named range
-        Set rng = ws.Range("H4:L18")
+        Set rng = ws.Range("H5:N22")
     End If
     Set rng = rng.MergeArea                      ' use full merge area when cell is merged
 
     ' File picker for images
     Set fd = Application.FileDialog(msoFileDialogFilePicker)
     With fd
-        .Title = "Select Image"
+        .title = "Select Image"
         .AllowMultiSelect = False
         .Filters.Clear
         .Filters.Add "image files", "*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff"

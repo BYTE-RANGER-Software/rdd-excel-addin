@@ -195,8 +195,8 @@ End Function
 '
 ' Parameters:
 '   wb       [Workbook]              - Workbook to scan.
-'   strRoomID[String]                - Room ID to search for (e.g., "ROOM_001").
-'   r_wks    [Worksheet]             - (Optional ByRef) Receives the matching sheet if found.
+'   strRoomID[String]                - Room ID to search for (e.g., "R001").
+'   r_wks    [Worksheet]             - (Optional ByRef) Receives the first matching sheet if found.
 '
 ' Returns   : Boolean - True if found; otherwise False.
 '
@@ -395,6 +395,7 @@ End Sub
 Private Sub SetupRoom(wks As Worksheet, ByVal lngIdx As Long)
     Dim shpBtn As Shape
     Dim wksDisp As Worksheet
+    Dim rData As Range
     
     'Set 'RoomID' named cell on the template
     wks.Range(modConst.NAME_CELL_ROOM_ID).Value = GetFormattedRoomID(lngIdx)
@@ -412,7 +413,28 @@ Private Sub SetupRoom(wks As Worksheet, ByVal lngIdx As Long)
     Set shpBtn = wks.Shapes(modConst.BTN_INSERT_ROOM_PICTURE)
     shpBtn.OnAction = modConst.MACRO_BTN_INSERT_PICTURE
         
-    ' Add data validations later if desired
+    ' Add data validations
+    
+    ' Type
+    Set rData = wks.Range(NAME_RANGE_PUZZLES_TYPE)
+    ApplyListValidation rData, NAME_LIST_PUZZLE_TYPES, "Type", "Choose a type from the list."
+
+    
+    
+End Sub
+
+Private Sub ApplyListValidation(ByVal target As Range, ByVal nameRef As String, _
+                                ByVal title As String, ByVal msg As String)
+    With target.Validation
+        .Delete
+        .Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, Operator:=xlBetween, Formula1:="=" & nameRef
+        .IgnoreBlank = True
+        .InCellDropdown = True
+        .InputTitle = title
+        .InputMessage = msg
+        .ErrorTitle = title & " invalid"
+        .ErrorMessage = "Pick a value from the list."
+    End With
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -446,16 +468,7 @@ Private Function GetAllsSheetsUsingRoomID(ByVal strRoomID As String, ByVal dicRo
                 GoTo NextSheet
             End If
         End If
-        
-        ' Column "RoomID" in Framed area "PUZZLES"
-        Set rng = wks.Range(NAME_RANGE_PUZZLES_ROOM_ID)  'GetColumnRangeByHeader(wks, "RoomID", True, True)
-        If Not rng Is Nothing Then
-            If modRanges.RangeHasValue(rng, strRoomID, True, False) Then
-                col.Add wks.Name
-                GoTo NextSheet
-            End If
-        End If
-        
+                
 NextSheet:
         Set rng = Nothing
     Next

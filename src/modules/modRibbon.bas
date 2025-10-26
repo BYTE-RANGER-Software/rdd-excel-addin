@@ -176,7 +176,7 @@ End Sub
 Sub RB75dd2c44_btnDynCtxMnu1_onAction(control As IRibbonControl)
     Select Case clsState.CellCtxMenuType
         Case CCM_Rooms
-            modMain.AddNewRoom (False)
+            modMain.AddNewRoomFromCellCtxMnu
         Case Else
             ' TODO: I need to defined actions for other contexts
     End Select

@@ -326,11 +326,11 @@ Public Sub ShowOptions()
     On Error GoTo ErrHandler
     Dim intErr As Long
         
-    Dim objActWkBk As Workbook: Set objActWkBk = ActiveWorkbook
+    Dim objActWb As Workbook: Set objActWb = ActiveWorkbook
     Dim fOptions As frmOptions
     
 
-    Set fOptions = New frmOptions: fOptions.Init objActWkBk
+    Set fOptions = New frmOptions: fOptions.Init objActWb
         
     fOptions.Show
         
@@ -351,7 +351,7 @@ Public Sub ShowAbout()
     On Error GoTo ErrHandler
     Dim intErr As Long
     
-    Dim objActWkBk As Workbook: Set objActWkBk = ActiveWorkbook
+    Dim objActWb As Workbook: Set objActWb = ActiveWorkbook
     Dim fAbout As frmAbout
     
     Set fAbout = New frmAbout
@@ -369,11 +369,11 @@ ErrHandler:
     LogError "ShowAbout", intErr, Erl
 End Sub
 
-Public Sub AddNewRoom(Optional ByVal blnGotoNewRoom As Boolean = True)
+Public Function AddNewRoom(Optional ByVal blnGotoNewRoom As Boolean = True) As String
     On Error GoTo ErrHandler
     
-    Dim objActWkSh As Worksheet: Set objActWkSh = ActiveSheet
-    Dim objActWkBk As Workbook: Set objActWkBk = ActiveWorkbook
+    Dim objActWks As Worksheet: Set objActWks = ActiveSheet
+    Dim objActWb As Workbook: Set objActWb = ActiveWorkbook
     Dim objNewWkSh As Worksheet
     Dim lngIdx As Long
     Dim strID As String
@@ -387,7 +387,7 @@ Public Sub AddNewRoom(Optional ByVal blnGotoNewRoom As Boolean = True)
         .NameLabel = "Room Name"
         .IDLabel = "Room ID"
         .IDVisible = True
-        lngIdx = modRooms.GetNextRoomIndex(objActWkBk)
+        lngIdx = modRooms.GetNextRoomIndex(objActWb)
         strID = modRooms.GetFormattedRoomID(lngIdx)
         .IDText = strID
         .NameText = strID
@@ -395,11 +395,12 @@ Public Sub AddNewRoom(Optional ByVal blnGotoNewRoom As Boolean = True)
         .Show                       ' modal
         If Not .Cancelled Then
             
-            EnsureWorkbookIsTagged objActWkBk
+            EnsureWorkbookIsTagged objActWb
      
             Set objNewWkSh = modRooms.AddRoom(.NameText, lngIdx)
             If Not objNewWkSh Is Nothing Then
                 If blnGotoNewRoom Then Application.GoTo objNewWkSh.Range("A1"), True
+                AddNewRoom = strID
             End If
         End If
         Unload fNewItem
@@ -408,13 +409,34 @@ Public Sub AddNewRoom(Optional ByVal blnGotoNewRoom As Boolean = True)
     Set fNewItem = Nothing
                 
     On Error GoTo 0
-    Exit Sub
+    Exit Function
     
 ErrHandler:
     Dim intErr As Long
     intErr = Err.Number
     MsgBox "Error " & intErr & " (" & Err.Description & ") in procedure AddNewRoom, line " & Erl & ".", vbCritical, AppProjectName
     LogError "AddNewRoom", intErr, Erl
+End Function
+
+Public Sub AddNewRoomFromCellCtxMnu()
+    On Error GoTo ErrHandler
+    
+    Dim rngCell As Range: Set rngCell = ActiveCell
+    
+    Dim strRoomID As String
+    
+    strRoomID = AddNewRoom(False)
+        
+    If Len(strRoomID) > 0 Then
+        If Not rngCell Is Nothing Then rngCell.Value = strRoomID
+    End If
+    
+    
+ErrHandler:
+    Dim intErr As Long
+    intErr = Err.Number
+    MsgBox "Error " & intErr & " (" & Err.Description & ") in procedure AddNewRoomFromCellCtxMnu, line " & Erl & ".", vbCritical, AppProjectName
+    LogError "AddNewRoomFromCellCtxMnu", intErr, Erl
 End Sub
 
 Public Sub RemoveCurrentRoom()

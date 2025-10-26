@@ -177,7 +177,7 @@ Public Sub CollectNamedRangeValues(ByVal wks As Worksheet, strRangeName As Strin
             If Not rngNamed Is Nothing Then
                 For Each rngCell In rngNamed.Cells
                     If Not IsEmpty(rngCell.Value) Then
-                        If Not dicValues.exists(rngCell.Address) Then
+                        If Not dicValues.Exists(rngCell.Address) Then
                             dicValues.Add rngCell.Value, True
                         Else
                             dicValues(rngCell.Value) = True
@@ -293,7 +293,7 @@ Public Sub AppendMissingDictKeysToColumn( _
     For Each vntKey In dicNewKeys.Keys
         strValue = Trim$(CStr(vntKey))
         If Len(strValue) > 0 Then
-            If Not dicExisting.exists(strValue) Then
+            If Not dicExisting.Exists(strValue) Then
                 wks.Cells(lngNextRow, lngCol).Value = strValue
                 dicExisting(strValue) = True
                 lngNextRow = lngNextRow + 1

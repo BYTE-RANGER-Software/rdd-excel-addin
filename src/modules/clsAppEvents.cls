@@ -39,7 +39,7 @@ Private Sub App_SheetActivate(ByVal Sh As Object)
     clsState.InvalidateRibbon
 End Sub
 
-Private Sub App_SheetChange(ByVal Sh As Object, ByVal Target As Range)
+Private Sub App_SheetChange(ByVal Sh As Object, ByVal target As Range)
     Dim wb As Workbook: Set wb = Sh.Parent
     Dim wks As Worksheet: Set wks = Sh
     
@@ -51,7 +51,7 @@ Private Sub App_SheetChange(ByVal Sh As Object, ByVal Target As Range)
             ' Only set the change flag if a room sheet has been changed.
             If Left$(wks.Name, Len(ROOM_SHEET_PREFIX)) = ROOM_SHEET_PREFIX Then
                 clsState.RoomSheetChanged = True
-                If Not Intersect(Target, wks.Range(NAME_CELL_PARALLAX)) Is Nothing Then
+                If Not Intersect(target, wks.Range(NAME_CELL_PARALLAX)) Is Nothing Then
                     modRangeCover.EnsureRangeCover wks, wks.Range(NAME_RANGE_ADD_PARALLAX), ROOM_ADD_PARALLAX_SET_COVER_NAME
                     modRangeCover.ApplyCoverVisibilityByDropdown wks, NAME_CELL_PARALLAX, ROOM_ADD_PARALLAX_SET_HIDE_TOKEN, ROOM_ADD_PARALLAX_SET_COVER_NAME
                 End If
@@ -60,11 +60,11 @@ Private Sub App_SheetChange(ByVal Sh As Object, ByVal Target As Range)
     End If
 End Sub
 
-Private Sub App_SheetBeforeRightClick(ByVal Sh As Object, ByVal Target As Range, Cancel As Boolean)
+Private Sub App_SheetBeforeRightClick(ByVal Sh As Object, ByVal target As Range, Cancel As Boolean)
     Debug.Print "App_SheetBeforeRightClick()"
     clsState.CellCtxMnuNeedsPrepare = True
 
-    EvaluateCellCtxMnu Sh, Target
+    EvaluateCellCtxMnu Sh, target
   
     clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu1"
     clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu2"

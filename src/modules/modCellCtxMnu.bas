@@ -110,14 +110,14 @@ End Sub
 '   - Uses On Error Resume Next around Validation access.
 '   - Updates global clsState.CellCtxMenuType and returns it.
 ' -----------------------------------------------------------------------------------
-Public Function EvaluateCellCtxMnu(wks As Worksheet, Target As Range) As Integer
+Public Function EvaluateCellCtxMnu(wks As Worksheet, target As Range) As Integer
     On Error Resume Next
     
     Dim vldTarget As Validation
     clsState.CellCtxMenuType = CCM_Default
     
     If modRooms.IsRoomSheet(wks) Then
-        Set vldTarget = Target.Validation
+        Set vldTarget = target.Validation
         If vldTarget.Type = xlValidateList Then
         
             If Left(vldTarget.Formula1, 1) = "=" Then
