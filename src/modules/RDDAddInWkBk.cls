@@ -33,4 +33,5 @@ Private Sub Workbook_SheetBeforeRightClick(ByVal Sh As Object, ByVal target As R
   
     clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu1"
     clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu2"
+    
 End Sub

@@ -23,14 +23,30 @@ End Sub
 
 ' -----------------------------------------------------------------------------
 
+Sub RB75dd2c44_btnEditRoomIdentity_OnAction(control As IRibbonControl)
+End Sub
+
+
+Sub RB75dd2c44_btnEditRoomIdentity_getEnabled(control As IRibbonControl, ByRef returnedVal)
+    If Workbooks.Count > 0 Then
+        If modMain.IsRDDWorkbook(ActiveWorkbook) And modRooms.IsRoomSheet(ActiveSheet) Then
+            returnedVal = True
+        End If
+    End If
+End Sub
+
+' -----------------------------------------------------------------------------
+
 Sub RB75dd2c44_BtnRemoveRoom_OnAction(control As IRibbonControl)
     Call modMain.RemoveCurrentRoom
 End Sub
 
 Sub RB75dd2c44_btnRemoveRoom_getEnabled(control As IRibbonControl, ByRef returnedVal)
-If modMain.IsAddinWorkbook(ActiveWorkbook) And modRooms.IsRoomSheet(ActiveSheet) Then
-    returnedVal = (Workbooks.Count > 0)
-End If
+    If Workbooks.Count > 0 Then
+        If modMain.IsRDDWorkbook(ActiveWorkbook) And modRooms.IsRoomSheet(ActiveSheet) Then
+            returnedVal = True
+        End If
+    End If
 End Sub
 
 ' -----------------------------------------------------------------------------
@@ -41,8 +57,10 @@ Sub RB75dd2c44_btnSyncLists_OnAction(control As IRibbonControl)
 End Sub
 
 Sub RB75dd2c44_btnSyncLists_getEnabled(control As IRibbonControl, ByRef returnedVal)
-If modMain.IsAddinWorkbook(ActiveWorkbook) Then
-    returnedVal = (Workbooks.Count > 0)
+    If Workbooks.Count > 0 Then
+        If modMain.IsRDDWorkbook(ActiveWorkbook) Then
+            returnedVal = True
+        End If
     End If
 End Sub
 
@@ -54,7 +72,7 @@ Sub RB75dd2c44_btnValidate_OnAction(control As IRibbonControl)
 End Sub
 
 Sub RB75dd2c44_btnValidate_getEnabled(control As IRibbonControl, ByRef returnedVal)
-If modMain.IsAddinWorkbook(ActiveWorkbook) Then
+If modMain.IsRDDWorkbook(ActiveWorkbook) Then
     ' TODO: I still need to set conditions for displaying.
 End If
 End Sub
@@ -69,7 +87,7 @@ Sub RB75dd2c44_btnBuildData_OnAction(control As IRibbonControl)
 End Sub
 
 Sub RB75dd2c44_btnBuildData_getEnabled(control As IRibbonControl, ByRef returnedVal)
-    If modMain.IsAddinWorkbook(ActiveWorkbook) Then
+    If modMain.IsRDDWorkbook(ActiveWorkbook) Then
         ' TODO: I still need to set conditions for displaying.
     End If
 End Sub
@@ -82,7 +100,7 @@ Sub RB75dd2c44_btnBuildChart_OnAction(control As IRibbonControl)
 End Sub
 
 Sub RB75dd2c44_btnBuildChart_getEnabled(control As IRibbonControl, ByRef returnedVal)
-    If modMain.IsAddinWorkbook(ActiveWorkbook) Then
+    If modMain.IsRDDWorkbook(ActiveWorkbook) Then
         ' TODO: I still need to set conditions for displaying.
     End If
 End Sub
@@ -95,7 +113,7 @@ Sub RB75dd2c44_btnUpdateChart_OnAction(control As IRibbonControl)
 End Sub
 
 Sub RB75dd2c44_btnUpdateChart_getEnabled(control As IRibbonControl, ByRef returnedVal)
-    If modMain.IsAddinWorkbook(ActiveWorkbook) Then
+    If modMain.IsRDDWorkbook(ActiveWorkbook) Then
         ' TODO: I still need to set conditions for displaying.
     End If
 End Sub
@@ -112,7 +130,7 @@ End Sub
 
 
 Sub RB75dd2c44_btnExportPdf_getEnabled(control As IRibbonControl, ByRef returnedVal)
-If modMain.IsAddinWorkbook(ActiveWorkbook) Then
+If modMain.IsRDDWorkbook(ActiveWorkbook) Then
 End If
 End Sub
 
@@ -123,7 +141,7 @@ Sub RB75dd2c44_btnExportCsv_OnAction(control As IRibbonControl)
 End Sub
 
 Sub RB75dd2c44_btnExportCsv_getEnabled(control As IRibbonControl, ByRef returnedVal)
-If modMain.IsAddinWorkbook(ActiveWorkbook) Then
+If modMain.IsRDDWorkbook(ActiveWorkbook) Then
 End If
 End Sub
 

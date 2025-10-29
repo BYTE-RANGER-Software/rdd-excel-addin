@@ -2,6 +2,16 @@ Attribute VB_Name = "modSheets"
 Option Explicit
 Option Private Module
 
+' Match modes for sheet name selection
+Public Enum SheetNameMatchMode
+    SNMM_Exact = 0      ' exact match
+    SNMM_Prefix = 1     ' starts with pattern
+    SNMM_Suffix = 2     ' ends with pattern
+    SNMM_Contains = 3   ' substring
+    SNMM_Wildcard = 4   ' VBA Like pattern, e.g., "Room*"
+    SNMM_Regex = 5      ' VBScript.RegExp (optional)
+End Enum
+
 ' -----------------------------------------------------------------------------------
 ' Function  : EnsureSheet
 ' Purpose   : Ensures that a worksheet with the given 'name' exists in the specified
@@ -197,7 +207,7 @@ Public Function BuildDictFromSheetsByTag( _
         Optional ByVal blnValueCaseSensitive As Boolean = False _
     ) As Object
 
-    On Error GoTo ErrHandler
+    On Error GoTo errHandler
 
     Dim dic As Object
     Set dic = CreateObject("Scripting.Dictionary")
@@ -238,7 +248,7 @@ NextSheet:
     Set BuildDictFromSheetsByTag = dic
     Exit Function
 
-ErrHandler:
+errHandler:
     ' Fail-safe: still return an empty dictionary
     Dim dicSafe As Object
     Set dicSafe = CreateObject("Scripting.Dictionary")

@@ -2,6 +2,13 @@ Attribute VB_Name = "modCellCtxMnu"
 Option Explicit
 Option Private Module
 
+Public Enum CellCtxMnu
+    CCM_Default      ' Default menu behavior
+    CCM_Rooms        ' Context menu for cells validated against room IDs
+    CCM_Objects      ' Context menu for cells validated against objects list
+    CCM_Actors       ' Context menu for cells validated against actors list
+End Enum
+
 Private m_blnCtxCacheInited As Boolean               ' Cache guard, True once m_acbcCellCtxCtrls/m_astrCellCtxCaps reflect the current "Cell" menu
 Private m_lngCtlCountSig As Long                     ' Signature of live controls count to detect Excel-driven menu mutations
 Private m_acbcCellCtxCtrls() As CommandBarControl    ' Cached controls of the "Cell" CommandBar, 1-based, index aligned with m_astrCellCtxCaps()

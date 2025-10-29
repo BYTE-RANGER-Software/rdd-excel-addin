@@ -163,30 +163,23 @@ End Sub
 Public Sub CollectNamedRangeValues(ByVal wks As Worksheet, strRangeName As String, ByVal dicValues As Object)
     Dim rngNamed As Range
     Dim rngCell As Range
-    Dim nm As Name
+
+    If Len(strRangeName) = 0 Then Exit Sub
+    On Error Resume Next
+    Set rngNamed = wks.Range(strRangeName)
+    On Error GoTo 0
+    If rngNamed Is Nothing Then Exit Sub
     
-    If Len(strRangeName) > 0 Then Set rngNamed = wks.Range(strRangeName)
-    ' Iterate through all names in the workbook
-    For Each nm In wks.Parent.Names
-        ' Check whether the name refers to the desired worksheet
-        If nm.RefersTo Like "=" & wks.Name & "!*" Then
-            On Error Resume Next
-            Set rngNamed = wks.Range(nm.Name)
-            On Error GoTo 0
-            
-            If Not rngNamed Is Nothing Then
-                For Each rngCell In rngNamed.Cells
-                    If Not IsEmpty(rngCell.Value) Then
-                        If Not dicValues.Exists(rngCell.Address) Then
-                            dicValues.Add rngCell.Value, True
-                        Else
-                            dicValues(rngCell.Value) = True
-                        End If
-                    End If
-                Next rngCell
+    For Each rngCell In rngNamed.Cells
+        If Not IsEmpty(rngCell.Value) Then
+            If Not dicValues.Exists(rngCell.Value) Then
+                dicValues.Add rngCell.Value, True
+            Else
+                dicValues(rngCell.Value) = True
             End If
         End If
-    Next nm
+    Next rngCell
+
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -227,38 +220,46 @@ End Sub
 '             the worksheet, sorted alphabetically.
 '
 ' Parameters:
-'   wks        [Worksheet] - The worksheet to write into
-'   dicSet     [Object]    - Dictionary containing the values (keys only)
-'   lngStartRow[Long]      - The row number where writing begins
-'   lngCol     [Long]      - The column number where values are written
-'
+'   wks                  [Worksheet] - The worksheet to write into
+'   dicSet               [Object]    - Dictionary containing the keys/values
+'   lngStartRow          [Long]      - The row number where writing begins
+'   lngCol               [Long]      - The column number where keys are written (values added as cell comment)
+'   blnWriteValToNextCol [Boolean]   - (optional) Writes the Values of dicSet to the next column. default = False
 ' Notes:
 '   - Performs a simple bubble sort for ordering
-'   - Assumes dictionary keys are strings
+'   - Assumes dictionary keys and values are strings
 ' -----------------------------------------------------------------------------------
-Public Sub WriteDictSetToColumn(ByVal wks As Worksheet, ByVal dicSet As Object, ByVal lngStartRow As Long, ByVal lngCol As Long)
-    Dim astrValues() As String, vntKey As Variant, lngIndex As Long
-    If dicSet.Count = 0 Then Exit Sub
-    ReDim astrValues(1 To dicSet.Count)
-    lngIndex = 1
+Public Sub WriteDictSetToColumn(ByVal wks As Worksheet, ByVal dicSet As Object, ByVal lngStartRow As Long, ByVal lngCol As Long, Optional ByVal blnWriteValToNextCol As Boolean = False)
+    Dim colSortedKeys As Collection
+    Set colSortedKeys = New Collection
+
+    Dim arrKeys() As String
+    Dim vntKey As Variant
+    Dim i As Long
+
+    ' Copy keys to array
+    ReDim arrKeys(0 To dicSet.Count - 1)
+    i = 0
     For Each vntKey In dicSet.Keys
-        astrValues(lngIndex) = CStr(vntKey)
-        lngIndex = lngIndex + 1
+        arrKeys(i) = CStr(vntKey)
+        i = i + 1
     Next vntKey
-    ' simple bubble sort
-    Dim blnSwapped As Boolean, strTemp As String
-    Do
-        blnSwapped = False
-        For lngIndex = LBound(astrValues) To UBound(astrValues) - 1
-            If astrValues(lngIndex) > astrValues(lngIndex + 1) Then
-                strTemp = astrValues(lngIndex): astrValues(lngIndex) = astrValues(lngIndex + 1): astrValues(lngIndex + 1) = strTemp
-                blnSwapped = True
-            End If
-        Next lngIndex
-    Loop While blnSwapped
-    For lngIndex = 1 To UBound(astrValues)
-        wks.Cells(lngStartRow + lngIndex - 1, lngCol).Value = astrValues(lngIndex)
-    Next lngIndex
+
+    ' Sort array
+    modUtil.QuickSortStringArray arrKeys, LBound(arrKeys), UBound(arrKeys)
+
+    ' Load sorted keys into collection
+    For i = LBound(arrKeys) To UBound(arrKeys)
+        colSortedKeys.Add arrKeys(i)
+    Next i
+
+    ' Add to Lists
+    For i = 1 To colSortedKeys.Count
+        wks.Cells(lngStartRow + i - 1, lngCol).Value = colSortedKeys(i)
+        If blnWriteValToNextCol Then
+            wks.Cells(lngStartRow + i - 1, lngCol + 1).Value = dicSet(colSortedKeys(i))
+        End If
+    Next i
 End Sub
 
 ' -----------------------------------------------------------------------------------

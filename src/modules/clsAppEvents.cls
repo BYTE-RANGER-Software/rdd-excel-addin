@@ -23,14 +23,13 @@ Private Sub App_SheetActivate(ByVal Sh As Object)
         ' Check whether the target workbook has a sheet with the Tag SHEET_LISTS
         If modTags.SheetWithTagExists(wb, SHEET_DISPATCHER) Then
             'Don't update on sheet Lists
-            If Sh.codeName <> SHEET_DISPATCHER And Not modTags.HasSheetTag(Sh, SHEET_DISPATCHER) Then
+            If Sh.codeName <> SHEET_DISPATCHER And Not modTags.HasSheetTag(wks, SHEET_DISPATCHER) Then
                 If clsState.RoomSheetChanged Then
                     clsState.RoomSheetChanged = False
                     Call UpdateLists
                 End If
-                If Left$(wks.Name, Len(ROOM_SHEET_PREFIX)) = ROOM_SHEET_PREFIX Then
-                    modRangeCover.EnsureRangeCover wks, wks.Range(NAME_RANGE_ADD_PARALLAX), ROOM_ADD_PARALLAX_SET_COVER_NAME
-                    modRangeCover.ApplyCoverVisibilityByDropdown wks, NAME_CELL_PARALLAX, ROOM_ADD_PARALLAX_SET_HIDE_TOKEN, ROOM_ADD_PARALLAX_SET_COVER_NAME
+                If modRooms.IsRoomSheet(wks) Then
+                    modRooms.ApplyParallaxRangeCover wks
                 End If
             End If
         End If
@@ -49,11 +48,10 @@ Private Sub App_SheetChange(ByVal Sh As Object, ByVal target As Range)
         ' Check whether the target workbook has a sheet with the Tag SHEET_LISTS
         If modTags.SheetWithTagExists(wb, SHEET_DISPATCHER) Then
             ' Only set the change flag if a room sheet has been changed.
-            If Left$(wks.Name, Len(ROOM_SHEET_PREFIX)) = ROOM_SHEET_PREFIX Then
+            If modTags.HasSheetTag(wks, ROOM_SHEET_ID_TAG_NAME) Then
                 clsState.RoomSheetChanged = True
                 If Not Intersect(target, wks.Range(NAME_CELL_PARALLAX)) Is Nothing Then
-                    modRangeCover.EnsureRangeCover wks, wks.Range(NAME_RANGE_ADD_PARALLAX), ROOM_ADD_PARALLAX_SET_COVER_NAME
-                    modRangeCover.ApplyCoverVisibilityByDropdown wks, NAME_CELL_PARALLAX, ROOM_ADD_PARALLAX_SET_HIDE_TOKEN, ROOM_ADD_PARALLAX_SET_COVER_NAME
+                    modRooms.ApplyParallaxRangeCover wks
                 End If
             End If
         End If

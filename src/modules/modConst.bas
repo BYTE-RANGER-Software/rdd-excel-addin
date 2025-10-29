@@ -13,6 +13,7 @@ Public Const SHEET_DISPATCHER As String = "Dispatcher" ' contains data for the d
 
 Public Const NAME_CELL_ROOM_ID As String = "Cell_RoomID"
 Public Const NAME_CELL_SCENE_ID As String = "Cell_SceneID"
+Public Const NAME_CELL_ROOM_ALIAS As String = "Cell_RoomAlias"
 Public Const NAME_CELL_PARALLAX As String = "Cell_Parallax"
 Public Const NAME_RANGE_PICKUPABLE_OBJ As String = "Range_PickupableObjects"
 Public Const NAME_RANGE_MULTISTATE_OBJ As String = "Range_MultipleStateObjects"
@@ -38,9 +39,11 @@ Public Const ROOM_ADD_PARALLAX_SET_COVER_NAME As String = "COVER_ADD_PARALLAX_SE
 
 Public Const LISTS_COL_ROOM_ID As Long = 3
 Public Const LISTS_HEADER_ROOM_ID As String = "Room IDs"
-Public Const LISTS_COL_SCENE_ID As Long = 4
+Public Const LISTS_COL_ROOM_ALIAS As Long = 4
+Public Const LISTS_HEADER_ROOM_ALIAS As String = "Room Alias"
+Public Const LISTS_COL_SCENE_ID As Long = 5
 Public Const LISTS_HEADER_SCENE_ID As String = "Scene IDs"
-Public Const LISTS_COL_OBJECTS As Long = 8
+Public Const LISTS_COL_OBJECTS As Long = 9
 Public Const LISTS_HEADER_OBJECTS As String = "Objects"
 
 Public Const BTN_INSERT_ROOM_PICTURE As String = "btnInsertImage"

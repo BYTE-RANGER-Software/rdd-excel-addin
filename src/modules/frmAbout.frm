@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmAbout 
    Caption         =   "About %1"
-   ClientHeight    =   3870
-   ClientLeft      =   45
-   ClientTop       =   390
-   ClientWidth     =   5865
+   ClientHeight    =   3872
+   ClientLeft      =   44
+   ClientTop       =   385
+   ClientWidth     =   5863
    OleObjectBlob   =   "frmAbout.frx":0000
    StartUpPosition =   1  'Fenstermitte
 End
@@ -35,7 +35,7 @@ Private Sub UserForm_Initialize()
 End Sub
 
 Private Sub lblLicenseLink_Click()
-    On Error GoTo ErrHandler
+    On Error GoTo errHandler
     Dim iErr As Long
     
     OpenLinkSafe Me.lblLicenseLink.Tag
@@ -43,14 +43,14 @@ Private Sub lblLicenseLink_Click()
     On Error GoTo 0
     Exit Sub
 
-ErrHandler:
+errHandler:
     iErr = Err.Number
     MsgBox "Error:" & iErr & " (" & Err.Description & ") ", vbOKOnly Or vbCritical, modMain.AppProjectName
     LogError "lblLicenseLink_Click", iErr
 End Sub
 
 Private Sub lblWebsiteLink_Click()
-    On Error GoTo ErrHandler
+    On Error GoTo errHandler
     Dim iErr As Long
     
     OpenLinkSafe Me.lblWebsiteLink.Tag
@@ -58,7 +58,7 @@ Private Sub lblWebsiteLink_Click()
     On Error GoTo 0
     Exit Sub
 
-ErrHandler:
+errHandler:
     iErr = Err.Number
     MsgBox "Error:" & iErr & " (" & Err.Description & ") ", vbOKOnly Or vbCritical, AppProjectName
     LogError "lblWebsiteLink_Click", iErr
