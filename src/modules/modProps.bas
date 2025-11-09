@@ -31,7 +31,7 @@ Public Function CustomPropertyExists( _
     Optional ByRef r_cp As CustomProperty) As Boolean
     
     Dim cp As CustomProperty
-    On Error GoTo errHandler         ' fail-safe error handling
+    On Error GoTo ErrHandler         ' fail-safe error handling
     Err.Clear
 
     For Each cp In wks.CustomProperties
@@ -46,7 +46,7 @@ Public Function CustomPropertyExists( _
     Set r_cp = Nothing
     Exit Function
 
-errHandler:
+ErrHandler:
     CustomPropertyExists = False
     Set r_cp = Nothing
     Err.Clear
@@ -71,7 +71,7 @@ Public Function GetAllSheetsNamesByCustomProperty(ByVal wb As Workbook, ByRef r_
     Dim wks As Worksheet
     Dim cp As CustomProperty
     
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
 
     ReDim r_astrWkShNames(wb.Worksheets.Count - 1)
     lngCount = -1
@@ -91,7 +91,7 @@ Public Function GetAllSheetsNamesByCustomProperty(ByVal wb As Workbook, ByRef r_
 
     Exit Function
     
-errHandler:
+ErrHandler:
     Erase r_astrWkShNames
     GetAllSheetsNamesByCustomProperty = False
     Err.Clear
@@ -121,7 +121,7 @@ Public Function GetSheetByCustomProperty(ByVal wb As Workbook, ByVal strPropName
             For Each cp In wks.CustomProperties
                 If StrComp(cp.Name, strPropName, vbTextCompare) <> 0 Then
                     'Continue For
-                ElseIf StrComp(cp.Value, strPropValue, vbTextCompare) = 0 Then
+                ElseIf StrComp(cp.value, strPropValue, vbTextCompare) = 0 Then
                     Set GetSheetByCustomProperty = wks
                     Exit Function
                 ElseIf StrComp(cp.Name, strPropName, vbTextCompare) = 0 And strPropValue = "" Then
@@ -151,9 +151,9 @@ End Function
 Public Sub SetCustomProperty(ByVal wks As Worksheet, ByVal strPropName As String, ByVal strPropValue As String)
     Dim cp As CustomProperty
     If CustomPropertyExists(wks, strPropName, cp) Then
-        cp.Value = CStr(strPropValue)
+        cp.value = CStr(strPropValue)
     Else
-        wks.CustomProperties.Add Name:=strPropName, Value:=IIf(LenB(strPropValue) = 0, "-", strPropValue)
+        wks.CustomProperties.Add Name:=strPropName, value:=IIf(LenB(strPropValue) = 0, "-", strPropValue)
     End If
 End Sub
 
@@ -191,18 +191,18 @@ End Sub
 Public Function GetCustomPropertyValue(ByVal wks As Worksheet, ByVal strPropName As String) As String
     Dim cp As CustomProperty
     
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
 
     If Not wks Is Nothing Then
         For Each cp In wks.CustomProperties
             If StrComp(cp.Name, strPropName, vbTextCompare) = 0 Then
-                GetCustomPropertyValue = cp.Value
+                GetCustomPropertyValue = cp.value
                 Exit Function
             End If
         Next
     End If
     
-errHandler:
+ErrHandler:
     GetCustomPropertyValue = vbNullString
     Err.Clear
 End Function
@@ -224,7 +224,7 @@ End Function
 ' -----------------------------------------------------------------------------------
 Public Function DocumentPropertyExists(ByVal wb As Workbook, ByVal strPropName As String, Optional ByRef r_dp As DocumentProperty = Nothing) As Boolean
     Dim dp As DocumentProperty
-    On Error GoTo errHandler         ' fail-safe error handling
+    On Error GoTo ErrHandler         ' fail-safe error handling
     Err.Clear
   
    
@@ -240,7 +240,7 @@ Public Function DocumentPropertyExists(ByVal wb As Workbook, ByVal strPropName A
     Set r_dp = Nothing
     Exit Function
 
-errHandler:
+ErrHandler:
     DocumentPropertyExists = False
     Set r_dp = Nothing
     Err.Clear
@@ -263,7 +263,7 @@ Public Function GetDocumentPropertyValue(ByVal wb As Workbook, ByVal strPropName
     Dim dp As DocumentProperty
 
     If DocumentPropertyExists(wb, strPropName, dp) Then
-        GetDocumentPropertyValue = dp.Value
+        GetDocumentPropertyValue = dp.value
     Else
         GetDocumentPropertyValue = varDefault
     End If
@@ -328,19 +328,19 @@ Public Sub SetDocumentProperty(ByVal wb As Workbook, ByVal strPropName As String
     
     
     If DocumentPropertyExists(wb, strPropName, dp) Then
-        dp.Value = varPropValue
+        dp.value = varPropValue
     Else
                 
         If intPropType = msoPropertyTypeString Then
-            wb.CustomDocumentProperties.Add Name:=strPropName, LinkToContent:=False, Type:=intPropType, Value:=CStr(varPropValue)
+            wb.CustomDocumentProperties.Add Name:=strPropName, LinkToContent:=False, Type:=intPropType, value:=CStr(varPropValue)
         ElseIf intPropType = msoPropertyTypeBoolean Then
-            wb.CustomDocumentProperties.Add Name:=strPropName, LinkToContent:=False, Type:=intPropType, Value:=CBool(varPropValue)
+            wb.CustomDocumentProperties.Add Name:=strPropName, LinkToContent:=False, Type:=intPropType, value:=CBool(varPropValue)
         ElseIf intPropType = msoPropertyTypeDate Then
-            wb.CustomDocumentProperties.Add Name:=strPropName, LinkToContent:=False, Type:=intPropType, Value:=CDate(varPropValue)
+            wb.CustomDocumentProperties.Add Name:=strPropName, LinkToContent:=False, Type:=intPropType, value:=CDate(varPropValue)
         ElseIf intPropType = msoPropertyTypeNumber Then
-            wb.CustomDocumentProperties.Add Name:=strPropName, LinkToContent:=False, Type:=intPropType, Value:=CLng(varPropValue)
+            wb.CustomDocumentProperties.Add Name:=strPropName, LinkToContent:=False, Type:=intPropType, value:=CLng(varPropValue)
         ElseIf intPropType = msoPropertyTypeFloat Then
-            wb.CustomDocumentProperties.Add Name:=strPropName, LinkToContent:=False, Type:=intPropType, Value:=CDbl(varPropValue)
+            wb.CustomDocumentProperties.Add Name:=strPropName, LinkToContent:=False, Type:=intPropType, value:=CDbl(varPropValue)
         End If
     End If
 End Sub

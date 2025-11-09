@@ -137,7 +137,7 @@ Public Function ReplaceWildcards(ByVal InputStr As String) As String
     If LenB(InputStr) = 0 Then Exit Function
     
     If InStr(1, InputStr, modConst.WILDCARD_APP_PATH) = 1 Then
-        OutputStr = Replace$(InputStr, modConst.WILDCARD_APP_PATH, ThisWorkbook.Path)
+        OutputStr = Replace$(InputStr, modConst.WILDCARD_APP_PATH, ThisWorkbook.path)
     Else
         OutputStr = InputStr
     End If
@@ -163,8 +163,8 @@ Public Function AddWildcards(ByVal InputStr As String) As String
     
     If LenB(InputStr) = 0 Then Exit Function
     
-    If InStr(1, InputStr, ThisWorkbook.Path) = 1 Then
-        OutputStr = Replace$(InputStr, ThisWorkbook.Path, modConst.WILDCARD_APP_PATH)
+    If InStr(1, InputStr, ThisWorkbook.path) = 1 Then
+        OutputStr = Replace$(InputStr, ThisWorkbook.path, modConst.WILDCARD_APP_PATH)
     Else
         OutputStr = InputStr
     End If

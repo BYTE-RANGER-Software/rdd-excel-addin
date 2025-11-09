@@ -207,7 +207,7 @@ Public Function BuildDictFromSheetsByTag( _
         Optional ByVal blnValueCaseSensitive As Boolean = False _
     ) As Object
 
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
 
     Dim dic As Object
     Set dic = CreateObject("Scripting.Dictionary")
@@ -248,7 +248,7 @@ NextSheet:
     Set BuildDictFromSheetsByTag = dic
     Exit Function
 
-errHandler:
+ErrHandler:
     ' Fail-safe: still return an empty dictionary
     Dim dicSafe As Object
     Set dicSafe = CreateObject("Scripting.Dictionary")

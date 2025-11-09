@@ -98,11 +98,11 @@ End Property
 ' Property  : Opt_ManualPath (Let)
 ' Purpose   : Sets the manual path option and marks general options as changed.
 ' Parameters:
-'   strNewValue [String] - New path value.
+'   value [String] - New path value.
 ' -----------------------------------------------------------------------------------
-Public Property Let Opt_ManualPath(ByVal strNewValue As String)
-    If strNewValue <> m_udtOptions.strManualPath Then
-        m_udtOptions.strManualPath = strNewValue
+Public Property Let Opt_ManualPath(ByVal value As String)
+    If value <> m_udtOptions.strManualPath Then
+        m_udtOptions.strManualPath = value
         GeneralOptionsChanged = True
     End If
 End Property
@@ -184,7 +184,7 @@ Public Sub SaveWorkbookOptions(ByVal objWkBk As Workbook, Optional ByVal blnIgno
     If WorkbookOptionsChanged Or blnIgnoreChangeFlag Then
         ' Example:
         ' modProps.SetDocumentProperty objWkBk, PROP_..., Opt_...
-        If objWkBk.Path <> "" Then objWkBk.Save
+        If objWkBk.path <> "" Then objWkBk.Save
         WorkbookOptionsChanged = False
     End If
 End Sub

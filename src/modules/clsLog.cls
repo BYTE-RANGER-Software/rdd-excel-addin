@@ -34,24 +34,17 @@ Attribute VB_Exposed = False
 ' -----------------------------------------------------------------------------------
 
 Option Explicit
-
-' Adds visual separators around log records (where to place them relative to the entry)
-Public Enum LOG_SEPARATOR_TYPE
-    LOG_SEPARATOR_NONE = 0                 ' No separator line
-    LOG_SEPARATOR_BEFORE = 1               ' Insert separator before the entry
-    LOG_SEPARATOR_AFTER = 2                ' Insert separator after the entry
-    LOG_SEPARATOR_BEFORE_AND_AFTER = 3     ' Insert separator before and after the entry
-End Enum
+Implements ILog
 
 Private Const DEFAULT_LOG_EXT As String = ".log"
 Private Const DEFAULT_LOG_FILENAME As String = "common" & DEFAULT_LOG_EXT
 
-Private m_strPathLogFile As String          ' base folder for log files
-Private m_strLogFileFullName As String
+Private m_logFilePath As String          ' base folder for log files
+Private m_logFileFullName As String
 
-Private m_strBuffer As String
-Private m_lngMaxLogSizeBeforeSave As Long
-Private m_strLogSeparator As String
+Private m_buffer As String
+Private m_maxLogSizeBeforeSave As Long
+Private m_logSeparator As String
 
 ' -----------------------------------------------------------------------------------
 ' Function  : Class_Initialize
@@ -69,10 +62,10 @@ Private m_strLogSeparator As String
 '   - Default maxLogSizeBeforeSave = 5000 (if zero).
 ' -----------------------------------------------------------------------------------
 Private Sub Class_Initialize()
-    m_strPathLogFile = ThisWorkbook.Path & "\"
-    m_strLogSeparator = String(100, "=") & vbNewLine
-    If m_lngMaxLogSizeBeforeSave = 0 Then MaxLogSizeBeforeSave = 5000
-    m_strLogFileFullName = m_strPathLogFile & DEFAULT_LOG_FILENAME
+    m_logFilePath = ThisWorkbook.path & "\"
+    m_logSeparator = String(100, "=") & vbNewLine
+    If m_maxLogSizeBeforeSave = 0 Then m_maxLogSizeBeforeSave = 5000
+    m_logFileFullName = m_logFilePath & DEFAULT_LOG_FILENAME
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -87,7 +80,7 @@ End Sub
 ' Notes     :
 ' -----------------------------------------------------------------------------------
 Private Sub Class_Terminate()
-    m_strBuffer = vbNullString
+    m_buffer = vbNullString
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -96,18 +89,18 @@ End Sub
 '             to DEFAULT_LOG_EXT and combined with the current path.
 '
 ' Parameters:
-'   strLogFilename [String] - File name without extension; empty = DEFAULT_LOG_FILENAME.
+'   value [String] - File name without extension; empty = DEFAULT_LOG_FILENAME.
 '
 ' Returns   :
 '
 ' Notes     :
-'   - Uses the class' current m_strPathLogFile as base folder.
+'   - Uses the class' current m_LogFilePath as base folder.
 ' -----------------------------------------------------------------------------------
-Public Property Let LogFilename(ByVal strLogFilename As String)
-    If strLogFilename = vbNullString Then
-        m_strLogFileFullName = m_strPathLogFile & DEFAULT_LOG_FILENAME
+Private Property Let ILog_LogFileName(ByVal value As String)
+    If value = vbNullString Then
+        m_logFileFullName = m_logFilePath & DEFAULT_LOG_FILENAME
     Else
-        m_strLogFileFullName = m_strPathLogFile & strLogFilename & DEFAULT_LOG_EXT
+        m_logFileFullName = m_logFilePath & value & DEFAULT_LOG_EXT
     End If
 End Property
 
@@ -116,17 +109,17 @@ End Property
 ' Purpose   : Sets the base folder for log files and creates it if it does not exist.
 '
 ' Parameters:
-'   strNewValue [String] - Folder path (trailing backslash optional).
+'   value [String] - Folder path (trailing backslash optional).
 '
 ' Returns   :
 '
 ' Notes     :
 '   - Uses Dir to detect; calls MkDir to create.
 ' -----------------------------------------------------------------------------------
-Public Property Let PathLogFile(ByVal strNewValue As String)
+Private Property Let ILog_LogFilePath(ByVal value As String)
 
-    m_strPathLogFile = strNewValue
-    If Dir(m_strPathLogFile, vbDirectory) = "" Then MkDir (m_strPathLogFile)
+    m_logFilePath = value
+    If Dir(m_logFilePath, vbDirectory) = "" Then MkDir (m_logFilePath)
 
 End Property
 
@@ -141,9 +134,9 @@ End Property
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Public Property Get Buffer() As String
+Private Property Get ILog_Buffer() As String
 
-    Buffer = m_strBuffer
+    ILog_Buffer = m_buffer
 
 End Property
 
@@ -152,15 +145,15 @@ End Property
 ' Purpose   : Replaces the in-memory log buffer content.
 '
 ' Parameters:
-'   strNewValue [String] - New buffer text.
+'   value [String] - New buffer text.
 '
 ' Returns   :
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Public Property Let Buffer(ByVal NewValue As String)
+Private Property Let ILog_Buffer(ByVal value As String)
 
-    m_strBuffer = NewValue
+    m_buffer = value
 
 End Property
 
@@ -175,9 +168,9 @@ End Property
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Public Property Get MaxLogSizeBeforeSave() As Long
+Private Property Get ILog_MaxLogSizeBeforeSave() As Long
 
-    MaxLogSizeBeforeSave = m_lngMaxLogSizeBeforeSave
+    ILog_MaxLogSizeBeforeSave = m_maxLogSizeBeforeSave
 
 End Property
 
@@ -192,9 +185,9 @@ End Property
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Public Property Let MaxLogSizeBeforeSave(ByVal NewValue As Long)
+Private Property Let ILog_MaxLogSizeBeforeSave(ByVal value As Long)
 
-    m_lngMaxLogSizeBeforeSave = NewValue
+    m_maxLogSizeBeforeSave = value
 
 End Property
 
@@ -209,9 +202,9 @@ End Property
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Public Property Get LogSeparator() As String
+Private Property Get ILog_LogSeparator() As String
 
-    LogSeparator = m_strLogSeparator
+    ILog_LogSeparator = m_logSeparator
 
 End Property
 
@@ -220,15 +213,15 @@ End Property
 ' Purpose   : Sets the separator string used around log entries.
 '
 ' Parameters:
-'   strNewValue [String] - New separator text (e.g., "====" & vbCrLf).
+'   value [String] - New separator text (e.g., "====" & vbCrLf).
 '
 ' Returns   :
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Public Property Let LogSeparator(ByVal NewValue As String)
+Private Property Let ILog_LogSeparator(ByVal value As String)
 
-    m_strLogSeparator = NewValue
+    m_logSeparator = value
 
 End Property
 ' -----------------------------------------------------------------------------------
@@ -237,9 +230,9 @@ End Property
 '             procedure name, error number, line number, and description.
 '
 ' Parameters:
-'   strNameFunction [String]  - Procedure/function name (optional).
-'   lngErrNum       [Long]    - Error number (optional; -9999 means "none").
-'   lngErrLine      [Integer] - Line number (optional; -1 means "none").
+'   functionName [String]  - Procedure/function name (optional).
+'   errorNumber  [Long]    - Error number (optional; -9999 means "none").
+'   errorLine    [Integer] - Line number (optional; -1 means "none").
 '
 ' Returns   :
 '
@@ -247,21 +240,21 @@ End Property
 '   - Raises Err internally to retrieve its Description text (if given).
 '   - Surrounds the entry with separators (before and after).
 ' -----------------------------------------------------------------------------------
-Friend Sub WriteError(Optional ByVal strNameFunction As String = vbNullString, Optional ByVal lngErrNum As Long = -9999, Optional ByVal lngErrLine As Integer = -1)
-    Dim strMsg As String
-    Dim sErrDescription As String
-    If strNameFunction = vbNullString Then strNameFunction = "The procedure name is not set"
-    strMsg = String(2, vbNewLine) & "Function/procedure name:" & strNameFunction & vbNewLine
-    If lngErrNum <> -9999 Then strMsg = strMsg & "Error number:" & CStr(lngErrNum) & vbNewLine Else strMsg = strMsg & "Error number:-" & vbNewLine
-    If lngErrLine <> -1 Then strMsg = strMsg & "Line number:" & CStr(lngErrLine) Else strMsg = strMsg & "Line number:-"
-    If lngErrNum <> -9999 Then
+Private Sub ILog_WriteError(Optional ByVal functionName As String = vbNullString, Optional ByVal errorNumber As Long = -9999, Optional ByVal errorLine As Long = -1)
+    Dim message As String
+    Dim errorDescription As String
+    If functionName = vbNullString Then functionName = "The procedure name is not set"
+    message = String(2, vbNewLine) & "Function/procedure name:" & functionName & vbNewLine
+    If errorNumber <> -9999 Then message = message & "Error number:" & CStr(errorNumber) & vbNewLine Else message = message & "Error number:-" & vbNewLine
+    If errorLine <> -1 Then message = message & "Line number:" & CStr(errorLine) Else message = message & "Line number:-"
+    If errorNumber <> -9999 Then
         On Error Resume Next
         Err.Clear
-        Err.Raise lngErrNum
-        If Err.Number <> 0 Then sErrDescription = Err.Description
+        Err.Raise errorNumber
+        If Err.Number <> 0 Then errorDescription = Err.Description
         On Error GoTo 0
     End If
-    Call AddRecord(strMsg, vbTab & vbTab & "Description:" & sErrDescription, 0, LOG_SEPARATOR_BEFORE_AND_AFTER, True)
+    Call ILog_AddRecord(message, vbTab & vbTab & "Description:" & errorDescription, 0, LOG_SEPARATOR_BEFORE_AND_AFTER, True)
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -277,11 +270,11 @@ End Sub
 ' Notes     :
 '   - Uses AddIntoTXTfile; prints to Immediate Window on error.
 ' -----------------------------------------------------------------------------------
-Friend Sub SaveLog()
-    If AddIntoTXTfile(m_strLogFileFullName, m_strBuffer) Then
-        m_strBuffer = Empty
+Private Sub ILog_SaveLog()
+    If AddIntoTXTfile(m_logFileFullName, m_buffer) Then
+        m_buffer = Empty
     Else
-        Debug.Print "Error writing the log to the file" & m_strLogFileFullName
+        Debug.Print "Error writing the log to the file" & m_logFileFullName
     End If
 End Sub
 
@@ -298,9 +291,9 @@ End Sub
 ' Notes     :
 '   - Calls SaveTXTfile with an empty string.
 ' -----------------------------------------------------------------------------------
-Friend Sub ClearLog()
-    m_strBuffer = vbNullString                                        ' Clearing the buffer
-    SaveTXTfile m_strLogFileFullName, vbNullString                    ' Saving an empty file
+Private Sub ILog_ClearLog()
+    m_buffer = vbNullString                                        ' Clearing the buffer
+    SaveTXTfile m_logFileFullName, vbNullString                    ' Saving an empty file
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -309,17 +302,17 @@ End Sub
 '             the buffer, and writes a "Starting Log Record..." entry.
 '
 ' Parameters:
-'   strAddInfo  [String]  - Optional extra info appended to the start entry.
-'   blnNewLog   [Boolean] - If True, creates a new empty log file first.
+'   additionalInfo  [String]  - Optional extra info appended to the start entry.
+'   isNewLog   [Boolean] - If True, creates a new empty log file first.
 '
 ' Returns   :
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Friend Sub OpenLog(Optional strAddInfo As String = "", Optional ByVal blnNewLog As Boolean = False)
-    m_strBuffer = vbNullString                                             ' Clearing the buffer
-    If blnNewLog Then SaveTXTfile m_strLogFileFullName, vbNullString  ' Saving a new empty file
-    AddRecord "Starting Log Record...", strAddInfo, , LOG_SEPARATOR_BEFORE, True ' start recording
+Private Sub ILog_OpenLog(Optional additionalInfo As String = vbNullString, Optional ByVal isNewLog As Boolean = False)
+    m_buffer = vbNullString                                             ' Clearing the buffer
+    If isNewLog Then SaveTXTfile m_logFileFullName, vbNullString  ' Saving a new empty file
+    ILog_AddRecord "Starting Log Record...", additionalInfo, , LOG_SEPARATOR_BEFORE, True ' start recording
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -335,9 +328,9 @@ End Sub
 ' Notes     :
 '   - Does not persist the buffer automatically; call SaveLog if required.
 ' -----------------------------------------------------------------------------------
-Friend Sub CloseLog()
-    AddRecord "Finishing Log Record...", , , LOG_SEPARATOR_AFTER, True    ' last entry
-    m_strBuffer = vbNullString                                             ' clear the buffer
+Private Sub ILog_CloseLog()
+    ILog_AddRecord "Finishing Log Record...", , , LOG_SEPARATOR_AFTER, True    ' last entry
+    m_buffer = vbNullString                                             ' clear the buffer
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -346,20 +339,20 @@ End Sub
 '             or opens it with the associated application (Shell).
 '
 ' Parameters:
-'   blnShowAsDebugWindow [Boolean] - True to print to Immediate Window; otherwise shell open.
+'   showAsDebugWindow [Boolean] - True to print to Immediate Window; otherwise shell open.
 '
 ' Returns   :
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Friend Sub ShowLog(Optional blnShowAsDebugWindow As Boolean = False)
+Private Sub ILog_ShowLog(Optional showAsDebugWindow As Boolean = False)
     On Error Resume Next
-    Dim strPath As String
-    If blnShowAsDebugWindow Then
-        Debug.Print ReadTXTfile(m_strLogFileFullName)
+    Dim path As String
+    If showAsDebugWindow Then
+        Debug.Print ReadTXTfile(m_logFileFullName)
     Else
-        strPath = Chr(34) & m_strLogFileFullName & Chr(34)
-        CreateObject("wscript.shell").Run strPath
+        path = Chr(34) & m_logFileFullName & Chr(34)
+        CreateObject("wscript.shell").Run path
     End If
 End Sub
 
@@ -370,11 +363,11 @@ End Sub
 '             are met or requested.
 '
 ' Parameters:
-'   strEventX        [String]            - Main event text (left column).
-'   strInfo          [String]            - Optional, Additional info (right column).
-'   intLevel         [Integer]           - Optional, Indentation level (tabs before timestamp).
+'   eventText        [String]            - Main event text (left column).
+'   info             [String]            - Optional, Additional info (right column).
+'   level            [Integer]           - Optional, Indentation level (tabs before timestamp).
 '   LogSeparatorType [LOG_SEPARATOR_TYPE]- Where to place separator lines.
-'   blnForceSavingLog[Boolean]           - Optional, If True, calls SaveLog immediately.
+'   forceSave        [Boolean]           - Optional, If True, calls SaveLog immediately.
 '
 ' Returns   :
 '
@@ -382,19 +375,19 @@ End Sub
 '   - Pads and aligns text; timestamp format "YYYY-MM-DD HH:NN:SS".
 '   - Auto-saves when buffer exceeds maxLogSizeBeforeSave.
 ' -----------------------------------------------------------------------------------
-Friend Sub AddRecord(ByVal strEventX As String, Optional ByVal strInfo As String, _
-    Optional ByVal intLevel As Integer = 0, _
-    Optional ByVal LogSeparatorType As LOG_SEPARATOR_TYPE = LOG_SEPARATOR_NONE, _
-    Optional ByVal blnForceSavingLog As Boolean = False)
-    Dim strMsg    As String
-    strMsg = String(160, " "): Mid(strMsg, 1) = Left(strEventX, 200): Mid(strMsg, 100) = strInfo
-    strMsg = String(intLevel, vbTab) & Format(Now, "YYYY-MM-DD HH:NN:SS") & String(2, vbTab) & Trim(strMsg) & vbNewLine
+Private Sub ILog_AddRecord(ByVal eventText As String, Optional ByVal info As String, _
+    Optional ByVal level As Long = 0, _
+    Optional ByVal logSeparatorType As LOG_SEPARATOR_TYPE = LOG_SEPARATOR_NONE, _
+    Optional ByVal forceSave As Boolean = False)
+    Dim message As String
+    message = String(160, " "): Mid(message, 1) = Left(eventText, 200): Mid(message, 100) = info
+    message = String(level, vbTab) & Format(Now, "YYYY-MM-DD HH:NN:SS") & String(2, vbTab) & Trim(message) & vbNewLine
 
-    strMsg = IIf(LogSeparatorType = LOG_SEPARATOR_BEFORE Or LogSeparatorType = LOG_SEPARATOR_BEFORE_AND_AFTER, LogSeparator, "") & _
-        strMsg & IIf(LogSeparatorType = LOG_SEPARATOR_AFTER Or LogSeparatorType = LOG_SEPARATOR_BEFORE_AND_AFTER, LogSeparator, "")
+    message = IIf(logSeparatorType = LOG_SEPARATOR_BEFORE Or logSeparatorType = LOG_SEPARATOR_BEFORE_AND_AFTER, logSeparatorType, "") & _
+        message & IIf(logSeparatorType = LOG_SEPARATOR_AFTER Or logSeparatorType = LOG_SEPARATOR_BEFORE_AND_AFTER, logSeparatorType, "")
 
-    m_strBuffer = m_strBuffer & strMsg
-    If blnForceSavingLog Or (Len(m_strBuffer) > MaxLogSizeBeforeSave) Then SaveLog
+    m_buffer = m_buffer & message
+    If forceSave Or (Len(m_buffer) > m_maxLogSizeBeforeSave) Then ILog_SaveLog
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -403,25 +396,25 @@ End Sub
 '             extension), either overwriting or appending.
 '
 ' Parameters:
-'   strFileName  [String]           - Target file name (without path/extension).
-'   blnOverwrite [Boolean]          - Optional, True = Overwrite; False = append.
+'   fileName  [String]           - Target file name (without path/extension).
+'   overwrite [Boolean]          - Optional, True = Overwrite; False = append.
 '
 ' Returns   :
 '
 ' Notes     :
-'   - Reads from the current log file (m_strLogFileFullName).
+'   - Reads from the current log file (m_logFileFullName).
 '   - Ensures DEFAULT_LOG_EXT on the target file.
 ' -----------------------------------------------------------------------------------
-Friend Sub SaveLogAs(ByVal strFileName As String, Optional ByVal blnOverwrite As Boolean = False)
+Private Sub ILog_SaveLogAs(ByVal fileName As String, Optional ByVal overwrite As Boolean = False)
     On Error Resume Next
-    Dim strMsg    As String
-    strFileName = m_strPathLogFile & strFileName
-    If Not strFileName Like "*" & DEFAULT_LOG_EXT Then strFileName = strFileName & DEFAULT_LOG_EXT
-    strMsg = ReadTXTfile(m_strLogFileFullName)
-    If blnOverwrite Then
-        SaveTXTfile strFileName, strMsg
+    Dim message    As String
+    fileName = m_logFilePath & fileName
+    If Not fileName Like "*" & DEFAULT_LOG_EXT Then fileName = fileName & DEFAULT_LOG_EXT
+    message = ReadTXTfile(m_logFileFullName)
+    If overwrite Then
+        SaveTXTfile fileName, message
     Else
-        AddIntoTXTfile strFileName, strMsg
+        AddIntoTXTfile fileName, message
     End If
 End Sub
 
@@ -434,19 +427,19 @@ End Sub
 ' Purpose   : Reads the entire content of a text file and returns it as a string.
 '
 ' Parameters:
-'   strFileName [String] - Full path to the file to read.
+'   fileName [String] - Full path to the file to read.
 '
 ' Returns   : String - File content (may be empty on failure).
 '
 ' Notes     :
 '   - Creates a late-bound Scripting.FileSystemObject and TextStream.
 ' -----------------------------------------------------------------------------------
-Private Function ReadTXTfile(ByVal strFileName As String) As String
-    Dim objFSO    As Object
-    Dim objTS     As Object
-    Set objFSO = CreateObject("scripting.filesystemobject")
-    Set objTS = objFSO.OpenTextFile(strFileName, 1, True): ReadTXTfile = objTS.ReadAll: objTS.Close
-    Set objTS = Nothing: Set objFSO = Nothing
+Private Function ReadTXTfile(ByVal filePath As String) As String
+    Dim fso    As Object
+    Dim textStream     As Object
+    Set fso = CreateObject("scripting.filesystemobject")
+    Set textStream = fso.OpenTextFile(filePath, 1, True): ReadTXTfile = textStream.ReadAll: textStream.Close
+    Set textStream = Nothing: Set fso = Nothing
 End Function
 
 ' -----------------------------------------------------------------------------------
@@ -454,23 +447,23 @@ End Function
 ' Purpose   : Overwrites a text file with the provided content.
 '
 ' Parameters:
-'   strFileName [String] - Full path to the file to write.
-'   strMsg      [String] - Content to write.
+'   fileName [String] - Full path to the file to write.
+'   Message      [String] - Content to write.
 '
 ' Returns   : Boolean - True if no error occurred; otherwise False.
 '
 ' Notes     :
 '   - Creates or overwrites the file.
 ' -----------------------------------------------------------------------------------
-Private Function SaveTXTfile(ByVal strFileName As String, ByVal strMsg As String) As Boolean
-    Dim objFSO    As Object
-    Dim objTS     As Object
+Private Function SaveTXTfile(ByVal fileName As String, ByVal message As String) As Boolean
+    Dim fso    As Object
+    Dim textStream     As Object
     On Error Resume Next: Err.Clear
-    Set objFSO = CreateObject("scripting.filesystemobject")
-    Set objTS = objFSO.CreateTextFile(strFileName, True)
-    objTS.Write strMsg: objTS.Close
+    Set fso = CreateObject("scripting.filesystemobject")
+    Set textStream = fso.CreateTextFile(fileName, True)
+    textStream.Write message: textStream.Close
     SaveTXTfile = Err = 0
-    Set objTS = Nothing: Set objFSO = Nothing
+    Set textStream = Nothing: Set fso = Nothing
 End Function
 
 ' -----------------------------------------------------------------------------------
@@ -478,22 +471,22 @@ End Function
 ' Purpose   : Appends content to a text file; creates the file if it does not exist.
 '
 ' Parameters:
-'   strFileName [String] - Full path to the file to append to.
-'   strMsg      [String] - Content to append.
+'   fileName [String] - Full path to the file to append to.
+'   Message      [String] - Content to append.
 '
 ' Returns   : Boolean - True if no error occurred; otherwise False.
 '
 ' Notes     :
 '   - Opens the file with ForAppending mode (8).
 ' -----------------------------------------------------------------------------------
-Private Function AddIntoTXTfile(ByVal strFileName As String, ByVal strMsg As String) As Boolean
-    Dim objFSO    As Object
-    Dim objTS     As Object
+Private Function AddIntoTXTfile(ByVal fileName As String, ByVal message As String) As Boolean
+    Dim fso    As Object
+    Dim textStream     As Object
     On Error Resume Next: Err.Clear
-    Set objFSO = CreateObject("scripting.filesystemobject")
-    Set objTS = objFSO.OpenTextFile(strFileName, 8, True)
-    objTS.Write strMsg: objTS.Close
-    Set objTS = Nothing: Set objFSO = Nothing
+    Set fso = CreateObject("scripting.filesystemobject")
+    Set textStream = fso.OpenTextFile(fileName, 8, True)
+    textStream.Write message: textStream.Close
+    Set textStream = Nothing: Set fso = Nothing
     AddIntoTXTfile = Err = 0
 End Function
 

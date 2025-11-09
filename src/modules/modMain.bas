@@ -13,14 +13,15 @@ Option Explicit
 Option Private Module
 
 ' ===== Private State =================================================================
-Private m_objLog As clsLog          ' central Logger
-Private m_strAppTempPath As String
-Private m_strAppProjectName As String
+Private m_log As ILog          ' central Logger
+Private m_appTempPath As String
+Private m_appProjectName As String
 
-Private m_objAppEvents As clsAppEvents ' keeps WithEvents sink alive
-Private m_wbActiveWorkbook As Workbook ' holds ActiveWorkbook on install
+Private m_appEvents As clsAppEvents ' keeps WithEvents sink alive
+Private m_activeWorkbookOnInstall As Workbook ' holds ActiveWorkbook on install
 
 ' ===== Public API ====================================================================
+' Public entry points, properties, and Ribbon callback targets used by the add-in.
 
 ' -----------------------------------------------------------------------------------
 ' Function  : AppProjectName (Get)
@@ -30,7 +31,7 @@ Private m_wbActiveWorkbook As Workbook ' holds ActiveWorkbook on install
 ' Notes     : Ensure that SetAppProjectName was executed before the first query.
 ' -----------------------------------------------------------------------------------
 Public Property Get AppProjectName() As String
-    AppProjectName = m_strAppProjectName
+    AppProjectName = m_appProjectName
 End Property
 
 ' -----------------------------------------------------------------------------------
@@ -42,25 +43,25 @@ End Property
 ' -----------------------------------------------------------------------------------
 Public Property Get AppTempPath() As String
 
-    AppTempPath = m_strAppTempPath
+    AppTempPath = m_appTempPath
 
 End Property
 
-Public Property Let AppTempPath(ByVal strNewValue As String)
+Public Property Let AppTempPath(ByVal value As String)
 
     ' Ensure trailing backslash
-    If Len(strNewValue) > 0 Then
-        If Right$(strNewValue, 1) <> "\" Then
-            strNewValue = strNewValue & "\"
+    If Len(value) > 0 Then
+        If Right$(value, 1) <> "\" Then
+            value = value & "\"
         End If
     End If
-    m_strAppTempPath = strNewValue
+    m_appTempPath = value
 
 End Property
 
 ' -----------------------------------------------------------------------------------
 ' Function  : AppVersion (Get)
-' Purpose   : Returns version string from a custom document property.
+' Purpose   : Returns version string from the Add-In, holds in custom document property.
 ' Parameters: (none)
 ' Returns   : String - e.g., "1.2.3"
 ' Notes     : Uses GetDocumentPropertyValue("RDD_AddInVersion").
@@ -74,33 +75,34 @@ End Property
 ' Purpose   : Initializes application-specific settings and resources during first-time add-in installation.
 '             Setts default properties, creating required named ranges,
 '             registering document tags, or preparing the workbook for use with the add-in.
-'             must called from Workbook_AddinInstall().
+'             Stores ActiveWorkbook reference on installation for later use..
 ' Parameters: (none)
 ' Returns   : (none)
-' Notes     : Used so Workbook_Open can reference the previous ActiveWorkbook.
+' Notes     : Must be called from Workbook_AddinInstall()
 ' -----------------------------------------------------------------------------------
 Public Sub AppInstall()
 'If the add-in is activated when a workbook is opened,
 'save the reference to this workbook for Workbook_Open,
 'since the add-in is set as the active workbook in Workbook_Open.
-If Not ActiveWorkbook Is Nothing Then Set m_wbActiveWorkbook = ActiveWorkbook
+If Not ActiveWorkbook Is Nothing Then Set m_activeWorkbookOnInstall = ActiveWorkbook
 End Sub
+
 ' -----------------------------------------------------------------------------------
 ' Function  : AppStart
 ' Purpose   : Application startup: init logging, wire App events, init state, refresh UI,
 '             validating workbook structure.
-'             must called from Workbook_open()
+'
 ' Parameters: (none)
 ' Returns   : (none)
-' Notes     : Requires clsAppEvents and clsState
+' Notes     : must called from Workbook_open(). Requires clsAppEvents and clsState
 ' -----------------------------------------------------------------------------------
 Public Sub AppStart()
     
     ' Ensure temp path exists before logging
-    m_strAppTempPath = modUtil.GetTempFolder & "\BYTE RANGER"
-    If Dir(m_strAppTempPath, vbDirectory) = "" Then MkDir m_strAppTempPath
-    m_strAppTempPath = m_strAppTempPath & "\" & AppProjectName & "\"
-    If Dir(m_strAppTempPath, vbDirectory) = "" Then MkDir m_strAppTempPath
+    m_appTempPath = modUtil.GetTempFolder & "\BYTE RANGER"
+    If Dir(m_appTempPath, vbDirectory) = "" Then MkDir m_appTempPath
+    m_appTempPath = m_appTempPath & "\" & AppProjectName & "\"
+    If Dir(m_appTempPath, vbDirectory) = "" Then MkDir m_appTempPath
         
     '
     SetAppProjectName
@@ -123,11 +125,11 @@ End Sub
 
 ' -----------------------------------------------------------------------------------
 ' Function  : AppStop
-' Purpose   : Application shutdown: saving settings, releasing resources, unhook events, cleanup state, close log.
-'             must called from Workbook_BeforeClose()
+' Purpose   : Application shutdown: saving settings, releasing resources,
+'             unhook events, cleanup state, close log.
 ' Parameters: (none)
 ' Returns   : (none)
-' Notes     : Safe to call multiple times.
+' Notes     : must called from Workbook_BeforeClose(). Safe to call multiple times.
 ' -----------------------------------------------------------------------------------
 Public Sub AppStop()
 
@@ -141,10 +143,10 @@ Public Sub AppStop()
     clsState.Cleanup
 
     ' close Log
-    If Not m_objLog Is Nothing Then
-        m_objLog.CloseLog
+    If Not m_log Is Nothing Then
+        m_log.CloseLog
     End If
-    Set m_objLog = Nothing
+    Set m_log = Nothing
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -172,12 +174,13 @@ End Sub
 Public Function IsRDDWorkbook(ByVal wb As Workbook) As Boolean
     If wb Is Nothing Then Exit Function
 
-    Dim strVal As String
-    strVal = modProps.GetDocumentPropertyValue(wb, APP_DOC_TAG_KEY, "")
-    IsRDDWorkbook = (StrComp(strVal, APP_DOC_TAG_VAL, vbBinaryCompare) = 0)
+    Dim tagValue As String
+    tagValue = modProps.GetDocumentPropertyValue(wb, APP_DOC_TAG_KEY, "")
+    IsRDDWorkbook = (StrComp(tagValue, APP_DOC_TAG_VAL, vbBinaryCompare) = 0)
 End Function
 
-' ===== Ribbon Callback Targets =======================================================
+' ===== Ribbon Callback Targets ======================================================
+' Ribbon callbacks and UI entry points triggered from the custom UI.
 
 ' -----------------------------------------------------------------------------------
 ' Procedure : ShowLog
@@ -190,10 +193,10 @@ End Function
 '   - Delegates UI/display to clsLog.ShowLog.
 ' -----------------------------------------------------------------------------------
 Public Sub ShowLog()
-    If m_objLog Is Nothing Then
+    If m_log Is Nothing Then
         Call OpenLog
     End If
-    m_objLog.ShowLog
+    m_log.ShowLog
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -210,17 +213,17 @@ End Sub
 ' -----------------------------------------------------------------------------------
 Public Sub ShowManual()
 
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
     
-    Dim strPath As String
-    strPath = ReplaceWildcards(modOptions.Opt_ManualPath) & "\"  ' TODO: Add options Formular
+    Dim manualPath As String
+    manualPath = ReplaceWildcards(modOptions.Opt_ManualPath) & "\"  ' TODO: Add options Formular
 
 
-    If Dir(strPath & FILENAME_MANUAL) <> "" Then
-        ThisWorkbook.FollowHyperlink strPath & FILENAME_MANUAL
+    If Dir(manualPath & FILENAME_MANUAL) <> "" Then
+        ThisWorkbook.FollowHyperlink manualPath & FILENAME_MANUAL
     Else
-        ' Datei xxxx nicht gefunden
-        MsgBox "File " & strPath & FILENAME_MANUAL & _
+        ' File not found message
+        MsgBox "File " & manualPath & FILENAME_MANUAL & _
             " not found!", vbExclamation, AppProjectName
     End If
     
@@ -228,11 +231,11 @@ Public Sub ShowManual()
     On Error GoTo 0
     Exit Sub
 
-errHandler:
-    Dim lngErr As Long
-    lngErr = Err.Number
-    MsgBox "Error " & lngErr & " (" & Err.Description & ") in procedure ShowManual, line " & Erl & ".", vbCritical, AppProjectName
-    LogError "ShowManual", lngErr, Erl
+ErrHandler:
+    Dim errNo As Long
+    errNo = Err.Number
+    MsgBox "Error " & errNo & " (" & Err.Description & ") in procedure ShowManual, line " & Erl & ".", vbCritical, AppProjectName
+    LogError "ShowManual", errNo, Erl
 
 End Sub
 
@@ -245,46 +248,46 @@ End Sub
 ' -----------------------------------------------------------------------------------
 Public Sub ShowOptions()
 
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
     
-    Dim udtCur As tOptions
-    udtCur = modOptions.GetAllOptions
+    Dim currentOptions As tOptions
+    currentOptions = modOptions.GetAllOptions
         
-    Dim objActWb As Workbook: Set objActWb = ActiveWorkbook
+    Dim currentWorkbook As Workbook: Set currentWorkbook = ActiveWorkbook
     
-    Dim fOptions As frmOptions
-    Set fOptions = New frmOptions: fOptions.Init AppProjectName, udtCur
+    Dim optionsForm As frmOptions
+    Set optionsForm = New frmOptions: optionsForm.Init AppProjectName, currentOptions
         
-    fOptions.Show
+    optionsForm.Show
         
 
-    If fOptions.Confirmed Then
-        Dim udtNew As tOptions
-        udtNew = fOptions.ResultOptions
+    If optionsForm.Confirmed Then
+        Dim newOptions As tOptions
+        newOptions = optionsForm.ResultOptions
 
-        Dim strValErr As String
-        strValErr = modOptions.ValidateOptions(udtNew)
-        If LenB(strValErr) > 0 Then
-            MsgBox strValErr, vbExclamation, AppProjectName
-            Set fOptions = Nothing
+        Dim validationError As String
+        validationError = modOptions.ValidateOptions(newOptions)
+        If LenB(validationError) > 0 Then
+            MsgBox validationError, vbExclamation, AppProjectName
+            Set optionsForm = Nothing
             Exit Sub
         End If
 
-        modOptions.SetAllOptions udtNew
+        modOptions.SetAllOptions newOptions
         modOptions.SaveGeneralOptions
-        modOptions.SaveWorkbookOptions objActWb
+        modOptions.SaveWorkbookOptions currentWorkbook
     End If
     
-    Set fOptions = Nothing
+    Set optionsForm = Nothing
     
     On Error GoTo 0
     Exit Sub
 
-errHandler:
-    Dim lngErr As Long
-    lngErr = Err.Number
-    MsgBox "Error " & lngErr & " (" & Err.Description & ") in procedure ShowOptions, line " & Erl & ".", vbCritical, AppProjectName
-    LogError "ShowOptions", lngErr, Erl
+ErrHandler:
+    Dim errNo As Long
+    errNo = Err.Number
+    MsgBox "Error " & errNo & " (" & Err.Description & ") in procedure ShowOptions, line " & Erl & ".", vbCritical, AppProjectName
+    LogError "ShowOptions", errNo, Erl
 
 End Sub
 
@@ -296,26 +299,26 @@ End Sub
 ' Notes     : Form lifetime is scoped to the procedure.
 ' -----------------------------------------------------------------------------------
 Public Sub ShowAbout()
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
     
-    Dim objActWb As Workbook: Set objActWb = ActiveWorkbook
-    Dim fAbout As frmAbout
+    Dim currentWorkbook As Workbook: Set currentWorkbook = ActiveWorkbook
+    Dim aboutForm As frmAbout
     
-    Set fAbout = New frmAbout
+    Set aboutForm = New frmAbout
     
-    fAbout.Show
+    aboutForm.Show
     
-    Set fAbout = Nothing
+    Set aboutForm = Nothing
     
     On Error GoTo 0
     Exit Sub
         
-errHandler:
-    Dim lngErr As Long
-    lngErr = Err.Number
-    MsgBox "Error " & lngErr & " (" & Err.Description & ") in procedure ShowAbout, line " & Erl & ".", _
+ErrHandler:
+    Dim errNo As Long
+    errNo = Err.Number
+    MsgBox "Error " & errNo & " (" & Err.Description & ") in procedure ShowAbout, line " & Erl & ".", _
            vbCritical, AppProjectName
-    LogError "ShowAbout", lngErr, Erl
+    LogError "ShowAbout", errNo, Erl
 End Sub
 ' -----------------------------------------------------------------------------------
 ' Function  : AddNewRoom
@@ -327,62 +330,62 @@ End Sub
 ' Notes     : Uses frmNewItem and modRooms.
 ' -----------------------------------------------------------------------------------
 Public Function AddNewRoom(Optional ByVal blnGotoNewRoom As Boolean = True) As String
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
 
-    Dim objActWks As Worksheet: Set objActWks = ActiveSheet
-    Dim objActWb As Workbook: Set objActWb = ActiveWorkbook
-    Dim objActCell As Range: Set objActCell = ActiveCell
+    Dim currentSheet As Worksheet: Set currentSheet = ActiveSheet
+    Dim currentWorkbook As Workbook: Set currentWorkbook = ActiveWorkbook
+    Dim currentCell As Range: Set currentCell = ActiveCell
 
-    Dim objNewWkSh As Worksheet
-    Dim lngIdx As Long
-    Dim strID As String
+    Dim newSheet As Worksheet
+    Dim roomIndex As Long
+    Dim roomId As String
     
-    Dim fNewItem As frmNewItem: Set fNewItem = New frmNewItem
+    Dim newItemForm As frmNewItem: Set newItemForm = New frmNewItem
             
     Application.StatusBar = False
     
-    With fNewItem
+    With newItemForm
         .FormCaption = "New Room Sheet"
         .NameLabel = "Room Name"
         .IDLabel = "Room ID"
         .IDVisible = True
-        lngIdx = modRooms.GetNextRoomIndex(objActWb)
-        strID = modRooms.GetFormattedRoomID(lngIdx)
-        .IDText = strID
-        .NameText = strID
+        roomIndex = modRooms.GetNextRoomIndex(currentWorkbook)
+        roomId = modRooms.GetFormattedRoomID(roomIndex)
+        .IDText = roomId
+        .NameText = roomId
 
         .Show                       ' modal
         If Not .Cancelled Then
             
-            EnsureWorkbookIsTagged objActWb
+            EnsureWorkbookIsTagged currentWorkbook
      
-            Set objNewWkSh = modRooms.AddRoom(objActWb, .NameText, lngIdx)
-            If Not objNewWkSh Is Nothing Then
+            Set newSheet = modRooms.AddRoom(currentWorkbook, .NameText, roomIndex)
+            If Not newSheet Is Nothing Then
                 modUtil.HideOpMode True
-                modRooms.ApplyParallaxRangeCover objNewWkSh
+                modRooms.ApplyParallaxRangeCover newSheet
                 If blnGotoNewRoom Then
-                    Application.GoTo objNewWkSh.Range("A1"), True
+                    Application.GoTo newSheet.Range("A1"), True
                 Else
-                    objActWks.Activate
-                    If Not objActCell Is Nothing Then objActCell.Select
+                    currentSheet.Activate
+                    If Not currentCell Is Nothing Then currentCell.Select
                 End If
                 modUtil.HideOpMode False
-                AddNewRoom = strID
+                AddNewRoom = roomId
             End If
         End If
-        Unload fNewItem
+        Unload newItemForm
     End With
                         
-    Set fNewItem = Nothing
+    Set newItemForm = Nothing
                 
     On Error GoTo 0
     Exit Function
     
-errHandler:
-    Dim lngErr As Long
-    lngErr = Err.Number
-    MsgBox "Error " & lngErr & " (" & Err.Description & ") in procedure AddNewRoom, line " & Erl & ".", vbCritical, AppProjectName
-    LogError "AddNewRoom", lngErr, Erl
+ErrHandler:
+    Dim errNo As Long
+    errNo = Err.Number
+    MsgBox "Error " & errNo & " (" & Err.Description & ") in procedure AddNewRoom, line " & Erl & ".", vbCritical, AppProjectName
+    LogError "AddNewRoom", errNo, Erl
     modUtil.HideOpMode False
 End Function
 
@@ -394,24 +397,24 @@ End Function
 ' Notes     : Safe when there is no active cell value.
 ' -----------------------------------------------------------------------------------
 Public Sub AddNewRoomFromCellCtxMnu()
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
     
-    Dim rngCell As Range: Set rngCell = ActiveCell
+    Dim targetCell As Range: Set targetCell = ActiveCell
     
-    Dim strRoomID As String
+    Dim roomId As String
     
-    strRoomID = AddNewRoom(False)
+    roomId = AddNewRoom(False)
         
-    If Len(strRoomID) > 0 Then
-        If Not rngCell Is Nothing Then rngCell.Value = strRoomID
+    If Len(roomId) > 0 Then
+        If Not targetCell Is Nothing Then targetCell.value = roomId
     End If
     
     
-errHandler:
-    Dim lngErr As Long
-    lngErr = Err.Number
-    MsgBox "Error " & lngErr & " (" & Err.Description & ") in procedure AddNewRoomFromCellCtxMnu, line " & Erl & ".", vbCritical, AppProjectName
-    LogError "AddNewRoomFromCellCtxMnu", lngErr, Erl
+ErrHandler:
+    Dim errNo As Long
+    errNo = Err.Number
+    MsgBox "Error " & errNo & " (" & Err.Description & ") in procedure AddNewRoomFromCellCtxMnu, line " & Erl & ".", vbCritical, AppProjectName
+    LogError "AddNewRoomFromCellCtxMnu", errNo, Erl
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -422,29 +425,29 @@ End Sub
 ' Notes     : Delegates the deletion to modRooms.RemoveRoom.
 ' -----------------------------------------------------------------------------------
 Public Sub RemoveCurrentRoom()
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
 
-    Dim wks As Worksheet
-    Set wks = ActiveSheet
+    Dim roomSheet As Worksheet
+    Set roomSheet = ActiveSheet
 
     Application.StatusBar = False
     
-    If Not modRooms.IsRoomSheet(wks) Then
+    If Not modRooms.IsRoomSheet(roomSheet) Then
         MsgBox "Active sheet is not a 'Room' sheet.", vbInformation, AppProjectName
         Exit Sub
     End If
     
     ' Confirm with the user
-    If MsgBox("Are you sure you want to delete the sheet '" & wks.Name & "'?" & vbCrLf & _
+    If MsgBox("Are you sure you want to delete the sheet '" & roomSheet.Name & "'?" & vbCrLf & _
         "This action cannot be undone.", vbYesNo + vbExclamation, "Confirm Sheet Deletion") <> vbYes Then
         Application.StatusBar = "Deletion cancelled."
         Exit Sub
     End If
 
-    Call modRooms.RemoveRoom(wks)
+    Call modRooms.RemoveRoom(roomSheet)
 
     Exit Sub
-errHandler:
+ErrHandler:
     LogError "RemoveCurrentRoom", Err.Number, Erl
     MsgBox "Error " & Err.Number & " (" & Err.Description & ")", vbCritical, AppProjectName
 End Sub
@@ -457,31 +460,31 @@ End Sub
 ' Notes     : Requires room sheets to be discoverable via modRooms.HasRoomSheet.
 ' -----------------------------------------------------------------------------------
 Public Sub GotoRoomFromCell()
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
     
-    Dim strRoomID As String
-    Dim wb As Workbook: Set wb = ActiveWorkbook
-    Dim rngActCell As Range: Set rngActCell = ActiveCell
+    Dim roomId As String
+    Dim currentWorkbook As Workbook: Set currentWorkbook = ActiveWorkbook
+    Dim currentCell As Range: Set currentCell = ActiveCell
     
-    strRoomID = Trim$(CStr(rngActCell.Value))
-    If Len(strRoomID) = 0 Then
+    roomId = Trim$(CStr(currentCell.value))
+    If Len(roomId) = 0 Then
         MsgBox "No Room ID in the selected cell.", vbInformation, AppProjectName
         Exit Sub
     End If
     
-    Dim wks As Worksheet
-    If modRooms.HasRoomSheet(wb, strRoomID, wks) Then
-        Application.GoTo wks.Range("A1"), True
+    Dim roomSheet As Worksheet
+    If modRooms.HasRoomSheet(currentWorkbook, roomId, roomSheet) Then
+        Application.GoTo roomSheet.Range("A1"), True
         Exit Sub
     End If
     
-    MsgBox "Room '" & strRoomID & "' not found.", vbInformation, AppProjectName
+    MsgBox "Room '" & roomId & "' not found.", vbInformation, AppProjectName
     Exit Sub
 
-errHandler:
-    Dim lngErr As Long: lngErr = Err.Number
-    MsgBox "Error " & lngErr & " (" & Err.Description & ") in procedure GotoRoomFromCell, line " & Erl & ".", vbCritical, AppProjectName
-    LogError "GotoRoomFromCell", lngErr, Erl
+ErrHandler:
+    Dim errNo As Long: errNo = Err.Number
+    MsgBox "Error " & errNo & " (" & Err.Description & ") in procedure GotoRoomFromCell, line " & Erl & ".", vbCritical, AppProjectName
+    LogError "GotoRoomFromCell", errNo, Erl
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -490,9 +493,9 @@ End Sub
 '             is initialized (opens the log on first use).
 '
 ' Parameters:
-'   sNameFunc [String]   - Name of the procedure where the error occurred
-'   iErrNum   [Long]     - (Optional) VBA Err.Number
-'   iErrLine  [Integer]  - (Optional) Line number (Erl)
+'   procedureName [String]   - Name of the procedure where the error occurred
+'   ErrNo   [Long]     - (Optional) VBA Err.Number
+'   errLine  [Integer]  - (Optional) Line number (Erl)
 '
 ' Returns   : (none)
 '
@@ -500,13 +503,13 @@ End Sub
 '   - Safe to call in any error Handler block.
 '   - Calls OpenLog on demand; forwards to clsLog.WriteError.
 ' -----------------------------------------------------------------------------------
-Public Sub LogError(ByVal sNameFunc As String, Optional iErrNum As Long = -9999, Optional iErrLine As Integer = -1)
+Public Sub LogError(ByVal procedureName As String, Optional errNo As Long = -9999, Optional errLine As Integer = -1)
     On Error Resume Next
-    If m_objLog Is Nothing Then
+    If m_log Is Nothing Then
         Call OpenLog
     End If
     
-    m_objLog.WriteError sNameFunc, iErrNum, iErrLine
+    m_log.WriteError procedureName, errNo, errLine
     On Error GoTo 0
 End Sub
 
@@ -517,27 +520,24 @@ End Sub
 ' Purpose   : Enables application-level event handling by assigning the Excel
 '             Application object to the clsAppEvents instance.
 '
-' Parameters:
-'   (none)
-'
-' Returns   :
+' Params    : (none)
+' Returns   : Boolean - True on success; False on failure.
 '
 ' Notes     :
 '   - Requires a class module `clsAppEvents` exposing an `App` property (WithEvents).
-'   - Uses `On Error Resume Next`; shows a critical message box on failure
-'     ("Unable to enable application events.", title "RDD Add-In").
+'   - Logs an error and shows a critical message box on failure.
 '   - Keeps a private instance alive in this module.
 ' -----------------------------------------------------------------------------------
 Private Function ConnectEventHandler() As Boolean
 
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
     
-    If m_objAppEvents Is Nothing Then Set m_objAppEvents = New clsAppEvents
-    Set m_objAppEvents.App = Application
+    If m_appEvents Is Nothing Then Set m_appEvents = New clsAppEvents
+    Set m_appEvents.App = Application
     ConnectEventHandler = True
     Exit Function
     
-errHandler:
+ErrHandler:
     On Error Resume Next
     LogError "ConnectEventHandler", Err.Number, Erl
     
@@ -546,8 +546,8 @@ errHandler:
         vbOKOnly Or vbCritical, AppProjectName
            
     ' Ensure instance is detached/cleared on failure
-    If Not m_objAppEvents Is Nothing Then Set m_objAppEvents.App = Nothing
-    Set m_objAppEvents = Nothing
+    If Not m_appEvents Is Nothing Then Set m_appEvents.App = Nothing
+    Set m_appEvents = Nothing
 End Function
 
 ' -----------------------------------------------------------------------------------
@@ -555,10 +555,8 @@ End Function
 ' Purpose   : Disables application-level event handling by releasing the reference
 '             to the Excel Application object.
 '
-' Parameters:
-'   (none)
-'
-' Returns   :
+' Params    : (none)
+' Returns   : (none)
 '
 ' Notes     :
 '   - Safe to call multiple times; sets `AppEvents.App = Nothing`.
@@ -566,8 +564,8 @@ End Function
 ' -----------------------------------------------------------------------------------
 Private Sub DisconnectEventHandler()
     On Error Resume Next
-    If Not m_objAppEvents Is Nothing Then Set m_objAppEvents.App = Nothing
-    Set m_objAppEvents = Nothing
+    If Not m_appEvents Is Nothing Then Set m_appEvents.App = Nothing
+    Set m_appEvents = Nothing
     On Error GoTo 0
 End Sub
 
@@ -576,9 +574,7 @@ End Sub
 ' Purpose   : Creates the central logger instance and opens the log file with a
 '             standard header (project name + version).
 '
-' Parameters:
-'   (none)
-'
+' Params    : (none)
 ' Returns   : (none)
 '
 ' Notes     :
@@ -587,10 +583,10 @@ End Sub
 '   - Private helper intended to be called by startup or ShowLog.
 ' -----------------------------------------------------------------------------------
 Private Sub OpenLog()
-    Set m_objLog = New clsLog
-    m_objLog.PathLogFile = AppTempPath
-    m_objLog.LogFilename = AppProjectName & "_Log"
-    m_objLog.OpenLog AppProjectName & " " & AppVersion
+    Set m_log = New clsLog
+    m_log.LogFilePath = AppTempPath
+    m_log.LogFileName = AppProjectName & "_Log"
+    m_log.OpenLog AppProjectName & " " & AppVersion
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -603,6 +599,6 @@ End Sub
 Private Sub SetAppProjectName()
     On Error Resume Next
     Err.Raise 999
-    m_strAppProjectName = Err.Source
+    m_appProjectName = Err.Source
     On Error GoTo 0
 End Sub

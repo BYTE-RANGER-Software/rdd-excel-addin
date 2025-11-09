@@ -5,7 +5,7 @@ Option Private Module
 ' ==== Ribbon onLoad ====
 Sub RB75dd2c44_Ribbon_OnLoad(ribbon As IRibbonUI)
     Set clsState.RibbonUI = ribbon
-    Call InitCellCtxMnu
+    Call InitCellCtxMenu
 End Sub
 
 ' ============================================================================
@@ -186,7 +186,7 @@ End Sub
 
 Sub RB75dd2c44_btnDynCtxMnu1_getVisible(control As IRibbonControl, ByRef returnedVal)
     If clsState.CellCtxMenuType <> 0 Then
-    Call EnsureCellCtxMnuReady
+    Call EnsureCellCtxMenuReady
     returnedVal = True
     End If
 End Sub
@@ -208,7 +208,7 @@ End Sub
 
 Sub RB75dd2c44_btnDynCtxMnu2_getVisible(control As IRibbonControl, ByRef returnedVal)
     If clsState.CellCtxMenuType = CCM_Rooms Then
-        Call EnsureCellCtxMnuReady
+        Call EnsureCellCtxMenuReady
         returnedVal = True
     End If
 End Sub

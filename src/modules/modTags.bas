@@ -111,7 +111,7 @@ Public Function HasSheetTag(ByVal wks As Worksheet, ByVal strTagText As String, 
     If modProps.CustomPropertyExists(wks, TagPropName(strTagText), objCp) Then
         HasSheetTag = True
         On Error Resume Next
-        r_strValue = CStr(objCp.Value)
+        r_strValue = CStr(objCp.value)
         If Err.Number <> 0 Then
           
             LogError "HasSheetTag read value from " & strTagText & " failed on " & wks.Name, Err.Number
@@ -277,7 +277,7 @@ Public Function HasWorkbookTag(ByVal wb As Workbook, ByVal strTagText As String,
     If modProps.DocumentPropertyExists(wb, TagPropName(strTagText), objDp) Then
         HasWorkbookTag = True
         On Error Resume Next
-        r_strValue = CStr(objDp.Value)
+        r_strValue = CStr(objDp.value)
         If Err.Number <> 0 Then
           
             LogError "HasWorkbookTag read value from " & strTagText & " failed on " & wb.Name, Err.Number

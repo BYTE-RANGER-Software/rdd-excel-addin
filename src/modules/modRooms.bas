@@ -19,9 +19,9 @@ Option Private Module
 '             Room sheet with the next sequential ID, initializes it, and activates it.
 '
 ' Parameters:
-'   objActWb              [Workbook] - Target workbook.
+'   currentWorkbook              [Workbook] - Target workbook.
 '   strNewName            [String]   - Name for the new Room sheet (already computed).
-'   lngIdx                [Long]     - Numeric index used for the Room ID formatting
+'   Idx                [Long]     - Numeric index used for the Room ID formatting
 '   blnUpdateAggregations [Boolean]  - If True, UpdateLists is called after creation.
 '
 ' Returns   : new Room Worksheet
@@ -31,21 +31,21 @@ Option Private Module
 '   - Creates a new sheet from SHEET_ROOM_TEMPLATE and tags it with ROOM_SHEET_ID_TAG_NAME.
 '   - Calls SetupRoom to wire controls/values; toggles HideOpMode during operations.
 ' -----------------------------------------------------------------------------------
-Public Function AddRoom(ByVal objActWb As Workbook, ByRef strNewName As String, ByRef lngIdx As Long, Optional ByVal blnUpdateAggregations As Boolean = True) As Worksheet
-    On Error GoTo errHandler
+Public Function AddRoom(ByVal currentWorkbook As Workbook, ByRef strNewName As String, ByRef Idx As Long, Optional ByVal blnUpdateAggregations As Boolean = True) As Worksheet
+    On Error GoTo ErrHandler
 
     Dim wksTmpl As Worksheet
     Dim wksTarget As Worksheet
     
     modUtil.HideOpMode True
             
-    If Not modSheets.SheetCodeNameExists(modConst.SHEET_DISPATCHER, objActWb) And Not modTags.SheetWithTagExists(objActWb, SHEET_DISPATCHER) Then
+    If Not modSheets.SheetCodeNameExists(modConst.SHEET_DISPATCHER, currentWorkbook) And Not modTags.SheetWithTagExists(currentWorkbook, SHEET_DISPATCHER) Then
     
         Set wksTmpl = RDDAddInWkBk.Worksheets(modConst.SHEET_DISPATCHER)
         wksTmpl.Visible = xlSheetVisible
         
-        wksTmpl.Copy After:=objActWb.Sheets(objActWb.Sheets.Count)
-        Set wksTarget = ActiveSheet 'objActWb.Sheets(objActWb.Sheets.Count)
+        wksTmpl.Copy After:=currentWorkbook.Sheets(currentWorkbook.Sheets.Count)
+        Set wksTarget = ActiveSheet 'currentWorkbook.Sheets(currentWorkbook.Sheets.Count)
         
         wksTarget.Visible = xlSheetHidden
         wksTarget.Name = "DO_NOT_DELETE"
@@ -59,15 +59,15 @@ Public Function AddRoom(ByVal objActWb As Workbook, ByRef strNewName As String, 
     Set wksTmpl = RDDAddInWkBk.Worksheets(modConst.SHEET_ROOM_TEMPLATE)
     wksTmpl.Visible = xlSheetVisible
     
-    wksTmpl.Copy After:=objActWb.Sheets(objActWb.Sheets.Count)
-    Set wksTarget = ActiveSheet ' objActWb.Sheets(objActWb.Sheets.Count)
+    wksTmpl.Copy After:=currentWorkbook.Sheets(currentWorkbook.Sheets.Count)
+    Set wksTarget = ActiveSheet ' currentWorkbook.Sheets(currentWorkbook.Sheets.Count)
     
     wksTarget.Name = strNewName
     
     modProps.ClearAllCustomProperties wksTarget
-    modTags.TagSheet wksTarget, ROOM_SHEET_ID_TAG_NAME, GetFormattedRoomID(lngIdx)
+    modTags.TagSheet wksTarget, ROOM_SHEET_ID_TAG_NAME, GetFormattedRoomID(Idx)
     
-    SetupRoom wksTarget, lngIdx
+    SetupRoom wksTarget, Idx
     
     Set AddRoom = wksTarget
         
@@ -79,7 +79,7 @@ Public Function AddRoom(ByVal objActWb As Workbook, ByRef strNewName As String, 
     
     Exit Function
     
-errHandler:
+ErrHandler:
     LogError "AddRoom", Err.Number, Erl
     modUtil.HideOpMode False
 End Function
@@ -124,16 +124,16 @@ End Function
 Public Function RemoveRoom(ByVal wks As Worksheet, _
     Optional ByVal blnUpdateAggregations As Boolean = True, _
     Optional ByRef colReferencingSheets As Collection) As Boolean
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
 
     Dim wb As Workbook: Set wb = wks.Parent
-    Dim strRoomID As String
+    Dim roomId As String
 
     If wks Is Nothing Then
         Err.Raise vbObjectError + 513, "modRooms.RemoveRoom", "Argument 'wks' must not be Nothing."
     End If
     
-    If Not IsRoomSheet(wks, strRoomID) Then
+    If Not IsRoomSheet(wks, roomId) Then
         Err.Raise vbObjectError + 514, "modRooms.RemoveRoom", "The provided sheet is not a Room sheet."
     End If
     
@@ -143,7 +143,7 @@ Public Function RemoveRoom(ByVal wks As Worksheet, _
     
     ' Check references to the active room sheet in all other room sheets
     Dim colUsedIn As Collection
-    Set colUsedIn = GetAllSheetsUsingRoomID(strRoomID, dicRooms)
+    Set colUsedIn = GetAllSheetsUsingRoomID(roomId, dicRooms)
     If Not colUsedIn Is Nothing Then
         If colUsedIn.Count > 0 Then
             ' Hand result back to caller for UI, then raise a error
@@ -165,7 +165,7 @@ Public Function RemoveRoom(ByVal wks As Worksheet, _
     modUtil.HideOpMode False
     Exit Function
     
-errHandler:
+ErrHandler:
     LogError "RemoveRoom", Err.Number, Erl
 End Function
 
@@ -202,19 +202,19 @@ End Function
 '
 ' Parameters:
 '   wb       [Workbook]              - Workbook to scan.
-'   strRoomID[String]                - Room ID to search for (e.g., "R001").
+'   roomId[String]                - Room ID to search for (e.g., "R001").
 '   r_wks    [Worksheet]             - (Optional ByRef) Receives the first matching sheet if found.
 '
 ' Returns   : Boolean - True if found; otherwise False.
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Public Function HasRoomSheet(ByVal wb As Workbook, ByVal strRoomID As String, Optional ByRef r_wks As Worksheet = Nothing) As Boolean
+Public Function HasRoomSheet(ByVal wb As Workbook, ByVal roomId As String, Optional ByRef r_wks As Worksheet = Nothing) As Boolean
     Dim wks As Worksheet
     Dim strValue As String
     For Each wks In wb.Worksheets
         If modTags.HasSheetTag(wks, ROOM_SHEET_ID_TAG_NAME, strValue) Then
-            If StrComp(strRoomID, strValue, vbBinaryCompare) = 0 Then
+            If StrComp(roomId, strValue, vbBinaryCompare) = 0 Then
                 Set r_wks = wks
                 HasRoomSheet = True
                 Exit Function
@@ -237,35 +237,36 @@ End Function
 '   - Collects object names via named ranges (pickupable/multistate/touchable).
 ' -----------------------------------------------------------------------------------
 Public Sub UpdateLists()
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
     Dim dicRooms As Object: Set dicRooms = CreateObject("Scripting.Dictionary")
     Dim dicObjects As Object:  Set dicObjects = CreateObject("Scripting.Dictionary")
     Dim dicScenes As Object: Set dicScenes = CreateObject("Scripting.Dictionary")
     
-    Dim dicExisting As Object: Set dicExisting = CreateObject("Scripting.Dictionary")
+    Dim existingKeysDict As Object: Set existingKeysDict = CreateObject("Scripting.Dictionary")
     Dim wks As Worksheet
     Dim wbActive As Workbook
-    Dim strRoomID As String
+    Dim roomId As String
+    Dim dataList As ListObject
     
     Set wbActive = ActiveWorkbook
     
     For Each wks In wbActive.Worksheets
-        If modRooms.IsRoomSheet(wks, strRoomID) Then
+        If modRooms.IsRoomSheet(wks, roomId) Then
             ' Room ID
-            If Len(strRoomID) = 0 Then GoTo SkipWksIteration
-            If Len(strRoomID) > 0 Then dicRooms(strRoomID) = True
+            If Len(roomId) = 0 Then GoTo SkipWksIteration
+            If Len(roomId) > 0 Then dicRooms(roomId) = True
             
             ' Room Alias
             Dim strRoomAlias As String: strRoomAlias = modLists.GetNamedOrHeaderValue(wks, NAME_CELL_ROOM_ALIAS, Array("Room Alias", NAME_CELL_ROOM_ALIAS))
-            If Len(strRoomID) > 0 Then dicRooms(strRoomID) = strRoomAlias
+            If Len(roomId) > 0 Then dicRooms(roomId) = strRoomAlias
             
             ' Scene ID
             Dim strSceneId As String: strSceneId = modLists.GetNamedOrHeaderValue(wks, NAME_CELL_SCENE_ID, Array("Scene ID", NAME_CELL_SCENE_ID))
             If Len(strSceneId) > 0 Then dicScenes(strSceneId) = True
             
-            modLists.CollectNamedRangeValues wks, NAME_RANGE_PICKUPABLE_OBJ, dicObjects
-            modLists.CollectNamedRangeValues wks, NAME_RANGE_MULTISTATE_OBJ, dicObjects
-            modLists.CollectNamedRangeValues wks, NAME_RANGE_TOUCHABLE_OBJ, dicObjects
+            modLists.CollectNamedRangeValues wks, NAME_RANGE_PICKUPABLE_OBJECTS_ITEM_ID, dicObjects
+            modLists.CollectNamedRangeValues wks, NAME_RANGE_MULTI_STATE_OBJECTS_STATE_ID, dicObjects
+            modLists.CollectNamedRangeValues wks, NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID, dicObjects
             
         End If
 SkipWksIteration:
@@ -276,34 +277,27 @@ SkipWksIteration:
     If wksLists Is Nothing Then: Set wksLists = modTags.GetSheetByTag(wbActive, SHEET_DISPATCHER)
     
     If Not wksLists Is Nothing Then
-
-        wksLists.Columns(LISTS_COL_ROOM_ID).Clear
-        wksLists.Columns(LISTS_COL_ROOM_ALIAS).Clear
         
-        wksLists.Cells(1, LISTS_COL_ROOM_ID).Value = LISTS_HEADER_ROOM_ID
-        wksLists.Cells(1, LISTS_COL_ROOM_ALIAS).Value = LISTS_HEADER_ROOM_ALIAS
-        wksLists.Cells(1, LISTS_COL_OBJECTS).Value = LISTS_HEADER_OBJECTS
-        wksLists.Cells(1, LISTS_COL_SCENE_ID).Value = LISTS_HEADER_SCENE_ID
-        wksLists.Range("A1:ZZ1").Font.Bold = True
-    
-        ' Write Room IDs sorted, must always be rewritten, as it is related to the room pages
-        modLists.WriteDictSetToColumn wksLists, dicRooms, 2, LISTS_COL_ROOM_ID, True
+        ' Room IDs
+        Set dataList = wksLists.ListObjects(NAME_DATA_TABLE)
+        modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_ID
+        modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_ALIAS
         
+        ' Write Room IDs & Room Alias sorted, must always be rewritten, as it is related to the room pages
+        modLists.WriteDictSetToTableColumn dataList, LISTS_HEADER_ROOM_ID, dicRooms, True
+           
         ' Append only missing Object names
-        modLists.CollectColumnValues wksLists, Array(LISTS_HEADER_OBJECTS), dicExisting
-        modLists.AppendMissingDictKeysToColumn wksLists, LISTS_COL_OBJECTS, dicExisting, dicObjects
+        modLists.CollectTableColumnValues dataList, LISTS_HEADER_OBJECTS, existingKeysDict
+        modLists.AppendMissingDictKeysToTableColumn dataList, LISTS_HEADER_OBJECTS, existingKeysDict, dicObjects
         
         ' Append only missing Scene IDs
-        modLists.CollectColumnValues wksLists, Array(LISTS_HEADER_SCENE_ID), dicExisting
-        modLists.AppendMissingDictKeysToColumn wksLists, LISTS_COL_SCENE_ID, dicExisting, dicScenes
-    
-        modLists.UpdateNamedListRange NAME_LIST_ROOM_IDS, wksLists, LISTS_COL_ROOM_ID
-        modLists.UpdateNamedListRange NAME_LIST_OBJECTS, wksLists, LISTS_COL_OBJECTS
-        modLists.UpdateNamedListRange NAME_LIST_SCENE_IDS, wksLists, LISTS_COL_SCENE_ID
+        modLists.CollectTableColumnValues dataList, LISTS_HEADER_SCENE_ID, existingKeysDict
+        modLists.AppendMissingDictKeysToTableColumn dataList, LISTS_HEADER_SCENE_ID, existingKeysDict, dicScenes
+
     End If
     Exit Sub
     
-errHandler:
+ErrHandler:
     LogError "UpdateLists", Err.Number, Erl
 End Sub
 
@@ -322,33 +316,33 @@ End Sub
 '   - Room Alias is written alongside Room ID (dictionary value).
 ' -----------------------------------------------------------------------------------
 Public Sub SyncLists()
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
     Dim dicRooms As Object:   Set dicRooms = CreateObject("Scripting.Dictionary")
     Dim dicObjects As Object: Set dicObjects = CreateObject("Scripting.Dictionary")
     Dim dicScenes As Object:  Set dicScenes = CreateObject("Scripting.Dictionary")
     
     Dim wks As Worksheet
     Dim wbActive As Workbook
-    Dim strRoomID As String
+    Dim roomId As String
     
     Set wbActive = ActiveWorkbook
     ' collect datas
     For Each wks In wbActive.Worksheets
-        If modRooms.IsRoomSheet(wks, strRoomID) Then
-            If Len(strRoomID) = 0 Then GoTo SkipWksIteration
-            If Len(strRoomID) > 0 Then dicRooms(strRoomID) = True
+        If modRooms.IsRoomSheet(wks, roomId) Then
+            If Len(roomId) = 0 Then GoTo SkipWksIteration
+            If Len(roomId) > 0 Then dicRooms(roomId) = True
             
             ' Room Alias
             Dim strRoomAlias As String: strRoomAlias = modLists.GetNamedOrHeaderValue(wks, NAME_CELL_ROOM_ALIAS, Array("Room Alias", NAME_CELL_ROOM_ALIAS))
-            If Len(strRoomID) > 0 Then dicRooms(strRoomID) = strRoomAlias
+            If Len(roomId) > 0 Then dicRooms(roomId) = strRoomAlias
             
             Dim strSceneId As String
             strSceneId = modLists.GetNamedOrHeaderValue(wks, NAME_CELL_SCENE_ID, Array("Scene ID", NAME_CELL_SCENE_ID))
             If Len(strSceneId) > 0 Then dicScenes(strSceneId) = True
             
-            modLists.CollectNamedRangeValues wks, NAME_RANGE_PICKUPABLE_OBJ, dicObjects
-            modLists.CollectNamedRangeValues wks, NAME_RANGE_MULTISTATE_OBJ, dicObjects
-            modLists.CollectNamedRangeValues wks, NAME_RANGE_TOUCHABLE_OBJ, dicObjects
+            modLists.CollectNamedRangeValues wks, NAME_RANGE_PICKUPABLE_OBJECTS_ITEM_ID, dicObjects
+            modLists.CollectNamedRangeValues wks, NAME_RANGE_MULTI_STATE_OBJECTS_STATE_ID, dicObjects
+            modLists.CollectNamedRangeValues wks, NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID, dicObjects
         End If
 SkipWksIteration:
     Next wks
@@ -365,10 +359,10 @@ SkipWksIteration:
         wksLists.Columns(LISTS_COL_OBJECTS).Clear     ' Objects
         
         ' Headers
-        wksLists.Cells(1, LISTS_COL_ROOM_ID).Value = LISTS_HEADER_ROOM_ID
-        wksLists.Cells(1, LISTS_COL_ROOM_ALIAS).Value = LISTS_HEADER_ROOM_ALIAS
-        wksLists.Cells(1, LISTS_COL_OBJECTS).Value = LISTS_HEADER_OBJECTS
-        wksLists.Cells(1, LISTS_COL_SCENE_ID).Value = LISTS_HEADER_SCENE_ID
+        wksLists.Cells(1, LISTS_COL_ROOM_ID).value = LISTS_HEADER_ROOM_ID
+        wksLists.Cells(1, LISTS_COL_ROOM_ALIAS).value = LISTS_HEADER_ROOM_ALIAS
+        wksLists.Cells(1, LISTS_COL_OBJECTS).value = LISTS_HEADER_OBJECTS
+        wksLists.Cells(1, LISTS_COL_SCENE_ID).value = LISTS_HEADER_SCENE_ID
         wksLists.Range("A1:ZZ1").Font.Bold = True
     
         ' Write sorted values
@@ -384,7 +378,7 @@ SkipWksIteration:
     
     Exit Sub
     
-errHandler:
+ErrHandler:
     LogError "UpdateLists", Err.Number, Erl
 End Sub
 
@@ -393,14 +387,14 @@ End Sub
 ' Purpose   : Build a formatted Room ID from the numeric index using a prefix.
 '
 ' Parameters:
-'   lngIdx [Long] - Numeric index.
+'   Idx [Long] - Numeric index.
 '
 ' Returns   : String - e.g., R001 (depends on ROOM_SHEET_ID_TAG_VAL_PRE).
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Public Function GetFormattedRoomID(ByVal lngIdx As Long) As String
-    GetFormattedRoomID = ROOM_SHEET_ID_TAG_VAL_PRE & Format(lngIdx, "000")
+Public Function GetFormattedRoomID(ByVal Idx As Long) As String
+    GetFormattedRoomID = ROOM_SHEET_ID_TAG_VAL_PRE & Format(Idx, "000")
 End Function
 
 ' -----------------------------------------------------------------------------------
@@ -413,7 +407,7 @@ End Function
 ' Returns   : (none)
 ' -----------------------------------------------------------------------------------
 Public Sub ApplyParallaxRangeCover(wks As Worksheet)
-    modRangeCover.EnsureRangeCover wks, wks.Range(NAME_RANGE_ADD_PARALLAX), ROOM_ADD_PARALLAX_SET_COVER_NAME
+    modRangeCover.EnsureRangeCover wks, wks.Range(NAME_RANGE_ADD_PARALLAX_SET_WITH_HEADER), ROOM_ADD_PARALLAX_SET_COVER_NAME
     modRangeCover.ApplyCoverVisibilityByDropdown wks, NAME_CELL_PARALLAX, ROOM_ADD_PARALLAX_SET_HIDE_TOKEN, ROOM_ADD_PARALLAX_SET_COVER_NAME
 End Sub
 
@@ -426,21 +420,21 @@ End Sub
 '
 ' Parameters:
 '   wks       [Worksheet]  - Target Room worksheet to initialize.
-'   lngIdx    [Long]       - Numeric index used to format the Room ID cell value.
+'   Idx    [Long]       - Numeric index used to format the Room ID cell value.
 '
 ' Returns   : none
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Private Sub SetupRoom(wks As Worksheet, ByVal lngIdx As Long)
+Private Sub SetupRoom(wks As Worksheet, ByVal Idx As Long)
     Dim shpBtn As Shape
     Dim wksDisp As Worksheet
     Dim rngData As Range
     
     'Set 'RoomID' named cell on the template
-    wks.Range(modConst.NAME_CELL_ROOM_ID).Value = GetFormattedRoomID(lngIdx)
+    wks.Range(modConst.NAME_CELL_ROOM_ID).value = GetFormattedRoomID(Idx)
     'Set 'RoomAlias" named Cell on the Template
-    wks.Range(modConst.NAME_CELL_ROOM_ALIAS).Value = "r_" & GetCleanRoomAlias(wks.Name)
+    wks.Range(modConst.NAME_CELL_ROOM_ALIAS).value = "r_" & GetCleanRoomAlias(wks.Name)
     
     ' remove wrong links
     Dim nm As Name
@@ -458,7 +452,7 @@ Private Sub SetupRoom(wks As Worksheet, ByVal lngIdx As Long)
     ' Add data validations
     
     ' Type
-    Set rngData = wks.Range(NAME_RANGE_PUZZLES_TYPE)
+    Set rngData = wks.Range(NAME_RANGE_PUZZLES_ACTION)
     ApplyListValidation rngData, NAME_LIST_PUZZLE_TYPES, "Type", "Choose a type from the list."
 
     
@@ -477,9 +471,9 @@ End Sub
 '
 ' Returns   : (none)
 ' -----------------------------------------------------------------------------------
-Private Sub ApplyListValidation(ByVal target As Range, ByVal nameRef As String, _
+Private Sub ApplyListValidation(ByVal Target As Range, ByVal nameRef As String, _
                                 ByVal title As String, ByVal msg As String)
-    With target.Validation
+    With Target.Validation
         .Delete
         .Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, Operator:=xlBetween, Formula1:="=" & nameRef
         .IgnoreBlank = True
@@ -498,15 +492,15 @@ End Sub
 '             "RoomID" column of the "PUZZLES" area.
 '
 ' Parameters:
-'   strRoomID  [String]  - Room sheet id to search for.
+'   roomId  [String]  - Room sheet id to search for.
 '   dicRooms   [Object]  - Dictionary of Room worksheets to inspect (values = Worksheet).
 '
-' Returns   : Collection - Sheet names that reference strRoomID.
+' Returns   : Collection - Sheet names that reference roomId.
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Private Function GetAllSheetsUsingRoomID(ByVal strRoomID As String, ByVal dicRooms As Object) As Collection
-    ' Returns a collection of sheet names that reference strRoomID
+Private Function GetAllSheetsUsingRoomID(ByVal roomId As String, ByVal dicRooms As Object) As Collection
+    ' Returns a collection of sheet names that reference roomId
     Dim col As New Collection
     Dim vKey As Variant, wks As Worksheet
     Dim rng As Range
@@ -515,9 +509,9 @@ Private Function GetAllSheetsUsingRoomID(ByVal strRoomID As String, ByVal dicRoo
         Set wks = dicRooms(vKey)
         
         ' Framed area "DOORS TO..."
-        Set rng = wks.Range(NAME_RANGE_DOORS_TO) 'FindFramedRangeByHeading(wks, "DOORS TO", False)
+        Set rng = wks.Range(NAME_RANGE_DOORS_TO_ROOM_ID) 'FindFramedRangeByHeading(wks, "DOORS TO", False)
         If Not rng Is Nothing Then
-            If modRanges.RangeHasValue(rng, strRoomID, True, False) Then
+            If modRanges.RangeHasValue(rng, roomId, True, False) Then
                 col.Add wks.Name
                 GoTo NextSheet
             End If

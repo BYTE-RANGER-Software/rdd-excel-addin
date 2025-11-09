@@ -38,7 +38,7 @@ Private Sub App_SheetActivate(ByVal Sh As Object)
     clsState.InvalidateRibbon
 End Sub
 
-Private Sub App_SheetChange(ByVal Sh As Object, ByVal target As Range)
+Private Sub App_SheetChange(ByVal Sh As Object, ByVal Target As Range)
     Dim wb As Workbook: Set wb = Sh.Parent
     Dim wks As Worksheet: Set wks = Sh
     
@@ -50,7 +50,7 @@ Private Sub App_SheetChange(ByVal Sh As Object, ByVal target As Range)
             ' Only set the change flag if a room sheet has been changed.
             If modTags.HasSheetTag(wks, ROOM_SHEET_ID_TAG_NAME) Then
                 clsState.RoomSheetChanged = True
-                If Not Intersect(target, wks.Range(NAME_CELL_PARALLAX)) Is Nothing Then
+                If Not Intersect(Target, wks.Range(NAME_CELL_PARALLAX)) Is Nothing Then
                     modRooms.ApplyParallaxRangeCover wks
                 End If
             End If
@@ -58,17 +58,16 @@ Private Sub App_SheetChange(ByVal Sh As Object, ByVal target As Range)
     End If
 End Sub
 
-Private Sub App_SheetBeforeRightClick(ByVal Sh As Object, ByVal target As Range, Cancel As Boolean)
+Private Sub App_SheetBeforeRightClick(ByVal Sh As Object, ByVal Target As Range, Cancel As Boolean)
     Debug.Print "App_SheetBeforeRightClick()"
     clsState.CellCtxMnuNeedsPrepare = True
 
-    EvaluateCellCtxMnu Sh, target
+    EvaluateCellCtxMenu Sh, Target
   
     clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu1"
     clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu2"
     
 End Sub
-
 
 
 Private Sub App_WorkbookBeforeSave(ByVal wb As Workbook, ByVal SaveAsUI As Boolean, Cancel As Boolean)
@@ -78,5 +77,4 @@ Private Sub App_WorkbookBeforeSave(ByVal wb As Workbook, ByVal SaveAsUI As Boole
 
     End If
 End Sub
-
 

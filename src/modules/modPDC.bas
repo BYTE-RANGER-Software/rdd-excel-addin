@@ -43,9 +43,9 @@ Sub GeneratePuzzleChart()
     dblX = 100: dblY = 100
 
     For lngRow = 2 To lngLastRow ' ab Zeile 2 (Überschrift)
-        strNodeId = wksData.Cells(lngRow, 1).Value
-        strNodeName = wksData.Cells(lngRow, 2).Value
-        strNodeType = wksData.Cells(lngRow, 3).Value
+        strNodeId = wksData.Cells(lngRow, 1).value
+        strNodeName = wksData.Cells(lngRow, 2).value
+        strNodeType = wksData.Cells(lngRow, 3).value
 
         Set shp = wksChart.Shapes.AddShape(msoShapeRoundedRectangle, dblX, dblY, 120, 40)
         shp.TextFrame.Characters.Text = strNodeName
@@ -64,8 +64,8 @@ Sub GeneratePuzzleChart()
     ' Verbindungen zeichnen
     lngLastRow = wksData.Cells(wksData.Rows.Count, 5).End(xlUp).Row
     For lngRow = 2 To lngLastRow
-        strFromId = wksData.Cells(lngRow, 5).Value
-        strToId = wksData.Cells(lngRow, 6).Value
+        strFromId = wksData.Cells(lngRow, 5).value
+        strToId = wksData.Cells(lngRow, 6).value
 
         Set shpFrom = dicNodes(strFromId)
         Set shpTo = dicNodes(strToId)
@@ -108,9 +108,9 @@ Sub UpdatePuzzleChart()
     ' 1. Update texts & colors
     lngLastRow = wksData.Cells(wksData.Rows.Count, 1).End(xlUp).Row
     For lngRow = 2 To lngLastRow
-        strNodeId = wksData.Cells(lngRow, 1).Value
-        strNodeName = wksData.Cells(lngRow, 2).Value
-        strNodeType = wksData.Cells(lngRow, 3).Value
+        strNodeId = wksData.Cells(lngRow, 1).value
+        strNodeName = wksData.Cells(lngRow, 2).value
+        strNodeType = wksData.Cells(lngRow, 3).value
 
         On Error Resume Next
         Set shp = wksChart.Shapes(strNodeId)
@@ -133,8 +133,8 @@ Sub UpdatePuzzleChart()
     ' 3. Draw new connections according to From/To
     lngLastRow = wksData.Cells(wksData.Rows.Count, 5).End(xlUp).Row
     For lngRow = 2 To lngLastRow
-        strFromId = wksData.Cells(lngRow, 5).Value
-        strToId = wksData.Cells(lngRow, 6).Value
+        strFromId = wksData.Cells(lngRow, 5).value
+        strToId = wksData.Cells(lngRow, 6).value
 
         On Error Resume Next
         Set shpFrom = wksChart.Shapes(strFromId)
@@ -206,9 +206,9 @@ Sub SyncPuzzleChart()
     ' 3. Process all nodes from table
     lngLastRow = wksData.Cells(wksData.Rows.Count, 1).End(xlUp).Row
     For lngRow = 2 To lngLastRow
-        strNodeId = Trim(wksData.Cells(lngRow, 1).Value)
-        strNodeName = wksData.Cells(lngRow, 2).Value
-        strNodeType = wksData.Cells(lngRow, 3).Value
+        strNodeId = Trim(wksData.Cells(lngRow, 1).value)
+        strNodeName = wksData.Cells(lngRow, 2).value
+        strNodeType = wksData.Cells(lngRow, 3).value
 
         If dicNodes.Exists(strNodeId) Then
             ' Vorhandene Shape ? aktualisieren
@@ -247,8 +247,8 @@ Sub SyncPuzzleChart()
     ' 5. Neue Verbindungen zeichnen
     lngLastRow = wksData.Cells(wksData.Rows.Count, 5).End(xlUp).Row
     For lngRow = 2 To lngLastRow
-        strFromId = Trim(wksData.Cells(lngRow, 5).Value)
-        strToId = Trim(wksData.Cells(lngRow, 6).Value)
+        strFromId = Trim(wksData.Cells(lngRow, 5).value)
+        strToId = Trim(wksData.Cells(lngRow, 6).value)
 
         If dicNodes.Exists(strFromId) And dicNodes.Exists(strToId) Then
             Set shpFrom = dicNodes(strFromId)
@@ -319,33 +319,33 @@ Public Sub BuildPdcData()
         If Left$(wks.Name, 4) = "Room" Then
             Dim rngHeader As Range: Set rngHeader = LocatePuzzleTable(wks) ' finds header row by signature
             If Not rngHeader Is Nothing Then
-                Dim lngLastRow As Long: lngLastRow = wks.Cells(wks.Rows.Count, rngHeader.Column).End(xlUp).Row
+                Dim lngLastRow As Long: lngLastRow = wks.Cells(wks.Rows.Count, rngHeader.column).End(xlUp).Row
                 Dim dicCols As Object: Set dicCols = MapColumns(wks.Rows(rngHeader.Row))
                 Dim lngRow As Long
                 For lngRow = rngHeader.Row + 1 To lngLastRow
-                    Dim strToId As String: strToId = Trim$(CStr(wks.Cells(lngRow, dicCols("PuzzleID")).Value))
+                    Dim strToId As String: strToId = Trim$(CStr(wks.Cells(lngRow, dicCols("PuzzleID")).value))
                     If Len(strToId) = 0 Then GoTo NextRR
-                    Dim strDep As String: strDep = CStr(wks.Cells(lngRow, dicCols("DependsOn")).Value)
-                    Dim strTyp As String: strTyp = CStr(wks.Cells(lngRow, dicCols("Typ")).Value)
-                    Dim strCond As String: strCond = CStr(wks.Cells(lngRow, dicCols("ErfordertItem")).Value)
-                    Dim strNote As String: strNote = CStr(wks.Cells(lngRow, dicCols("Notes")).Value)
-                    Dim astrDepParts() As String, lngIdx As Long
+                    Dim strDep As String: strDep = CStr(wks.Cells(lngRow, dicCols("DependsOn")).value)
+                    Dim strTyp As String: strTyp = CStr(wks.Cells(lngRow, dicCols("Typ")).value)
+                    Dim strCond As String: strCond = CStr(wks.Cells(lngRow, dicCols("ErfordertItem")).value)
+                    Dim strNote As String: strNote = CStr(wks.Cells(lngRow, dicCols("Notes")).value)
+                    Dim astrDepParts() As String, Idx As Long
                     If Len(Trim$(strDep)) = 0 Then
                         ' orphan, still emit node info via empty From if you like
                     Else
                         astrDepParts = Split(strDep, ",")
-                        For lngIdx = LBound(astrDepParts) To UBound(astrDepParts)
-                            Dim strFromId As String: strFromId = Trim$(astrDepParts(lngIdx))
+                        For Idx = LBound(astrDepParts) To UBound(astrDepParts)
+                            Dim strFromId As String: strFromId = Trim$(astrDepParts(Idx))
                             If Len(strFromId) > 0 Then
-                                wksTarget.Cells(lngRowOut, 1).Value = lngRowOut - 1
-                                wksTarget.Cells(lngRowOut, 2).Value = strFromId
-                                wksTarget.Cells(lngRowOut, 3).Value = strToId
-                                wksTarget.Cells(lngRowOut, 4).Value = IIf(Len(strTyp) > 0, strTyp, "requires")
-                                wksTarget.Cells(lngRowOut, 5).Value = strCond
-                                wksTarget.Cells(lngRowOut, 6).Value = strNote
+                                wksTarget.Cells(lngRowOut, 1).value = lngRowOut - 1
+                                wksTarget.Cells(lngRowOut, 2).value = strFromId
+                                wksTarget.Cells(lngRowOut, 3).value = strToId
+                                wksTarget.Cells(lngRowOut, 4).value = IIf(Len(strTyp) > 0, strTyp, "requires")
+                                wksTarget.Cells(lngRowOut, 5).value = strCond
+                                wksTarget.Cells(lngRowOut, 6).value = strNote
                                 lngRowOut = lngRowOut + 1
                             End If
-                        Next lngIdx
+                        Next Idx
                     End If
 NextRR:
                 Next lngRow
@@ -370,13 +370,13 @@ End Sub
 Private Function LocatePuzzleTable(wks As Worksheet) As Range
     ' Finds the header row by required column names
     Dim vntFindSet As Variant: vntFindSet = Array("PuzzleID", "DependsOn", "Typ")
-    Dim lngRow As Long, lngCol As Long, lngHits As Long
+    Dim lngRow As Long, columnIdx As Long, lngHits As Long
     For lngRow = 1 To 50
         lngHits = 0
-        For lngCol = 1 To 50
-            Dim strVal As String: strVal = CStr(wks.Cells(lngRow, lngCol).Value)
+        For columnIdx = 1 To 50
+            Dim strVal As String: strVal = CStr(wks.Cells(lngRow, columnIdx).value)
             If UBound(Filter(vntFindSet, strVal, True, vbTextCompare)) >= 0 Then lngHits = lngHits + 1
-        Next lngCol
+        Next columnIdx
         If lngHits >= 2 Then
             Set LocatePuzzleTable = wks.Cells(lngRow, 1)
             Exit Function
@@ -400,13 +400,13 @@ End Function
 Private Function MapColumns(rngHdrRow As Range) As Object
     ' Returns dictionary of column name to column index
     Dim dicMap As Object: Set dicMap = CreateObject("Scripting.Dictionary")
-    Dim lngCol As Long
-    For lngCol = rngHdrRow.Column To rngHdrRow.Column + 50
-        Dim strName As String: strName = CStr(rngHdrRow.Parent.Cells(rngHdrRow.Row, lngCol).Value)
+    Dim columnIdx As Long
+    For columnIdx = rngHdrRow.column To rngHdrRow.column + 50
+        Dim strName As String: strName = CStr(rngHdrRow.Parent.Cells(rngHdrRow.Row, columnIdx).value)
         If Len(strName) > 0 Then
-            dicMap(Trim$(strName)) = lngCol
+            dicMap(Trim$(strName)) = columnIdx
         End If
-    Next lngCol
+    Next columnIdx
     Set MapColumns = dicMap
 End Function
 
@@ -426,7 +426,7 @@ End Function
 Private Sub WriteHeaders(wks As Worksheet, vntHeaders As Variant)
     Dim lngIndex As Long
     For lngIndex = LBound(vntHeaders) To UBound(vntHeaders)
-        wks.Cells(1, 1 + lngIndex).Value = vntHeaders(lngIndex)
+        wks.Cells(1, 1 + lngIndex).value = vntHeaders(lngIndex)
         wks.Cells(1, 1 + lngIndex).Font.Bold = True
     Next lngIndex
 End Sub
@@ -462,14 +462,14 @@ Public Sub ValidateModel()
             Dim rngHeader As Range: Set rngHeader = LocatePuzzleTable(wks)
             If Not rngHeader Is Nothing Then
                 Dim lngRow As Long, lngLastRow As Long
-                lngLastRow = wks.Cells(wks.Rows.Count, rngHeader.Column).End(xlUp).Row
+                lngLastRow = wks.Cells(wks.Rows.Count, rngHeader.column).End(xlUp).Row
                 Dim dicCols As Object: Set dicCols = MapColumns(wks.Rows(rngHeader.Row))
                 For lngRow = rngHeader.Row + 1 To lngLastRow
-                    Dim strID As String: strID = Trim$(CStr(wks.Cells(lngRow, dicCols("PuzzleID")).Value))
+                    Dim strID As String: strID = Trim$(CStr(wks.Cells(lngRow, dicCols("PuzzleID")).value))
                     If Len(strID) > 0 Then
                         If dicIds.Exists(strID) Then
-                            wksIssues.Cells(lngRowOut, 1).Value = "Duplicate"
-                            wksIssues.Cells(lngRowOut, 2).Value = "PuzzleID appears multiple times: " & strID
+                            wksIssues.Cells(lngRowOut, 1).value = "Duplicate"
+                            wksIssues.Cells(lngRowOut, 2).value = "PuzzleID appears multiple times: " & strID
                             lngRowOut = lngRowOut + 1
                         Else
                             dicIds(strID) = True
@@ -485,16 +485,16 @@ Public Sub ValidateModel()
     Dim lngLast As Long: lngLast = wksData.Cells(wksData.Rows.Count, 1).End(xlUp).Row
     Dim lngIndex As Long
     For lngIndex = 2 To lngLast
-        Dim strFrom As String: strFrom = Trim$(CStr(wksData.Cells(lngIndex, 2).Value))
-        Dim strTo As String: strTo = Trim$(CStr(wksData.Cells(lngIndex, 3).Value))
+        Dim strFrom As String: strFrom = Trim$(CStr(wksData.Cells(lngIndex, 2).value))
+        Dim strTo As String: strTo = Trim$(CStr(wksData.Cells(lngIndex, 3).value))
         If Len(strFrom) > 0 And Not dicIds.Exists(strFrom) Then
-            wksIssues.Cells(lngRowOut, 1).Value = "MissingRef"
-            wksIssues.Cells(lngRowOut, 2).Value = "From not found: " & strFrom
+            wksIssues.Cells(lngRowOut, 1).value = "MissingRef"
+            wksIssues.Cells(lngRowOut, 2).value = "From not found: " & strFrom
             lngRowOut = lngRowOut + 1
         End If
         If Len(strTo) > 0 And Not dicIds.Exists(strTo) Then
-            wksIssues.Cells(lngRowOut, 1).Value = "MissingRef"
-            wksIssues.Cells(lngRowOut, 2).Value = "To not found: " & strTo
+            wksIssues.Cells(lngRowOut, 1).value = "MissingRef"
+            wksIssues.Cells(lngRowOut, 2).value = "To not found: " & strTo
             lngRowOut = lngRowOut + 1
         End If
     Next lngIndex

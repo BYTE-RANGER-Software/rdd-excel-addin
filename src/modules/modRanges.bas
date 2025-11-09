@@ -34,11 +34,11 @@ Public Function FindFramedRangeByHeading(wks As Worksheet, strHeading As String,
                                          Optional blnMatchWhole As Boolean = True, _
                                          Optional ByVal blnWithoutHeader As Boolean = True) As Range
     Dim rngFound As Range, lngTopRow As Long, lngBottomRow As Long
-    Dim lngLeftCol As Long, lngRightCol As Long, lngRow As Long, lngCol As Long
+    Dim lngLeftCol As Long, lngRightCol As Long, lngRow As Long, columnIdx As Long
     Dim enuLookAtMode As XlLookAt
     enuLookAtMode = IIf(blnMatchWhole, xlWhole, xlPart)
     
-    Set rngFound = wks.Cells.Find(What:=strHeading, LookIn:=xlValues, lookat:=enuLookAtMode, _
+    Set rngFound = wks.Cells.Find(What:=strHeading, LookIn:=xlValues, LookAt:=enuLookAtMode, _
                                   MatchCase:=False, SearchOrder:=xlByRows, SearchDirection:=xlNext)
     If rngFound Is Nothing Then Exit Function
     
@@ -46,27 +46,27 @@ Public Function FindFramedRangeByHeading(wks As Worksheet, strHeading As String,
     If rngFound.MergeCells Then Set rngFound = rngFound.MergeArea.Cells(1, 1)
     
     ' Find left edge: move left until a left border exists
-    lngCol = rngFound.Column
-    Do While lngCol > 1 And Not CellHasBorder(wks.Cells(rngFound.Row, lngCol), xlEdgeLeft)
-        lngCol = lngCol - 1
+    columnIdx = rngFound.column
+    Do While columnIdx > 1 And Not CellHasBorder(wks.Cells(rngFound.Row, columnIdx), xlEdgeLeft)
+        columnIdx = columnIdx - 1
     Loop
-    If Not CellHasBorder(wks.Cells(rngFound.Row, lngCol), xlEdgeLeft) Then Exit Function
-    lngLeftCol = lngCol
+    If Not CellHasBorder(wks.Cells(rngFound.Row, columnIdx), xlEdgeLeft) Then Exit Function
+    lngLeftCol = columnIdx
     
     ' Find right edge: move right until a right border exists
-    lngCol = rngFound.Column
-    Do While lngCol < wks.Columns.Count And Not CellHasBorder(wks.Cells(rngFound.Row, lngCol), xlEdgeRight)
-        lngCol = lngCol + 1
+    columnIdx = rngFound.column
+    Do While columnIdx < wks.Columns.Count And Not CellHasBorder(wks.Cells(rngFound.Row, columnIdx), xlEdgeRight)
+        columnIdx = columnIdx + 1
     Loop
-    If Not CellHasBorder(wks.Cells(rngFound.Row, lngCol), xlEdgeRight) Then Exit Function
-    lngRightCol = lngCol
+    If Not CellHasBorder(wks.Cells(rngFound.Row, columnIdx), xlEdgeRight) Then Exit Function
+    lngRightCol = columnIdx
     
     ' Find top edge: move up until a top border exists
     lngRow = rngFound.Row
-    Do While lngRow > 1 And Not CellHasBorder(wks.Cells(lngRow, rngFound.Column), xlEdgeTop)
+    Do While lngRow > 1 And Not CellHasBorder(wks.Cells(lngRow, rngFound.column), xlEdgeTop)
         lngRow = lngRow - 1
     Loop
-    If Not CellHasBorder(wks.Cells(lngRow, rngFound.Column), xlEdgeTop) Then Exit Function
+    If Not CellHasBorder(wks.Cells(lngRow, rngFound.column), xlEdgeTop) Then Exit Function
     lngTopRow = lngRow
     
     ' Find bottom edge: scan down until BOTH left & right edge cells have bottom borders
@@ -115,12 +115,12 @@ Public Function GetColumnRangeByHeader( _
     Dim eLook As XlLookAt: eLook = IIf(blnMatchWhole, xlWhole, xlPart)
     
     ' Locate the header cell
-    Set rngHeader = ws.Cells.Find(What:=strHeader, LookIn:=xlValues, lookat:=eLook, _
+    Set rngHeader = ws.Cells.Find(What:=strHeader, LookIn:=xlValues, LookAt:=eLook, _
                                   MatchCase:=False, SearchOrder:=xlByRows, SearchDirection:=xlNext)
     If rngHeader Is Nothing Then Exit Function
     If rngHeader.MergeCells Then Set rngHeader = rngHeader.MergeArea.Cells(1, 1)
     
-    lCol = rngHeader.Column
+    lCol = rngHeader.column
     
     ' Scan down until a strong bottom border is found
     For lRow = rngHeader.Row To ws.Rows.Count
@@ -212,7 +212,7 @@ Public Function RangeHasValue( _
         Optional ByVal blnCaseSensitive As Boolean = False _
     ) As Boolean
 
-    On Error GoTo errHandler
+    On Error GoTo ErrHandler
 
     If rngSearch Is Nothing Then Exit Function
 
@@ -242,7 +242,7 @@ Public Function RangeHasValue( _
     End If
 
     Exit Function
-errHandler:
+ErrHandler:
     RangeHasValue = False
     Err.Clear
 End Function
@@ -343,5 +343,11 @@ Private Function CellMatches(ByVal vCell As Variant, ByVal vTarget As Variant, _
                 CellMatches = (InStr(1, CStr(vCell), CStr(vTarget), cmpType) > 0)
             End If
     End Select
+End Function
+
+Public Function GetTableColumnRange(ByVal wks As Worksheet, ByVal tableName As String, ByVal strColumnName As String) As Range
+    On Error Resume Next
+    Set GetTableColumnRange = wks.ListObjects(tableName).ListColumns(strColumnName).DataBodyRange
+    On Error GoTo 0
 End Function
 
