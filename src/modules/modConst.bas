@@ -129,8 +129,9 @@ Public Const ERR_FORM_DROP_BASE             As Long = ERR_BASE + 100
 Public Const ERR_NOT_INITIALIZED            As Long = ERR_FORM_DROP_BASE + 1      ' "Call .Init first."
 Public Const ERR_USE_INSTANCE               As Long = ERR_FORM_DROP_BASE + 2      ' "Use an instance to call this member."
 Public Const ERR_LISTS_NOT_SET              As Long = ERR_FORM_DROP_BASE + 3      ' "No lists have been initialized..."
-Public Const ERR_NO_RANGE_ARRAY             As Long = ERR_FORM_DROP_BASE + 4      ' "must be an array of Range."
+Public Const ERR_NO_ARRAY                   As Long = ERR_FORM_DROP_BASE + 4      ' "must be an array.."
 Public Const ERR_OBJ_IS_NOTHING             As Long = ERR_FORM_DROP_BASE + 5      ' "is Nothing."
+Public Const ERR_DIF_LENGTH                 As Long = ERR_FORM_DROP_BASE + 6      ' ".. must have the same length."
 
 ' errors used in modRooms
 Public Const ERR_ROOMS_BASE                 As Long = ERR_BASE + 200

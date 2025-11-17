@@ -53,14 +53,14 @@ Private m_hostSheet As Worksheet
 Private m_hostWorkbook As Workbook
 Private m_targetCell As Range
 
-Private m_listSheetName As String
 Private m_gapPts As Double
 Private m_rowHeight As Double
 
 Private m_catDropDownName As String
 Private m_SubDropDownName As String
 
-Private m_catRangeAddress As String                     ' e.g. "'zz_lists'!A1:A4"
+Private m_catItems As Variant                           ' Stores the category names for the drop-down list, e.g., Array("Category1", "Category2", "Category3")
+Private m_subItems As Variant                           ' Stores sub-items grouped by category , e.g., Array(Array("apple", "pear", "plum"), Array("carrot", "onion"))
 Private m_subListMap As Scripting.Dictionary            ' Scripting.Dictionary: key = category index (1-based) -> address string
 Private m_listsInitialized As Boolean
 
@@ -69,6 +69,15 @@ Private m_instRegistryDict As Scripting.Dictionary ' Global registry: instance i
 Private m_log As ILog   ' Optional injected logger
 
 Private m_isInitialized As Boolean
+
+' --- List mode (arrays vs ranges) ---
+Private Enum FDLM_Mode
+    FDLM_None = 0
+    FDLM_Arrays = 1
+    FDLM_Ranges = 2
+End Enum
+
+Private m_listMode As FDLM_Mode
 
 ' --- Arrow config/state ---
 Private m_arrowEnabled As Boolean
@@ -81,13 +90,10 @@ Private m_arrowH As Double
 Private m_onCatSelectedMacro As String
 Private m_onSubSelectedMacro As String
 
-Private Const ERR_BASE As Long = 60000
-Private Const ERR_NOT_INITIALIZED As Long = ERR_BASE + 1   ' "Call .Init first."
-Private Const ERR_USE_INSTANCE As Long = ERR_BASE + 2      ' "Use an instance to call this member."
-Private Const ERR_LISTS_NOT_SET As Long = ERR_BASE + 3     ' "No lists have been initialized..."
-
 Private Const TRIANGLE_BIG As Long = 9660   ' U+25BC BLACK DOWN-POINTING TRIANGLE
 Private Const TRIANGLE_SMALL As Long = 9662 ' U+25BE BLACK DOWN-POINTING SMALL TRIANGLE
+
+
 
 ' -----------------------------------------------------------------------------------
 ' Procedure : Class_Initialize
@@ -167,13 +173,15 @@ Public Function Init(ByRef hostWorkbook As Workbook, ByRef formDropRegistry As S
         result = CleanWorkbookArtifacts()
         
         m_instId = Format$(Now, "yymmddhhnnss") & CStr(Int(Rnd() * 10000))  ' digits only id
-        m_listSheetName = "zz_lists"
         m_gapPts = 2
         m_rowHeight = 16                                                ' height for Form Control DropDown
         m_catDropDownName = "fd_" & m_instId & "_Cat"
         m_SubDropDownName = "fd_" & m_instId & "_Sub"
         Set m_subListMap = CreateObject("Scripting.Dictionary")
 
+        m_listMode = FDLM_None
+        m_listsInitialized = False
+        
         m_arrowEnabled = True
         m_arrowGap = 2
         m_arrowW = 22
@@ -215,7 +223,7 @@ End Function
 ' Notes     :
 '   - Safe-guards against missing objects and registry entries.
 ' -----------------------------------------------------------------------------------
-Public Function Destroy(Optional ByVal deleteListSheet As Boolean = False) As Object
+Public Function Destroy() As Object
     If Not EnsureInitialized Then Exit Function
     If Not EnsureNotDefaultInstance Then Exit Function
 
@@ -224,9 +232,6 @@ Public Function Destroy(Optional ByVal deleteListSheet As Boolean = False) As Ob
         m_hostSheet.DropDowns(m_catDropDownName).Delete
         m_hostSheet.DropDowns(m_SubDropDownName).Delete
         m_hostSheet.Shapes(m_arrowShapeName).Delete
-    End If
-    If deleteListSheet Then
-        m_hostWorkbook.Worksheets(m_listSheetName).Delete
     End If
     If Not m_instRegistryDict Is Nothing Then
         If m_instRegistryDict.Exists(m_instId) Then m_instRegistryDict.Remove m_instId
@@ -268,88 +273,64 @@ End Property
 '             internal list sheet and builds the sublist mapping.
 '
 ' Parameters:
-'   categories   [Variant] - 1-D array of category values.
-'   subLists     [Variant] - 1-D array of 1-D arrays; one sublist per category.
+'   categories   [Variant] - 1-D array of category names (wrapped in Variant).
+'   subLists     [Variant] - 1-D array of 1-D arrays; one sublist per category (wrapped in Variant).
 '
 ' Returns   : (none)
 '
 ' Notes     :
-'   - Categories are written to column A; each sublist uses a separate column.
+'   - Expects both parameters to contain arrays.
 ' -----------------------------------------------------------------------------------
 Public Sub SetLists(ByVal categories As Variant, ByVal subLists As Variant)
     If Not EnsureInitialized Then Exit Sub
     If Not EnsureNotDefaultInstance Then Exit Sub
     
-    Dim listSheet As Worksheet
-    Set listSheet = EnsureListSheet()
-
-    ' Clear and write categories into column A
-    listSheet.Cells.Clear
-    Dim n As Long, i As Long
-    n = UBound(categories) - LBound(categories) + 1
-    For i = 0 To n - 1
-        listSheet.Cells(i + 1, 1).value = categories(LBound(categories) + i)
-    Next i
-    m_catRangeAddress = "'" & m_listSheetName & "'!" & listSheet.Range(listSheet.Cells(1, 1), listSheet.Cells(n, 1)).Address(False, False)
-
-    ' Write each sub-list into a separate column (starting at col B)
-    m_subListMap.RemoveAll
-    Dim col As Long: col = 2
-    For i = 0 To n - 1
+    ' Store arrays
+    m_catItems = categories
+    m_subItems = subLists
     
-        Dim arr As Variant: arr = subLists(LBound(subLists) + i)
-        Dim j As Long
-        
-        For j = 0 To UBound(arr) - LBound(arr)
-            listSheet.Cells(j + 1, col).value = arr(LBound(arr) + j)
-        Next j
-        
-        Dim lastRow As Long: lastRow = UBound(arr) - LBound(arr) + 1
-        
-        Dim addr As String
-        addr = "'" & m_listSheetName & "'!" & listSheet.Range(listSheet.Cells(1, col), listSheet.Cells(lastRow, col)).Address(False, False)
-        m_subListMap(CStr(i + 1)) = addr         ' key by 1-based index of selected category
-        col = col + 1
-    Next i
+    m_subListMap.RemoveAll
 
+    m_listMode = FDLM_Arrays
     m_listsInitialized = True
 End Sub
 
 ' -----------------------------------------------------------------------------------
 ' Procedure : SetListsFromNamedRanges
-' Purpose   : Uses Range objects as category and sublist sources without copying
-'             values to the internal list sheet.
+' Purpose   : Uses Range objects directly as category and sublist sources
 '
 ' Parameters:
-'   catRange        [Range]      - Range containing category values.
-'   subRangeArray   [Variant]    - One Range per sublist (vertical or horizontal).
+'   catRange        [Range]      - Range containing category values (single column or row)
+'   subRanges       [Variant]    - Array of Range objects, each representing one sublist (vertical or horizontal)
 '
 ' Returns   : (none)
 '
 ' Notes     :
 '   - Builds m_subListMap with addresses pointing to the supplied ranges.
 ' -----------------------------------------------------------------------------------
-Public Sub SetListsFromNamedRanges(ByVal catRange As Range, subRangeArray As Variant)
+Public Sub SetListsFromNamedRanges(ByVal catRange As Range, subRanges As Variant)
     If Not EnsureInitialized Then Exit Sub
     If Not EnsureNotDefaultInstance Then Exit Sub
     
-    If (Not IsArray(subRangeArray)) Then
-        Err.Raise ERR_NO_RANGE_ARRAY, "clsFormDrop", "subRangeArray must be an array of Range."
+    If (Not IsArray(subRanges)) Then
+        Err.Raise ERR_NO_ARRAY, "clsFormDrop", "subRanges must be an array of Range."
     End If
     
-    m_catRangeAddress = "'" & catRange.Worksheet.Name & "'!" & catRange.Address(False, False)
+    m_catItems = catRange.value
+
     m_subListMap.RemoveAll
 
     Dim i As Long
     Dim r As Range
-    For i = LBound(subRangeArray) To UBound(subRangeArray)
-        Set r = subRangeArray(i)
+    For i = LBound(subRanges) To UBound(subRanges)
+        Set r = subRanges(i)
         If r Is Nothing Then
-            Err.Raise ERR_OBJ_IS_NOTHING, "CFormDrop", "subRangeArray(" & i & ") is Nothing."
+            Err.Raise ERR_OBJ_IS_NOTHING, "clsFormDrop", "subRanges(" & i & ") is Nothing."
         End If
-        m_subListMap(CStr(i - LBound(subRangeArray) + 1)) = "'" & r.Worksheet.Name & "'!" & r.Address(False, False)
+        m_subListMap(CStr(i - LBound(subRanges) + 1)) = "'" & r.Worksheet.Name & "'!" & r.Address(False, False)
     Next i
-
+    
+    m_listMode = FDLM_Ranges
     m_listsInitialized = True
 End Sub
 
@@ -413,42 +394,36 @@ End Sub
 ' Returns   : (none)
 '
 ' Notes     :
-'   - Writes labels to the internal list sheet (column A).
-'   - Builds m_subListMap from the provided ranges.
+'   - Stores category labels in m_catItems (no internal list sheet).
+'   - Builds m_subListMap from the provided ranges (addresses).
 '   - Lengths of catLabels and subRanges must match.
 ' -----------------------------------------------------------------------------------
 Public Sub SetListsFromLabelsAndRanges(ByVal catLabels As Variant, ByVal subRanges As Variant)
     If Not EnsureInitialized Then Exit Sub
     If Not EnsureNotDefaultInstance Then Exit Sub
 
-    If Not IsArray(catLabels) Then Err.Raise vbObjectError + 320, "CFormDrop", "catLabels must be an array of String."
-    If Not IsArray(subRanges) Then Err.Raise vbObjectError + 321, "CFormDrop", "subRanges must be an array of Range."
+    If Not IsArray(catLabels) Then Err.Raise ERR_NO_ARRAY, "clsFormDrop", "catLabels must be an array of String."
+    If Not IsArray(subRanges) Then Err.Raise ERR_NO_ARRAY, "clsFormDrop", "subRanges must be an array of Range."
     If (UBound(catLabels) - LBound(catLabels)) <> (UBound(subRanges) - LBound(subRanges)) Then
-        Err.Raise vbObjectError + 322, "CFormDrop", "catLabels and subRanges must have the same length."
+        Err.Raise ERR_DIF_LENGTH, "clsFormDrop", "catLabels and subRanges must have the same length."
     End If
 
-    Dim listSheet As Worksheet
-    Set listSheet = EnsureListSheet()
-
-    ' Clear and write labels to column A
-    listSheet.Cells.Clear
-    Dim i As Long, n As Long
-    n = UBound(catLabels) - LBound(catLabels) + 1
-    For i = 0 To n - 1
-        listSheet.Cells(i + 1, 1).value = CStr(catLabels(LBound(catLabels) + i))
-    Next i
-    m_catRangeAddress = "'" & m_listSheetName & "'!" & _
-                        listSheet.Range(listSheet.Cells(1, 1), listSheet.Cells(n, 1)).Address(False, False)
+    ' Store category labels
+    m_catItems = catLabels
 
     ' Build sub map from ranges
     m_subListMap.RemoveAll
     Dim r As Range
+    Dim i As Long
     For i = LBound(subRanges) To UBound(subRanges)
         Set r = subRanges(i)
-        If r Is Nothing Then Err.Raise vbObjectError + 323, "CFormDrop", "subRanges(" & i & ") is Nothing."
+        If r Is Nothing Then Err.Raise ERR_OBJ_IS_NOTHING, "clsFormDrop", "subRanges(" & i & ") is Nothing."
         m_subListMap(CStr(i - LBound(subRanges) + 1)) = "'" & r.Worksheet.Name & "'!" & r.Address(False, False)
     Next i
 
+    ' Range-based list mode
+    m_subItems = Empty
+    m_listMode = FDLM_Ranges
     m_listsInitialized = True
 End Sub
 
@@ -485,12 +460,14 @@ Public Sub ShowAt(ByVal hostSheeet As Worksheet, ByVal targetRange As Range)
     Dim ddSub As DropDown: Set ddSub = EnsureDropDown(m_SubDropDownName)
 
     ' Prepare category dropdown (but do not show yet)
-    ddCat.ListFillRange = m_catRangeAddress
     ddCat.LinkedCell = ""
     ddCat.OnAction = "FormDrop_OnAction"
     ddCat.Left = m_targetCell.Left
     ddCat.Top = m_targetCell.Top + m_targetCell.Height + m_gapPts
     ddCat.Width = m_targetCell.Width
+    If Not IsEmpty(m_catItems) Then
+        ddCat.List = m_catItems
+    End If
     ddCat.Visible = False
 
     ' Prepare dependent dropdown (hidden)
@@ -551,18 +528,40 @@ Friend Sub HandleOnAction(ByVal callerCtrlName As String)
         Dim catIdx As Long: catIdx = ddCat.value
         Dim ddSub As DropDown: Set ddSub = EnsureDropDown(m_SubDropDownName)
 
-        If catIdx >= 1 And m_subListMap.Exists(CStr(catIdx)) Then
-            ddSub.ListFillRange = m_subListMap(CStr(catIdx))
-            ddSub.Visible = True
-            ddSub.Left = ddCat.Left
-            ddSub.Top = ddCat.Top + ddCat.Height + 2
-            ddSub.Width = ddCat.Width
-            ddSub.bringToFront
-            If Len(m_onSubSelectedMacro) > 0 Then ddSub.OnAction = "FormDrop_OnAction"
-        Else
-            ddSub.Visible = False
-        End If
+        ddSub.Visible = False
+        ddSub.LinkedCell = ""
+        ddSub.OnAction = ""
+        
+        If catIdx >= 1 Then
+            Select Case m_listMode
+                Case FDLM_Ranges
+                    ' Use address map (Range-based lists)
+                    If m_subListMap.Exists(CStr(catIdx)) Then
+                        ddSub.ListFillRange = m_subListMap(CStr(catIdx))
+                        ddSub.Visible = True
+                        ddSub.Left = ddCat.Left
+                        ddSub.Top = ddCat.Top + ddCat.Height + 2
+                        ddSub.Width = ddCat.Width
+                        ddSub.bringToFront
+                        If Len(m_onSubSelectedMacro) > 0 Then ddSub.OnAction = "FormDrop_OnAction"
+                    End If
 
+                Case FDLM_Arrays
+                    ' Use in-memory arrays (SetLists variant)
+                    Dim subArr As Variant
+                    subArr = CStr(m_subItems(LBound(m_subItems) + catIdx - 1))
+
+                    ddSub.ListFillRange = ""
+                    ddSub.List = subArr
+                    ddSub.Visible = True
+                    ddSub.Left = ddCat.Left
+                    ddSub.Top = ddCat.Top + ddCat.Height + 2
+                    ddSub.Width = ddCat.Width
+                    ddSub.bringToFront
+                    If Len(m_onSubSelectedMacro) > 0 Then ddSub.OnAction = "FormDrop_OnAction"
+            End Select
+        End If
+        
         If Len(m_onCatSelectedMacro) > 0 Then
             On Error Resume Next
             Application.Run m_onCatSelectedMacro, ddCat
@@ -680,12 +679,17 @@ Private Sub ShowCatOnly()
     Dim ddSub As DropDown: Set ddSub = EnsureDropDown(m_SubDropDownName)
 
     ' Ensure cat dropdown is properly configured and positioned
-    ddCat.ListFillRange = m_catRangeAddress
+    ddCat.ListFillRange = ""
     ddCat.LinkedCell = ""
     ddCat.OnAction = "FormDrop_OnAction"
     ddCat.Left = m_targetCell.Left
     ddCat.Top = m_targetCell.Top + m_targetCell.Height + m_gapPts
     ddCat.Width = m_targetCell.Width
+    
+    If IsArray(m_catItems) Then
+        ddCat.List = m_catItems
+    End If
+    
     ddCat.Visible = True
     ddCat.bringToFront
 
@@ -872,33 +876,6 @@ Public Function ParseInstanceId(ByVal ctrlName As String) As String
 End Function
 
 ' ======= Helpers ===================================================================
-
-' -----------------------------------------------------------------------------------
-' Function  : EnsureListSheet
-' Purpose   : Ensures the list sheet exists in the host workbook and is very hidden.
-'
-' Parameters:
-'   (none)
-'
-' Returns   : Worksheet - The list sheet.
-'
-' Notes     :
-'   - Creates the sheet when not present and sets visibility to xlSheetVeryHidden.
-' -----------------------------------------------------------------------------------
-Private Function EnsureListSheet() As Worksheet
-    Dim listSheet As Worksheet
-    On Error Resume Next
-    Set listSheet = m_hostWorkbook.Worksheets(m_listSheetName)
-    On Error GoTo 0
-    If listSheet Is Nothing Then
-        Set listSheet = m_hostWorkbook.Worksheets.Add(After:=m_hostWorkbook.Sheets(m_hostWorkbook.Sheets.Count))
-        listSheet.Name = m_listSheetName
-        listSheet.Visible = xlSheetVeryHidden
-    Else
-        listSheet.Visible = xlSheetVeryHidden
-    End If
-    Set EnsureListSheet = listSheet
-End Function
 
 ' -----------------------------------------------------------------------------------
 ' Function  : EnsureDropDown

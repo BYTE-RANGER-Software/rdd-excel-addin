@@ -137,44 +137,6 @@ ErrHandler:
 End Sub
 
 ' -----------------------------------------------------------------------------------
-' Function  : FD_GetAnchors
-' Purpose   : Returns a union range of all cells on worksheet that are named DD_Anchor_*.
-'
-' Parameters:
-'   ws  [Worksheet]
-'
-' Returns   : [Range] - Union of anchor cells; Nothing if none.
-'
-' Note:
-' - only sheet-level names are searched
-' -----------------------------------------------------------------------------------
-Private Function FD_GetAnchors(ByVal ws As Worksheet) As Range
-On Error GoTo ErrHandler
-    Dim nm As Name, r As Range, acc As Range
-
-    ' sheet-level names
-    For Each nm In ws.Names
-        If nm.Name Like FD_ANCHOR_NAME_PATTERN Then
-            If Not nm.RefersToRange Is Nothing Then
-                Set r = nm.RefersToRange
-                If r.Parent Is ws Then
-                    If r.CountLarge = 1 Then
-                        If acc Is Nothing Then Set acc = r Else Set acc = Application.Union(acc, r)
-                    End If
-                End If
-            End If
-        End If
-    Next nm
-
-    Set FD_GetAnchors = acc
-CleanExit:
-    Exit Function
-ErrHandler:
-    Set FD_GetAnchors = Nothing
-    Resume CleanExit
-End Function
-
-' -----------------------------------------------------------------------------------
 ' Function  : FD_ShouldHandleSheet
 ' Purpose   : Determine whether the given sheet participates in the feature.
 '
