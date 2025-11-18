@@ -393,10 +393,10 @@ SkipWksIteration:
         listsSheet.Columns(LISTS_COL_OBJECTS).Clear     ' Objects
         
         ' Headers
-        listsSheet.Cells(1, LISTS_COL_ROOM_ID).value = LISTS_HEADER_ROOM_ID
-        listsSheet.Cells(1, LISTS_COL_ROOM_ALIAS).value = LISTS_HEADER_ROOM_ALIAS
-        listsSheet.Cells(1, LISTS_COL_OBJECTS).value = LISTS_HEADER_OBJECTS
-        listsSheet.Cells(1, LISTS_COL_SCENE_ID).value = LISTS_HEADER_SCENE_ID
+        listsSheet.Cells(1, LISTS_COL_ROOM_ID).Value = LISTS_HEADER_ROOM_ID
+        listsSheet.Cells(1, LISTS_COL_ROOM_ALIAS).Value = LISTS_HEADER_ROOM_ALIAS
+        listsSheet.Cells(1, LISTS_COL_OBJECTS).Value = LISTS_HEADER_OBJECTS
+        listsSheet.Cells(1, LISTS_COL_SCENE_ID).Value = LISTS_HEADER_SCENE_ID
         listsSheet.Range("A1:ZZ1").Font.Bold = True
     
         ' Write sorted values
@@ -466,9 +466,9 @@ Private Sub SetupRoom(targetSheet As Worksheet, ByVal roomIdx As Long)
     Dim dataRange As Range
     
     'Set 'RoomID' named cell on the template
-    targetSheet.Range(modConst.NAME_CELL_ROOM_ID).value = GetFormattedRoomID(roomIdx)
+    targetSheet.Range(modConst.NAME_CELL_ROOM_ID).Value = GetFormattedRoomID(roomIdx)
     'Set 'RoomAlias" named Cell on the Template
-    targetSheet.Range(modConst.NAME_CELL_ROOM_ALIAS).value = "r_" & GetCleanRoomAlias(targetSheet.Name)
+    targetSheet.Range(modConst.NAME_CELL_ROOM_ALIAS).Value = "r_" & GetCleanRoomAlias(targetSheet.Name)
     
     ' remove wrong links
     Dim nm As Name

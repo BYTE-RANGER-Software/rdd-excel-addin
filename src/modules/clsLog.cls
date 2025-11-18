@@ -96,11 +96,11 @@ End Sub
 ' Notes     :
 '   - Uses the class' current m_LogFilePath as base folder.
 ' -----------------------------------------------------------------------------------
-Private Property Let ILog_LogFileName(ByVal value As String)
-    If value = vbNullString Then
+Private Property Let ILog_LogFileName(ByVal Value As String)
+    If Value = vbNullString Then
         m_logFileFullName = m_logFilePath & DEFAULT_LOG_FILENAME
     Else
-        m_logFileFullName = m_logFilePath & value & DEFAULT_LOG_EXT
+        m_logFileFullName = m_logFilePath & Value & DEFAULT_LOG_EXT
     End If
 End Property
 
@@ -116,9 +116,9 @@ End Property
 ' Notes     :
 '   - Uses Dir to detect; calls MkDir to create.
 ' -----------------------------------------------------------------------------------
-Private Property Let ILog_LogFilePath(ByVal value As String)
+Private Property Let ILog_LogFilePath(ByVal Value As String)
 
-    m_logFilePath = value
+    m_logFilePath = Value
     If Dir(m_logFilePath, vbDirectory) = "" Then MkDir (m_logFilePath)
 
 End Property
@@ -151,9 +151,9 @@ End Property
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Private Property Let ILog_Buffer(ByVal value As String)
+Private Property Let ILog_Buffer(ByVal Value As String)
 
-    m_buffer = value
+    m_buffer = Value
 
 End Property
 
@@ -185,9 +185,9 @@ End Property
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Private Property Let ILog_MaxLogSizeBeforeSave(ByVal value As Long)
+Private Property Let ILog_MaxLogSizeBeforeSave(ByVal Value As Long)
 
-    m_maxLogSizeBeforeSave = value
+    m_maxLogSizeBeforeSave = Value
 
 End Property
 
@@ -219,9 +219,9 @@ End Property
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Private Property Let ILog_LogSeparator(ByVal value As String)
+Private Property Let ILog_LogSeparator(ByVal Value As String)
 
-    m_logSeparator = value
+    m_logSeparator = Value
 
 End Property
 ' -----------------------------------------------------------------------------------

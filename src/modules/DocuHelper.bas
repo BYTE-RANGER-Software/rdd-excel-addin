@@ -13,16 +13,16 @@ Sub ExportNamedRangesToCSV()
     wsTemp.Name = "NamedRangesExport"
 
     ' Überschriften
-    wsTemp.Cells(1, 1).value = "Name"
-    wsTemp.Cells(1, 2).value = "RefersTo"
-    wsTemp.Cells(1, 3).value = "Value"
+    wsTemp.Cells(1, 1).Value = "Name"
+    wsTemp.Cells(1, 2).Value = "RefersTo"
+    wsTemp.Cells(1, 3).Value = "Value"
 
     i = 2
     For Each nm In ThisWorkbook.Names
-        wsTemp.Cells(i, 1).value = nm.Name
-        wsTemp.Cells(i, 2).value = "'" & nm.RefersTo
+        wsTemp.Cells(i, 1).Value = nm.Name
+        wsTemp.Cells(i, 2).Value = "'" & nm.RefersTo
         On Error Resume Next
-        wsTemp.Cells(i, 3).value = nm.RefersToRange.value
+        wsTemp.Cells(i, 3).Value = nm.RefersToRange.Value
         On Error GoTo 0
         i = i + 1
     Next nm

@@ -87,8 +87,9 @@ Private m_arrowW As Double
 Private m_arrowH As Double
 
 ' --- Optional user macros (callbacks) ---
-Private m_onCatSelectedMacro As String
-Private m_onSubSelectedMacro As String
+Private m_callbackModule As String
+Private m_callbackCatMethod As String
+Private m_callbackSubMethod As String
 
 Private Const TRIANGLE_BIG As Long = 9660   ' U+25BC BLACK DOWN-POINTING TRIANGLE
 Private Const TRIANGLE_SMALL As Long = 9662 ' U+25BE BLACK DOWN-POINTING SMALL TRIANGLE
@@ -127,12 +128,17 @@ End Sub
 ' -----------------------------------------------------------------------------------
 Private Sub Class_Terminate()
     If m_isInitialized Then
-        'Unregister Instance
         On Error Resume Next
+        If Not m_hostSheet Is Nothing Then
+            m_hostSheet.DropDowns(m_catDropDownName).Delete
+            m_hostSheet.DropDowns(m_SubDropDownName).Delete
+            m_hostSheet.Shapes(m_arrowShapeName).Delete
+        End If
         If Not m_instRegistryDict Is Nothing Then
             If m_instRegistryDict.Exists(m_instId) Then m_instRegistryDict.Remove m_instId
         End If
         On Error GoTo 0
+
         m_isInitialized = False
     End If
 End Sub
@@ -187,9 +193,6 @@ Public Function Init(ByRef hostWorkbook As Workbook, ByRef formDropRegistry As S
         m_arrowW = 22
         m_arrowH = 22
         m_arrowShapeName = "fd_" & m_instId & "_Arrow"
-
-        m_onCatSelectedMacro = ""
-        m_onSubSelectedMacro = ""
     
         'Register instance
         On Error Resume Next
@@ -211,36 +214,32 @@ ErrHandler:
 End Function
 
 ' -----------------------------------------------------------------------------------
-' Function  : Destroy
-' Purpose   : Deletes the dropdown controls and arrow Shape on the host sheet,
-'             optionally deletes the list sheet, and unregisters the instance.
+' Procedure : SetCallbacks
+' Purpose   : Registers optional callback macros that are executed when a category
+'             or sub value is selected.
 '
 ' Parameters:
-'   deleteListSheet   [Boolean] - Optional; when True, deletes the list sheet.
+'   callbackModule    [String] - callback Module name
+'   onCategoryMacro   [String] - Optional; method name for category selection.
+'   onSubMacro        [String] - Optional; medthod name for sub selection.
 '
-' Returns   : Object - Always returns Nothing (for fluent usage patterns).
+' Returns   : (none)
 '
 ' Notes     :
-'   - Safe-guards against missing objects and registry entries.
+'   - methods are executed via Application.Run.
+'   - methods (macros) must be located in a public module
 ' -----------------------------------------------------------------------------------
-Public Function Destroy() As Object
-    If Not EnsureInitialized Then Exit Function
-    If Not EnsureNotDefaultInstance Then Exit Function
+Public Sub SetCallbacks(ByVal callbackModule As String, _
+    Optional ByVal catMethodName As String = "OnFormDropCatSelected", _
+    Optional ByVal subMethodName As String = "OnFormDropSubSelected")
+                              
+    If Not EnsureInitialized Then Exit Sub
+    If Not EnsureNotDefaultInstance Then Exit Sub
 
-    On Error Resume Next
-    If Not m_hostSheet Is Nothing Then
-        m_hostSheet.DropDowns(m_catDropDownName).Delete
-        m_hostSheet.DropDowns(m_SubDropDownName).Delete
-        m_hostSheet.Shapes(m_arrowShapeName).Delete
-    End If
-    If Not m_instRegistryDict Is Nothing Then
-        If m_instRegistryDict.Exists(m_instId) Then m_instRegistryDict.Remove m_instId
-    End If
-    On Error GoTo 0
-
-    m_isInitialized = False
-    Set Destroy = Nothing
-End Function
+    m_callbackModule = callbackModule
+    m_callbackCatMethod = catMethodName
+    m_callbackSubMethod = subMethodName
+End Sub
 
 ' -----------------------------------------------------------------------------------
 ' Property  : IsInit (Get)
@@ -316,7 +315,7 @@ Public Sub SetListsFromNamedRanges(ByVal catRange As Range, subRanges As Variant
         Err.Raise ERR_NO_ARRAY, "clsFormDrop", "subRanges must be an array of Range."
     End If
     
-    m_catItems = catRange.value
+    m_catItems = catRange.Value
 
     m_subListMap.RemoveAll
 
@@ -451,7 +450,7 @@ Public Sub ShowAt(ByVal hostSheeet As Worksheet, ByVal targetRange As Range)
     ' Require lists to be initialized
     If Not m_listsInitialized Then
         Err.Raise ERR_LISTS_NOT_SET, "clsFormDrop", _
-                  "No lists have been initialized. Call SetLists / SetListsFromNamedRanges / SetListsFromNames before ShowAt."
+            "No lists have been initialized. Call SetLists / SetListsFromNamedRanges / SetListsFromNames before ShowAt."
     End If
 
     Set m_hostSheet = hostSheeet
@@ -527,7 +526,7 @@ Friend Sub HandleOnAction(ByVal callerCtrlName As String)
     If StrComp(callerCtrlName, m_catDropDownName, vbTextCompare) = 0 Then
         ' Category changed -> populate sub + optional callback
         Dim ddCat As DropDown: Set ddCat = m_hostSheet.DropDowns(callerCtrlName)
-        Dim catIdx As Long: catIdx = ddCat.value
+        Dim catIdx As Long: catIdx = ddCat.Value
         Dim ddSub As DropDown: Set ddSub = EnsureDropDown(m_SubDropDownName)
 
         ddSub.Visible = False
@@ -545,13 +544,16 @@ Friend Sub HandleOnAction(ByVal callerCtrlName As String)
                         ddSub.Top = ddCat.Top + ddCat.Height + 2
                         ddSub.Width = ddCat.Width
                         ddSub.bringToFront
-                        If Len(m_onSubSelectedMacro) > 0 Then ddSub.OnAction = "FormDrop_OnAction"
+                        ' Enable OnAction only if Callback exists
+                        If Len(m_callbackModule) And Len(m_callbackSubMethod) Then
+                            ddSub.OnAction = "FormDrop_OnAction"
+                        End If
                     End If
 
                 Case FDLM_Arrays
                     ' Use in-memory arrays (SetLists variant)
                     Dim subArr As Variant
-                    subArr = CStr(m_subItems(LBound(m_subItems) + catIdx - 1))
+                    subArr = m_subItems(LBound(m_subItems) + catIdx - 1)
 
                     ddSub.ListFillRange = ""
                     ddSub.List = subArr
@@ -560,27 +562,32 @@ Friend Sub HandleOnAction(ByVal callerCtrlName As String)
                     ddSub.Top = ddCat.Top + ddCat.Height + 2
                     ddSub.Width = ddCat.Width
                     ddSub.bringToFront
-                    If Len(m_onSubSelectedMacro) > 0 Then ddSub.OnAction = "FormDrop_OnAction"
+                    If Len(m_callbackModule) And Len(m_callbackSubMethod) Then
+                        ddSub.OnAction = "FormDrop_OnAction"
+                    End If
             End Select
         End If
         
-        If Len(m_onCatSelectedMacro) > 0 Then
+        ' Category-Callback
+        If Len(m_callbackModule) And Len(m_callbackCatMethod) Then
             On Error Resume Next
-            Application.Run m_onCatSelectedMacro, ddCat
+            Application.Run m_callbackModule + "." + m_callbackCatMethod, ddCat, m_targetCell
             On Error GoTo 0
         End If
         Exit Sub
     End If
 
-    If StrComp(callerCtrlName, m_SubDropDownName, vbTextCompare) = 0 Then
-        If Len(m_onSubSelectedMacro) > 0 Then
-            Dim dd As DropDown: Set dd = m_hostSheet.DropDowns(callerCtrlName)
-            On Error Resume Next
-            Application.Run m_onSubSelectedMacro, dd
-            On Error GoTo 0
-        End If
-        Exit Sub
-    End If
+     If StrComp(callerCtrlName, m_SubDropDownName, vbTextCompare) = 0 Then
+         ' Sub-Callback
+         If Len(m_callbackModule) And Len(m_callbackSubMethod) > 0 Then
+             Dim dd As DropDown: Set dd = m_hostSheet.DropDowns(callerCtrlName)
+             On Error Resume Next
+             Application.Run m_callbackModule + "." + m_callbackSubMethod, dd, m_targetCell
+             On Error GoTo 0
+         End If
+         Exit Sub
+     End If
+
 End Sub
 
 ' ======= Arrow helpers =============================================================
@@ -796,8 +803,8 @@ End Sub
 '   - When host/target are known, updates the arrow position immediately.
 ' -----------------------------------------------------------------------------------
 Public Sub SetArrowStyle(Optional ByVal gapPts As Double = 2, _
-                         Optional ByVal widthPt As Double = 22, _
-                         Optional ByVal heightPt As Double = 22)
+    Optional ByVal widthPt As Double = 22, _
+    Optional ByVal heightPt As Double = 22)
                          
     If Not EnsureInitialized Then Exit Sub
     If Not EnsureNotDefaultInstance Then Exit Sub
@@ -805,29 +812,7 @@ Public Sub SetArrowStyle(Optional ByVal gapPts As Double = 2, _
     m_arrowGap = gapPts
     m_arrowW = widthPt
     m_arrowH = heightPt
-If Not m_hostSheet Is Nothing And Not m_targetCell Is Nothing Then ShowArrow
-End Sub
-
-' -----------------------------------------------------------------------------------
-' Procedure : SetCallbacks
-' Purpose   : Registers optional callback macros that are executed when a category
-'             or sub value is selected.
-'
-' Parameters:
-'   onCategoryMacro   [String] - Optional; macro name for category selection.
-'   onSubMacro        [String] - Optional; macro name for sub selection.
-'
-' Returns   : (none)
-'
-' Notes     :
-'   - Macros are executed via Application.Run.
-' -----------------------------------------------------------------------------------
-Public Sub SetCallbacks(Optional ByVal onCategoryMacro As String = "", Optional ByVal onSubMacro As String = "")
-    If Not EnsureInitialized Then Exit Sub
-    If Not EnsureNotDefaultInstance Then Exit Sub
-    
-    m_onCatSelectedMacro = onCategoryMacro
-    m_onSubSelectedMacro = onSubMacro
+    If Not m_hostSheet Is Nothing And Not m_targetCell Is Nothing Then ShowArrow
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -901,7 +886,7 @@ Private Function EnsureDropDown(ByVal ctrlName As String) As DropDown
     If dd Is Nothing Then
         ' Temporary position; will be moved in ShowAt
         Set dd = m_hostSheet.DropDowns.Add(Left:=m_hostSheet.Range("XFD1048575").Left, Top:=m_hostSheet.Range("XFD1048575").Top, _
-                                   Width:=m_hostSheet.Range("XFD1048575").Width, Height:=m_rowHeight)
+            Width:=m_hostSheet.Range("XFD1048575").Width, Height:=m_rowHeight)
         dd.Name = ctrlName
         dd.Placement = xlMove     ' move with cells (no auto-resize)
         dd.PrintObject = False
@@ -1069,8 +1054,8 @@ End Function
 ' Notes     :
 '   - Logging is optional; guards silently if no logger is provided.
 ' -----------------------------------------------------------------------------------
-Public Property Set Logger(ByVal value As clsLog)
-    Set m_log = value
+Public Property Set Logger(ByVal Value As clsLog)
+    Set m_log = Value
 End Property
 
 ' -----------------------------------------------------------------------------------
@@ -1091,13 +1076,13 @@ End Property
 ' Notes     :
 ' -----------------------------------------------------------------------------------
 Private Sub ReportError( _
-        ByVal procedureName As String, _
-        Optional ByVal errNo As Long = 0, _
-        Optional ByVal errLine As Integer = 0, _
-        Optional ByVal showMsg As Boolean = True, _
-        Optional ByVal caption As String = vbNullString, _
-        Optional ByVal buttons As VbMsgBoxStyle = vbOKOnly Or vbCritical, _
-        Optional ByVal customMessage As String = vbNullString)
+    ByVal procedureName As String, _
+    Optional ByVal errNo As Long = 0, _
+    Optional ByVal errLine As Integer = 0, _
+    Optional ByVal showMsg As Boolean = True, _
+    Optional ByVal caption As String = vbNullString, _
+    Optional ByVal buttons As VbMsgBoxStyle = vbOKOnly Or vbCritical, _
+    Optional ByVal customMessage As String = vbNullString)
 
     Dim desc As String, boxCaption As String, body As String
     
@@ -1115,5 +1100,6 @@ Private Sub ReportError( _
         MsgBox body, buttons, boxCaption
     End If
 End Sub
+
 
 

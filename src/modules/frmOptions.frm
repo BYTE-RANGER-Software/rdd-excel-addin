@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmOptions 
    Caption         =   "Settings %1"
-   ClientHeight    =   7410
-   ClientLeft      =   120
-   ClientTop       =   465
-   ClientWidth     =   6960
+   ClientHeight    =   7414
+   ClientLeft      =   121
+   ClientTop       =   462
+   ClientWidth     =   6963
    OleObjectBlob   =   "frmOptions.frx":0000
    StartUpPosition =   1  'Fenstermitte
 End
@@ -36,7 +36,7 @@ Friend Sub Init(ByVal strProjectName As String, ByRef optionsDto As tOptions)
         With Me.mpgOptions
             .Pages(lngStartIndx).caption = ChkMark & .Pages(lngStartIndx).caption
             .Tag = lngStartIndx
-            .value = lngStartIndx
+            .Value = lngStartIndx
         End With
 
         m_blnInit = True
@@ -95,9 +95,9 @@ Private Sub mpgOptions_Change()
         Set pg = oldPage(Me.mpgOptions)
         pg.caption = Replace(pg.caption, ChkMark, vbNullString)
         'b) mark new caption & remember latest multipage value
-        Set pg = .Pages(.value)
+        Set pg = .Pages(.Value)
         pg.caption = ChkMark & pg.caption
-        .Tag = .value                         ' << remember latest page index
+        .Tag = .Value                         ' << remember latest page index
     End With
 End Sub
 

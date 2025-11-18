@@ -64,7 +64,7 @@ Public Function GetNamedOrHeaderValue(ByVal sheet As Worksheet, ByVal localName 
 
     ' Try named range first (silent failure if missing)
     On Error Resume Next
-    namedValue = sheet.Range(localName).value
+    namedValue = sheet.Range(localName).Value
     On Error GoTo ErrHandler
 
     If Len(Trim$(CStr(namedValue))) > 0 Then
@@ -98,7 +98,7 @@ Public Function GetNamedOrHeaderValue(ByVal sheet As Worksheet, ByVal localName 
     Next headerIndex
 
     If Not bestHeaderCell Is Nothing Then
-        GetNamedOrHeaderValue = Trim$(CStr(bestHeaderCell.Offset(0, 1).value))
+        GetNamedOrHeaderValue = Trim$(CStr(bestHeaderCell.Offset(0, 1).Value))
     End If
 
 CleanExit:
@@ -270,7 +270,7 @@ Public Sub CollectColumnBlockGroupValues( _
         For colIndex = categoryColumnOffset To categoryColumnOffset + columnsPerCategory - 1
             ' Loop over the lines below the header line until endRow
             For rowIndex = headerRow + 1 To endRow
-                cellValue = Trim$(CStr(sheet.Cells(rowIndex, colIndex).value))
+                cellValue = Trim$(CStr(sheet.Cells(rowIndex, colIndex).Value))
                 If Len(cellValue) > 0 Then
                     valuesDict(cellValue) = categoryHeadersArray(categoryIndex)
                 End If
@@ -318,11 +318,11 @@ Public Sub CollectNamedRangeValues(ByVal sheet As Worksheet, rangeName As String
     If rngNamed Is Nothing Then GoTo CleanExit
 
     For Each cell In rngNamed.Cells
-        If Not IsEmpty(cell.value) Then
-            If Not valuesDict.Exists(cell.value) Then
-                valuesDict.Add cell.value, True
+        If Not IsEmpty(cell.Value) Then
+            If Not valuesDict.Exists(cell.Value) Then
+                valuesDict.Add cell.Value, True
             Else
-                valuesDict(cell.value) = True
+                valuesDict(cell.Value) = True
             End If
         End If
     Next cell
@@ -457,9 +457,9 @@ Public Sub WriteDictSetToColumn(ByVal sheet As Worksheet, ByVal valuesDict As Sc
 
     ' Add to lists
     For index = 1 To sortedKeys.Count
-        sheet.Cells(startRow + index - 1, columnIdx).value = sortedKeys(index)
+        sheet.Cells(startRow + index - 1, columnIdx).Value = sortedKeys(index)
         If writeValuesToNextColumn Then
-            sheet.Cells(startRow + index - 1, columnIdx + 1).value = valuesDict(sortedKeys(index))
+            sheet.Cells(startRow + index - 1, columnIdx + 1).Value = valuesDict(sortedKeys(index))
         End If
     Next index
 
@@ -521,9 +521,9 @@ Public Sub WriteDictSetToTableColumn(ByVal targetTable As ListObject, ByVal colu
     Set targetColumn = targetTable.ListColumns(columnName).DataBodyRange
 
     For index = 1 To sortedKeys.Count
-        targetColumn.Cells(index, 1).value = sortedKeys(index)
+        targetColumn.Cells(index, 1).Value = sortedKeys(index)
         If writeValuesToNextColumn Then
-            targetColumn.Cells(index, 1).Offset(0, 1).value = valuesDict(sortedKeys(index))
+            targetColumn.Cells(index, 1).Offset(0, 1).Value = valuesDict(sortedKeys(index))
         End If
     Next index
 
@@ -572,7 +572,7 @@ Public Sub AppendMissingDictKeysToColumn( _
         valueText = Trim$(CStr(currentKey))
         If Len(valueText) > 0 Then
             If Not existingKeysDict.Exists(valueText) Then
-                sheet.Cells(nextRow, columnIdx).value = valueText
+                sheet.Cells(nextRow, columnIdx).Value = valueText
                 existingKeysDict(valueText) = True
                 nextRow = nextRow + 1
             End If
@@ -619,7 +619,7 @@ Public Sub AppendMissingDictKeysToTableColumn( _
         If Len(valueText) > 0 Then
             If Not existingKeysDict.Exists(valueText) Then
                 targetTable.ListRows.Add ' Add new row to table
-                targetTable.DataBodyRange.Cells(nextRowIndex, targetTable.ListColumns(columnName).index).value = valueText
+                targetTable.DataBodyRange.Cells(nextRowIndex, targetTable.ListColumns(columnName).index).Value = valueText
                 existingKeysDict(valueText) = True
                 nextRowIndex = nextRowIndex + 1
             End If
@@ -685,7 +685,7 @@ Private Sub ExtractColumnValues( _
     emptyStreak = 0
 
     For Each cell In column.Cells
-        cellValue = Trim$(CStr(cell.value))
+        cellValue = Trim$(CStr(cell.Value))
 
         If Len(cellValue) = 0 Then
             emptyStreak = emptyStreak + 1

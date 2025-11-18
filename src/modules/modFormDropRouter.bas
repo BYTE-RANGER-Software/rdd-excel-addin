@@ -10,7 +10,7 @@ Attribute VB_Name = "modFormDropRouter"
 '   - FormDrop_Arrow_OnClick : Macro called by arrow Shape.OnAction.
 '
 ' Dependencies:
-'   - clsFormDrop (clsFormDrop) : Event target class handling the form drop logic.
+'   - clsFormDrop : Event target class handling the form drop logic.
 '
 ' Notes     :
 '   - modFormDropRouter and clsFormDrop belong together and are mutually dependent.
@@ -42,11 +42,9 @@ Public g_formDropRegistryDict As Scripting.Dictionary
 Public Sub FormDrop_OnAction()
     On Error GoTo ErrHandler
     
-    Dim callerCtrlName As String
-    callerCtrlName = CStr(Application.Caller)
+    Dim callerCtrlName As String: callerCtrlName = CStr(Application.Caller)
 
-    Dim instanceId As String
-    instanceId = clsFormDrop.ParseInstanceId(callerCtrlName)
+    Dim instanceId As String: instanceId = clsFormDrop.ParseInstanceId(callerCtrlName)
     If Len(instanceId) = 0 Then Exit Sub
 
     If g_formDropRegistryDict Is Nothing Then Exit Sub

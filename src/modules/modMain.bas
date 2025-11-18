@@ -1,33 +1,64 @@
 Attribute VB_Name = "modMain"
 ' -----------------------------------------------------------------------------------
 ' Module    : modMain
-' Purpose   : Orchestrates use cases; handles UI, validation, selection, confirmation,
-'             navigation, logging, error display, and app lifecycle.
+' Purpose   : Central application controller and business logic hub.
+'             Manages app lifecycle, handles application-level events (delegated from
+'             clsAppEvents), orchestrates feature workflows, provides Ribbon callbacks,
+'             and implements business logic for user interactions.
 '
 ' Public API:
-'   - AppProjectName              : Returns the VBA project name.
-'   - AppTempPath                 : Gets or sets the temp/log path.
-'   - AppVersion                  : Returns the current add-in version.
-'   - HandleWorkbookAddinInstall  : Performs first-time installation initialization.
-'   - HandleWorkbookOpen          : Handles add-in startup tasks.
-'   - HandleWorkbookBeforeClose   : Handles add-in shutdown tasks.
-'   - EnsureWorkbookIsTagged      : Marks a workbook as compatible with this add-in.
-'   - IsRDDWorkbook               : Tests whether a workbook is tagged for this add-in.
-'   - ShowLog                     : Displays the current log.
-'   - ShowManual                  : Opens the manual file.
-'   - ShowOptions                 : Displays the options dialog.
-'   - ShowAbout                   : Displays the about dialog.
-'   - AddNewRoom                  : Creates a new room sheet.
-'   - AddNewRoomFromCellCtxMnu    : Creates a new room from the cell context menu.
-'   - RemoveCurrentRoom           : Deletes the active room sheet.
-'   - GotoRoomFromCell            : Navigates to a room sheet based on the active cell.
+'   === Configuration ===
+'   - AppProjectName              : Returns the VBA project name
+'   - AppTempPath                 : Gets/sets temp/log path
+'   - AppVersion                  : Returns add-in version
+'
+'   === Lifecycle ===
+'   - HandleWorkbookAddinInstall  : First-time installation initialization
+'   - HandleWorkbookOpen          : Startup tasks (logging, events, state)
+'   - HandleWorkbookBeforeClose   : Shutdown tasks (cleanup, save settings)
+'
+'   === Event Business Logic ===
+'   - HandleSheetActivate         : Sheet activation logic
+'   - HandleSheetChange           : Sheet change logic
+'   - HandleSheetBeforeRightClick : Right-click menu preparation
+'   - HandleWorkbookBeforeSave    : Pre-save operations
+'
+'   === FormDrop Callbacks ===
+'   - OnFormDropCatSelected       : Category dropdown selection logic
+'   - OnFormDropSubSelected       : Sub dropdown selection logic
+'
+'   === Workbook Management ===
+'   - EnsureWorkbookIsTagged      : Marks workbook as add-in compatible
+'   - IsRDDWorkbook               : Tests workbook compatibility tag
+'
+'   === UI Entry Points (Ribbon) ===
+'   - ShowLog                     : Displays log viewer
+'   - ShowManual                  : Opens manual file
+'   - ShowOptions                 : Displays options dialog
+'   - ShowAbout                   : Displays about dialog
+'
+'   === Feature Orchestration ===
+'   - AddNewRoom                  : Creates new room sheet with dialog
+'   - AddNewRoomFromCellCtxMnu    : Creates room and writes ID to cell
+'   - RemoveCurrentRoom           : Deletes active room sheet
+'   - GotoRoomFromCell            : Navigates to room referenced in cell
 '
 ' Dependencies:
-'   - modUtil, modErr, modOptions, modTags, modRooms, modCellCtxMnu, modProps, clsState
+'   - clsAppEvents    : Event sink (delegates to this module)
+'   - clsState        : Application state management
+'   - modUtil         : Utility functions
+'   - modErr          : Error handling and logging
+'   - modOptions      : Settings management
+'   - modTags         : Sheet/workbook tagging
+'   - modRooms        : Room sheet operations
+'   - modCellCtxMnu   : Cell context menu
+'   - modProps        : Document properties
 '
-' Notes     :
-'   - Keep this module focused on orchestration, application events, and UI flows.
-'   - Business logic should live in feature modules/classes (e.g., modRooms, modOptions).
+' Notes:
+'   - This module acts as the **central controller** for the application
+'   - Event handlers contain business logic (not just delegation)
+'   - Keeps orchestration logic separate from low-level feature implementation
+'   - Maintains single responsibility: "What should happen when..." not "How to do..."
 ' -----------------------------------------------------------------------------------
 
 Option Explicit
@@ -40,6 +71,7 @@ Private m_appTempPath As String
 Private m_appProjectName As String
 
 Private m_appEvents As clsAppEvents ' keeps WithEvents sink alive
+Private m_formDropMgr As clsFormDropManager
 Private m_activeWorkbookOnInstall As Workbook ' holds ActiveWorkbook on install
 
 ' ===== Public API ====================================================================
@@ -69,15 +101,15 @@ Public Property Get AppTempPath() As String
 
 End Property
 
-Public Property Let AppTempPath(ByVal value As String)
+Public Property Let AppTempPath(ByVal Value As String)
 
     ' Ensure trailing backslash
-    If Len(value) > 0 Then
-        If Right$(value, 1) <> "\" Then
-            value = value & "\"
+    If Len(Value) > 0 Then
+        If Right$(Value, 1) <> "\" Then
+            Value = Value & "\"
         End If
     End If
-    m_appTempPath = value
+    m_appTempPath = Value
 
 End Property
 
@@ -135,8 +167,8 @@ Public Sub HandleWorkbookOpen()
     ' load options
     modOptions.ReadGeneralOptions
 
-    modFormDropManager.FD_InitMngrs
-    
+    If m_formDropMgr Is Nothing Then Set m_formDropMgr = New clsFormDropManager: m_formDropMgr.Init "modFormDropRouter"
+        
     ' wire application events when running as add-in
     If RDDAddInWkBk.IsAddin Then
         ConnectEventHandler
@@ -162,7 +194,7 @@ Public Sub HandleWorkbookBeforeClose()
     ' Detach events
     DisconnectEventHandler
     
-    modFormDropManager.FD_DisposeMngrs
+    Set m_formDropMgr = Nothing
 
     '  Update ribbon/UI and clear state
     clsState.InvalidateRibbon
@@ -170,6 +202,14 @@ Public Sub HandleWorkbookBeforeClose()
 
     ' close Log
     modErr.CloseLogger
+End Sub
+
+Public Sub HandleSheetDeactivate(ByVal Sh As Worksheet)
+        m_formDropMgr.HandleSheetDeactivate Sh
+End Sub
+
+Public Sub HandleSheetSelectionChange(ByVal Sh As Worksheet, ByVal Target As Range)
+        m_formDropMgr.HandleSelectionChange Sh, Target
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -520,7 +560,7 @@ Public Sub AddNewRoomFromCellCtxMnu()
     roomId = AddNewRoom(False)
         
     If Len(roomId) > 0 Then
-        If Not targetCell Is Nothing Then targetCell.value = roomId
+        If Not targetCell Is Nothing Then targetCell.Value = roomId
     End If
     
     
@@ -576,7 +616,7 @@ Public Sub GotoRoomFromCell()
     Dim currentWorkbook As Workbook: Set currentWorkbook = ActiveWorkbook
     Dim currentCell As Range: Set currentCell = ActiveCell
     
-    roomId = Trim$(CStr(currentCell.value))
+    roomId = Trim$(CStr(currentCell.Value))
     If Len(roomId) = 0 Then
         MsgBox "No Room ID in the selected cell.", vbInformation, AppProjectName
         Exit Sub

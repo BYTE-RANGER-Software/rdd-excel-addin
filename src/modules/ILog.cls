@@ -15,28 +15,28 @@ Option Explicit
 '========================
 ' Properties
 '========================
-Public Property Let LogFilePath(ByVal value As String)
+Public Property Let LogFilePath(ByVal Value As String)
 End Property
 
-Public Property Let LogFileName(ByVal value As String)
+Public Property Let LogFileName(ByVal Value As String)
 End Property
 
 Public Property Get Buffer() As String
 End Property
 
-Public Property Let Buffer(ByVal value As String)
+Public Property Let Buffer(ByVal Value As String)
 End Property
 
 Public Property Get MaxLogSizeBeforeSave() As Long
 End Property
 
-Public Property Let MaxLogSizeBeforeSave(ByVal value As Long)
+Public Property Let MaxLogSizeBeforeSave(ByVal Value As Long)
 End Property
 
 Public Property Get LogSeparator() As String
 End Property
 
-Public Property Let LogSeparator(ByVal value As String)
+Public Property Let LogSeparator(ByVal Value As String)
 End Property
 
 '========================
