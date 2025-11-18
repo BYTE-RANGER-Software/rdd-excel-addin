@@ -5,15 +5,17 @@ Attribute VB_Name = "modFormDropManager"
 '             One clsFormDrop manager per worksheet, reused and moved on selection.
 '
 ' Public API:
-'   - FD_Init()                     : Prepare feature (per-app lifetime).
-'   - FD_Cleanup()                  : Destroy all per-sheet managers.
-'   - FD_OnSelectionChange(Sh, Target) : Central selection handler (shows arrow / hides).
-'   - FD_OnSheetDeactivate(Sh)      : Hide on sheet switch.
+'   - FD_InitMngrs()                         : Prepare feature (per-app lifetime).
+'   - FD_DisposeMngrs()                      : Destroy all per-sheet managers.
+'   - FD_HandleSelectionChange(Sh, Target)   : Central selection handler (shows arrow / hides).
+'   - FD_HandleSheetDeactivate(Sh)           : Hide on sheet switch.
 '
 ' Dependencies:
 '   - clsFormDrop (main class)
 '   - modFormDropRouter (routes Form control events)
 '   - modTags
+'   - modRanges
+'   - modErr
 '
 ' Notes     :
 '   - Requires reference "Microsoft Scripting Runtime" (Scripting.Dictionary).
@@ -22,10 +24,16 @@ Attribute VB_Name = "modFormDropManager"
 Option Explicit
 Option Private Module
 
-Private m_mgrMap As Scripting.Dictionary   ' key = Worksheet.CodeName, value = clsFormDrop
+' ===== Private State ================================================================
+' Internal registry: one clsFormDrop manager per worksheet (keyed by CodeName).
+
+Private m_mngrMap As Scripting.Dictionary   ' key = Worksheet.CodeName, value = clsFormDrop
+
+' ===== Public API ===================================================================
+' Public entry points used by the application event layer (clsAppEvents).
 
 ' -----------------------------------------------------------------------------------
-' Procedure : FD_Init
+' Procedure : FD_InitMngrs
 ' Purpose   : Initialize feature: create instance map.
 '
 ' Parameters:
@@ -35,18 +43,18 @@ Private m_mgrMap As Scripting.Dictionary   ' key = Worksheet.CodeName, value = c
 '
 ' Notes     : Safe to call multiple times.
 ' -----------------------------------------------------------------------------------
-Public Sub FD_Init()
+Public Sub FD_InitMngrs()
 On Error GoTo ErrHandler
-    If m_mgrMap Is Nothing Then Set m_mgrMap = New Scripting.Dictionary
+    If m_mngrMap Is Nothing Then Set m_mngrMap = New Scripting.Dictionary
 CleanExit:
     Exit Sub
 ErrHandler:
-    modErr.ReportError "FD_Init", Err.Number, Erl
+    modErr.ReportError "FD_InitMngrs", Err.Number, Erl
     Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
-' Procedure : FD_Cleanup
+' Procedure : FD_DisposeMngrs
 ' Purpose   : Destroy all managers and clear map.
 '
 ' Parameters:
@@ -56,54 +64,53 @@ End Sub
 '
 ' Notes     : Safe to call multiple times.
 ' -----------------------------------------------------------------------------------
-Public Sub FD_Cleanup()
+Public Sub FD_DisposeMngrs()
 On Error GoTo ErrHandler
-    Dim k As Variant
-    If Not m_mgrMap Is Nothing Then
-        For Each k In m_mgrMap.Keys
+    Dim key As Variant
+    If Not m_mngrMap Is Nothing Then
+        For Each key In m_mngrMap.Keys
             On Error Resume Next
-            m_mgrMap(k).Destroy
+            m_mngrMap(key).Destroy
             On Error GoTo ErrHandler
-        Next k
-        m_mgrMap.RemoveAll
+        Next key
+        m_mngrMap.RemoveAll
     End If
 CleanExit:
     Exit Sub
 ErrHandler:
-    modErr.ReportError "FD_Cleanup", Err.Number, Erl
+    modErr.ReportError "FD_DisposeMngrs", Err.Number, Erl
     Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
-' Procedure : FD_OnSelectionChange
-' Purpose   : Central handler for App.SheetSelectionChange.
+' Procedure : FD_HandleSelectionChange
+' Purpose   : Form Drop handler for App.SheetSelectionChange.
 '             Shows arrow only when the selected cell is an anchor (named DD_Anchor_*).; hides otherwise. Dropdowns open on arrow click.
 '
 ' Parameters:
-'   Sh       [Object] - Worksheet raising the event.
-'   Target   [Range]  - New selection.
+'   eventSheet       [Object] - Worksheet raising the event.
+'   targetRange      [Range]  - New selection.
 '
 ' Returns   : (none)
 '
 ' Notes     :
 '   - Requires that lists were set in clsFormDrop; otherwise ShowAt raises (as desired).
 ' -----------------------------------------------------------------------------------
-Public Sub FD_OnSelectionChange(ByVal Sh As Object, ByVal Target As Range)
+Public Sub FD_HandleSelectionChange(ByVal eventSheet As Worksheet, ByVal targetRange As Range)
 On Error GoTo ErrHandler
 
-    Dim ws As Worksheet: Set ws = Sh
-    If Not FD_ShouldHandleSheet(ws) Then Exit Sub
+    If Not FD_ShouldHandleSheet(eventSheet) Then Exit Sub
 
-    Dim mgr As clsFormDrop: Set mgr = FD_EnsureMgr(ws)
+    Dim mgr As clsFormDrop: Set mgr = FD_GetOrCreateMngr(eventSheet)
 
-    If Target Is Nothing Or Target.CountLarge > 1 Then
+    If targetRange Is Nothing Or targetRange.CountLarge > 1 Then
         mgr.HideDropDowns
         Exit Sub
     End If
 
-    If FD_IsAnchorCell(ws, Target.Cells(1, 1)) Then
-        Call FD_TryConfigureListsFromAnchor(ws, Target.Cells(1, 1), mgr)
-        mgr.ShowAt ws, Target.Cells(1, 1)   ' shows arrow only; dropdown opens on arrow click
+    If FD_IsAnchorCell(eventSheet, targetRange.Cells(1, 1)) Then
+        Call FD_ConfigListsFromAnchorMeta(eventSheet, targetRange.Cells(1, 1), mgr)
+        mgr.ShowAt eventSheet, targetRange.Cells(1, 1)   ' shows arrow only; dropdown opens on arrow click
     Else
         mgr.HideDropDowns
     End If
@@ -111,51 +118,56 @@ On Error GoTo ErrHandler
 CleanExit:
     Exit Sub
 ErrHandler:
-    modErr.ReportError "FD_OnSelectionChange", Err.Number, Erl
+    modErr.ReportError "FD_HandleSelectionChange", Err.Number, Erl
     Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
-' Procedure : FD_OnSheetDeactivate
-' Purpose   : Hide controls when leaving a sheet.
+' Procedure : FD_HandleSheetDeactivate
+' Purpose   : Hide controls when leaving a sheet. Form Drop Handler for App_SheetDeactivate
 '
 ' Parameters:
-'   Sh       [Object] - Worksheet being deactivated.
+'   eventSheet       [Object] - Worksheet being deactivated.
 '
 ' Returns   : (none)
 ' -----------------------------------------------------------------------------------
-Public Sub FD_OnSheetDeactivate(ByVal Sh As Object)
+Public Sub FD_HandleSheetDeactivate(ByVal eventSheet As Worksheet)
 On Error GoTo ErrHandler
-    If m_mgrMap Is Nothing Then Exit Sub
-    Dim key As String: key = Sh.CodeName
-    If m_mgrMap.Exists(key) Then m_mgrMap(key).Hide
+    If m_mngrMap Is Nothing Then Exit Sub
+    Dim key As String: key = eventSheet.CodeName
+    If m_mngrMap.Exists(key) Then m_mngrMap(key).Hide
 CleanExit:
     Exit Sub
 ErrHandler:
-    modErr.ReportError "FD_OnSheetDeactivate", Err.Number, Erl
+    modErr.ReportError "FD_HandleSheetDeactivate", Err.Number, Erl
     Resume CleanExit
 End Sub
+
+' ===== Private Helpers ==============================================================
+' Internal helper functions to determine eligibility, create managers and
+' configure list behavior based on anchor metadata.
 
 ' -----------------------------------------------------------------------------------
 ' Function  : FD_ShouldHandleSheet
 ' Purpose   : Determine whether the given sheet participates in the feature.
 '
 ' Parameters:
-'   ws       [Worksheet] - Candidate sheet.
+'   hostSheet       [Worksheet] - Candidate sheet.
 '
 ' Returns   : [Boolean] - True if the sheet should be handled.
 '
 ' Notes     :
-'   - Mirrors your gating in clsAppEvents: skip add-in workbook/sheet dispatcher.
+'       - Skips when dispatcher tag is not present.
+'       - Skips dispatcher sheet itself and sheets tagged with SHEET_DISPATCHER.
 ' -----------------------------------------------------------------------------------
-Private Function FD_ShouldHandleSheet(ByVal ws As Worksheet) As Boolean
+Private Function FD_ShouldHandleSheet(ByVal hostSheet As Worksheet) As Boolean
 On Error GoTo ErrHandler
-    Dim wb As Workbook: Set wb = ws.Parent
-    If wb Is RDDAddInWkBk Then GoTo CleanExit
-    If wb.IsAddin Then GoTo CleanExit
-    If Not modTags.SheetWithTagExists(wb, SHEET_DISPATCHER) Then GoTo CleanExit
-    If ws.CodeName = SHEET_DISPATCHER Then GoTo CleanExit
-    If modTags.HasSheetTag(ws, SHEET_DISPATCHER) Then GoTo CleanExit
+
+    Dim hostWorkbook As Workbook
+    Set hostWorkbook = hostSheet.Parent
+    If Not modTags.SheetWithTagExists(hostWorkbook, SHEET_DISPATCHER) Then GoTo CleanExit
+    If hostSheet.CodeName = SHEET_DISPATCHER Then GoTo CleanExit
+    If modTags.HasSheetTag(hostSheet, SHEET_DISPATCHER) Then GoTo CleanExit
 
     FD_ShouldHandleSheet = True
 CleanExit:
@@ -168,46 +180,42 @@ End Function
 
 
 ' -----------------------------------------------------------------------------------
-' Function  : FD_EnsureMgr
+' Function  : FD_GetOrCreateMngr
 ' Purpose   : Get or create the per-sheet clsFormDrop manager.
 '
 ' Parameters:
-'   ws       [Worksheet] - Host sheet.
+'   hostSheet       [Worksheet] - Host sheet.
 '
 ' Returns   : [clsFormDrop] - Configured manager instance.
 '
 ' Notes     :
 '   - Sets arrow options and list sources once on first use.
 ' -----------------------------------------------------------------------------------
-Private Function FD_EnsureMgr(ByVal ws As Worksheet) As clsFormDrop
+Private Function FD_GetOrCreateMngr(ByVal hostSheet As Worksheet) As clsFormDrop
 On Error GoTo ErrHandler
-    If m_mgrMap Is Nothing Then FD_Init
+    If m_mngrMap Is Nothing Then FD_InitMngrs
 
-    Dim key As String: key = ws.CodeName
-    If Not m_mgrMap.Exists(key) Then
-        Dim mgr As New clsFormDrop
-        mgr.Init ws.Parent, modFormDropRouter.g_formDropRegistryDict
+    Dim key As String: key = hostSheet.CodeName
+    If Not m_mngrMap.Exists(key) Then
+        Dim formDrop As New clsFormDrop
+        formDrop.Init hostSheet.Parent, modFormDropRouter.g_formDropRegistryDict
 
         ' Arrow config
-        mgr.SetArrowEnabled True
-        mgr.SetArrowStyle 2, 10, 10
-        mgr.SetPlacement True
+        formDrop.SetArrowEnabled True
+        formDrop.SetArrowStyle 2, 10, 10
+        formDrop.SetPlacement True
 
-        ' Provide list sources
-        mgr.SetListsFromNames FD_CAT_RANGE_NAME, _
-                              FD_SUB_ITEMS_RANGE_NAME, _
-                              FD_SUB_OBJECTS_RANGE_NAME, _
-                              FD_SUB_HOTSPOTS_RANGE_NAME, _
-                              FD_SUB_ACTORS_RANGE_NAME
-
-        m_mgrMap.Add key, mgr
+        ' Provide default list sources
+        formDrop.SetListsFromTable modRanges.GetTable(hostSheet, NAME_DATA_TABLE), LISTS_HEADER_ITEM_ID, LISTS_HEADER_OBJECTS
+                              
+        m_mngrMap.Add key, formDrop
     End If
 
-    Set FD_EnsureMgr = m_mgrMap(key)
+    Set FD_GetOrCreateMngr = m_mngrMap(key)
 CleanExit:
     Exit Function
 ErrHandler:
-    modErr.ReportError "FD_EnsureMgr", Err.Number, Erl
+    modErr.ReportError "FD_GetOrCreateMngr", Err.Number, Erl
     Resume CleanExit
 End Function
 
@@ -216,12 +224,12 @@ End Function
 ' Purpose   : True if the cell has a name matching FD_ANCHOR_NAME_PATTERN.
 '
 ' Parameters:
-'   ws    [Worksheet] - Host sheet.
-'   cell  [Range]     - Single cell to test.
+'   hostSheet    [Worksheet] - Host sheet.
+'   cell         [Range]     - Single cell to test.
 '
-' Returns   : [Boolean]
+' Returns   : [Boolean]      - True if the cell is an anchor cell; otherwise False.
 ' -----------------------------------------------------------------------------------
-Private Function FD_IsAnchorCell(ByVal ws As Worksheet, ByVal cell As Range) As Boolean
+Private Function FD_IsAnchorCell(ByVal hostSheet As Worksheet, ByVal cell As Range) As Boolean
     Dim nm As Name
 
     Set nm = modRanges.GetCellNameByPattern(cell, FD_ANCHOR_NAME_PATTERN)
@@ -232,12 +240,27 @@ Private Function FD_IsAnchorCell(ByVal ws As Worksheet, ByVal cell As Range) As 
 End Function
 
 
-' Try to configure lists for an anchor cell from the Name.Comment.
-' Returns True if configuration was applied; False if no/invalid metadata.
-Private Function FD_TryConfigureListsFromAnchor(ByVal ws As Worksheet, ByVal cell As Range, mgr As clsFormDrop) As Boolean
+' -----------------------------------------------------------------------------------
+' Function  : FD_ConfigListsFromAnchorMeta
+' Purpose   : Tries to configure category/sub lists for an anchor anchorCell based on the
+'             Name.Comment metadata.
+'
+' Parameters:
+'   hostSheet    [Worksheet]  - Host sheet for lookup.
+'   anchorCell   [Range]      - Anchor anchorCell carrying a Name.
+'   formDrop     [clsFormDrop]- Form Drop Manager to configure.
+'
+' Returns   : Boolean - True if configuration was applied; False if no/invalid metadata.
+'
+' Notes     :
+'   - Supports two variants:
+'       * Variant A: workbook Names (cat + subs) OR subs only as category labels.
+'       * Variant B: ListObject (table & columns).
+' -----------------------------------------------------------------------------------
+Private Function FD_ConfigListsFromAnchorMeta(ByVal hostSheet As Worksheet, ByVal anchorCell As Range, formDrop As clsFormDrop) As Boolean
     
     Dim nm As Name
-    Set nm = modRanges.GetCellNameByPattern(cell, FD_ANCHOR_NAME_PATTERN)
+    Set nm = modRanges.GetCellNameByPattern(anchorCell, FD_ANCHOR_NAME_PATTERN)
     If nm Is Nothing Then Exit Function
     
     Dim meta As String
@@ -250,15 +273,15 @@ Private Function FD_TryConfigureListsFromAnchor(ByVal ws As Worksheet, ByVal cel
     If StrComp(Left$(Trim$(meta), Len(FD_META_PREFIX)), FD_META_PREFIX, vbTextCompare) <> 0 Then Exit Function
 
     meta = Trim$(Mid$(meta, Len(FD_META_PREFIX) + 1))
-    Dim kv As Object: Set kv = FD_ParseMetaKeyValues(meta)
+    Dim kv As Scripting.Dictionary: Set kv = FD_ParseMetaKeyValues(meta)
     If kv Is Nothing Then Exit Function
 
-    Dim wb As Workbook: Set wb = ws.Parent
+    Dim wb As Workbook: Set wb = hostSheet.Parent
 
     ' --- Variant A: workbook Names (cat + subs) OR fallback to subs as category labels ---
     If kv.Exists(FD_META_KEY_SUBS) Then
         Dim subsArr As Variant
-        subsArr = FD_SplitTrim(CStr(kv(FD_META_KEY_SUBS)), FD_META_LIST_SEP)
+        subsArr = modUtil.SplitTrim(CStr(kv(FD_META_KEY_SUBS)), FD_META_LIST_SEP)
 
         Dim i As Long
         Dim subRanges() As Variant
@@ -279,24 +302,24 @@ Private Function FD_TryConfigureListsFromAnchor(ByVal ws As Worksheet, ByVal cel
             Set catRng = wb.Names(CStr(kv(FD_META_KEY_CAT))).RefersToRange
             On Error GoTo 0
             If catRng Is Nothing Then Exit Function
-            mgr.SetListsFromNamedRanges catRng, subRanges
+            formDrop.SetListsFromNamedRanges catRng, subRanges
         Else
             ' Fallback: keine cat= ? subs-Namen als Kategorienamen verwenden
-            mgr.SetListsFromLabelsAndRanges subsArr, subRanges
+            formDrop.SetListsFromLabelsAndRanges subsArr, subRanges
         End If
 
-        FD_TryConfigureListsFromAnchor = True
+        FD_ConfigListsFromAnchorMeta = True
         Exit Function
     End If
 
     ' --- Variant B: table & columns ---
     If kv.Exists(FD_META_KEY_SUBS_TBL) And kv.Exists(FD_META_KEY_SUBS_COLS) Then
         Dim loSubs As ListObject
-        Set loSubs = FD_GetTable(ws, CStr(kv(FD_META_KEY_SUBS_TBL)))
+        Set loSubs = modRanges.GetTable(hostSheet, CStr(kv(FD_META_KEY_SUBS_TBL)))
         If loSubs Is Nothing Then Exit Function
 
         Dim cols As Variant
-        cols = FD_SplitTrim(CStr(kv(FD_META_KEY_SUBS_COLS)), FD_META_LIST_SEP)
+        cols = modUtil.SplitTrim(CStr(kv(FD_META_KEY_SUBS_COLS)), FD_META_LIST_SEP)
 
         Dim subRanges2() As Variant
         ReDim subRanges2(LBound(cols) To UBound(cols))
@@ -314,59 +337,54 @@ Private Function FD_TryConfigureListsFromAnchor(ByVal ws As Worksheet, ByVal cel
         If kv.Exists(FD_META_KEY_CAT_TBL) And kv.Exists(FD_META_KEY_CAT_COL) Then
             ' Normalfall: catTbl + catCol vorhanden
             Dim loCat As ListObject, catRng2 As Range
-            Set loCat = FD_GetTable(ws, CStr(kv(FD_META_KEY_CAT_TBL)))
+            Set loCat = modRanges.GetTable(hostSheet, CStr(kv(FD_META_KEY_CAT_TBL)))
             If loCat Is Nothing Then Exit Function
             On Error Resume Next
             Set catRng2 = loCat.ListColumns(CStr(kv(FD_META_KEY_CAT_COL))).DataBodyRange
             On Error GoTo 0
             If catRng2 Is Nothing Then Exit Function
-            mgr.SetListsFromNamedRanges catRng2, subRanges2
+            formDrop.SetListsFromNamedRanges catRng2, subRanges2
         Else
             ' Fallback: keine catTbl/catCol ? Spaltennamen als Kategorienamen verwenden
-            mgr.SetListsFromLabelsAndRanges cols, subRanges2
+            formDrop.SetListsFromLabelsAndRanges cols, subRanges2
         End If
 
-        FD_TryConfigureListsFromAnchor = True
+        FD_ConfigListsFromAnchorMeta = True
         Exit Function
     End If
 End Function
 
-' Parse "key=value; key=value" into a late-bound dictionary (case-insensitive keys)
-Private Function FD_ParseMetaKeyValues(ByVal s As String) As Object
-    Dim d As Object: Set d = CreateObject("Scripting.Dictionary")
-    d.CompareMode = 1 ' TextCompare
+' -----------------------------------------------------------------------------------
+' Function  : FD_ParseMetaKeyValues
+' Purpose   : Parses "key=value; key=value" style metadata into a late-bound dictionary
+'             with case-insensitive keys.
+'
+' Parameters:
+'   metaString   [String] - Raw metadata string.
+'
+' Returns   : Object - Scripting.Dictionary containing parsed key/value pairs.
+'
+' Notes     :
+'   - Uses FD_META_PAIR_SEP for splitting pairs.
+' -----------------------------------------------------------------------------------
+Private Function FD_ParseMetaKeyValues(ByVal metaString As String) As Scripting.Dictionary
+    Dim metaDict As Scripting.Dictionary: Set metaDict = New Scripting.Dictionary
+    metaDict.CompareMode = 1 ' TextCompare
     Dim parts As Variant, i As Long
-    parts = Split(s, FD_META_PAIR_SEP)
+    parts = Split(metaString, FD_META_PAIR_SEP)
     For i = LBound(parts) To UBound(parts)
-        Dim p As String: p = Trim$(parts(i))
-        If Len(p) > 0 Then
-            Dim eqPos As Long: eqPos = InStr(1, p, "=", vbTextCompare)
+        Dim part As String: part = Trim$(parts(i))
+        If Len(part) > 0 Then
+            Dim eqPos As Long: eqPos = InStr(1, part, "=", vbTextCompare)
             If eqPos > 1 Then
-                Dim k As String, v As String
-                k = Trim$(Left$(p, eqPos - 1))
-                v = Trim$(Mid$(p, eqPos + 1))
-                If Len(k) > 0 Then d(k) = v
+                Dim key As String, value As String
+                key = Trim$(Left$(part, eqPos - 1))
+                value = Trim$(Mid$(part, eqPos + 1))
+                If Len(key) > 0 Then metaDict(key) = value
             End If
         End If
     Next
-    Set FD_ParseMetaKeyValues = d
-End Function
-
-' Split by sep and trim entries; returns a Variant array (LB=0)
-Private Function FD_SplitTrim(ByVal s As String, ByVal sep As String) As Variant
-    Dim arr As Variant: arr = Split(s, sep)
-    Dim i As Long
-    For i = LBound(arr) To UBound(arr)
-        arr(i) = Trim$(CStr(arr(i)))
-    Next
-    FD_SplitTrim = arr
-End Function
-
-' Get a ListObject by name and worksheet
-Private Function FD_GetTable(ByVal ws As Worksheet, ByVal tableName As String) As ListObject
-    On Error Resume Next
-    Set FD_GetTable = ws.ListObjects(tableName)
-    On Error GoTo 0
+    Set FD_ParseMetaKeyValues = metaDict
 End Function
 
 

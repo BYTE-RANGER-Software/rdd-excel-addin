@@ -11,6 +11,7 @@ Attribute VB_Name = "modRanges"
 '   - RangeHasValue            : Checks if any cell equals/contains a given value.
 '   - GetTableColumnRange      : Returns the DataBodyRange for a specific ListObject column.
 '   - GetCellNameByPattern     : Returns the Name object of a cell if it has a defined name
+'   - GetTable                 : Returns the ListObject with name and worksheet
 '
 ' Dependencies:
 '   - modErr : error reporting
@@ -484,5 +485,27 @@ Private Function CellMatches( _
     End Select
 End Function
 
+' -----------------------------------------------------------------------------------
+' Function  : GetTable
+' Purpose   : Returns the ListObject with the given name from the specified worksheet.
+'
+' Parameters:
+'   ws          [Worksheet] - Worksheet that hosts the table.
+'   tableName   [String]    - Name of the ListObject to return.
+'
+' Returns   : [ListObject] - The matching ListObject; Nothing if not found.
+'
+' Notes     :
+'   - Uses On Error Resume Next to allow a Nothing return when the table
+'     does not exist on the given worksheet.
+' -----------------------------------------------------------------------------------
+Public Function GetTable( _
+    ByVal ws As Worksheet, _
+    ByVal tableName As String) As ListObject
+
+    On Error Resume Next
+    Set GetTable = ws.ListObjects(tableName)
+    On Error GoTo 0
+End Function
 
 

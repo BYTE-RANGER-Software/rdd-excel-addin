@@ -100,10 +100,14 @@ Public Const ROOM_ADD_PARALLAX_SET_HIDE_TOKEN As String = "None"
 Public Const ROOM_ADD_PARALLAX_SET_COVER_NAME As String = "COVER_ADD_PARALLAX_SET"
 
 'Data Table Header Names
-Public Const LISTS_HEADER_ROOM_ID As String = "Room IDs"
+Public Const LISTS_HEADER_ROOM_ID As String = "Room ID"
 Public Const LISTS_HEADER_ROOM_ALIAS As String = "Room Alias"
-Public Const LISTS_HEADER_SCENE_ID As String = "Scene IDs"
+Public Const LISTS_HEADER_SCENE_ID As String = "Scene ID"
 Public Const LISTS_HEADER_OBJECTS As String = "Objects"
+Public Const LISTS_HEADER_ITEM_ID As String = "Item ID"
+Public Const LISTS_HEADER_ACTOR_ID As String = "Actor ID"
+Public Const LISTS_HEADER_HOTSPOT_ID As String = "Hotspot ID"
+Public Const LISTS_STATE_OBJECT_ID As String = "State Object ID"
 
 'Data Table Column No
 ' Deprecated ! Don't use in further coding => TODO: replace by dynamic ListObject methods
@@ -141,12 +145,6 @@ Public Const ERR_NOT_A_ROOM_SHEET           As Long = ERR_ROOMS_BASE + 2    ' "T
 Public Const ERR_ROOM_SHEET_REFERENCED      As Long = ERR_ROOMS_BASE + 3    ' "Room sheet cannot be deleted because it is referenced..."
 
 Public Const FD_ANCHOR_NAME_PATTERN As String = "DD_Anchor_*"
-
-Public Const FD_CAT_RANGE_NAME           As String = "CatList"
-Public Const FD_SUB_ITEMS_RANGE_NAME     As String = "Items_Item"
-Public Const FD_SUB_OBJECTS_RANGE_NAME   As String = "Items_Object"
-Public Const FD_SUB_HOTSPOTS_RANGE_NAME  As String = "Items_Hotspot"
-Public Const FD_SUB_ACTORS_RANGE_NAME    As String = "Items_Actor"
 
 Public Const FD_META_PREFIX        As String = "FD:"
 Public Const FD_META_PAIR_SEP      As String = ";"          ' key=value;key=value

@@ -367,20 +367,22 @@ End Sub
 ' -----------------------------------------------------------------------------------
 ' Procedure : SetListsFromTable
 ' -----------------------------------------------------------------------------------
-Public Sub SetListsFromTable(ByVal srcTable As ListObject, ByVal catName As String, ParamArray subNames() As Variant)
+Public Sub SetListsFromTable(ByVal srcTable As ListObject, ParamArray subNames() As Variant)
     If Not EnsureInitialized Then Exit Sub
     If Not EnsureNotDefaultInstance Then Exit Sub
     
-    Dim catRng As Range
-    Set catRng = srcTable.ListColumns(catName).DataBodyRange
+    If Not IsArray(subNames) Then Err.Raise ERR_NO_ARRAY, "clsFormDrop", "subNames must be an array of Strings."
 
     Dim i As Long
-    Dim arr() As Range
-    ReDim arr(LBound(subNames) To UBound(subNames))
+    Dim subRanges() As Range
+    Dim catLabels() As String
+    ReDim subRanges(LBound(subNames) To UBound(subNames))
+    ReDim catLabels(LBound(subNames) To UBound(subNames))
     For i = LBound(subNames) To UBound(subNames)
-        Set arr(i) = srcTable.ListColumns(CStr(subNames(i))).DataBodyRange
+        catLabels(i) = CStr(subNames(i))
+        Set subRanges(i) = srcTable.ListColumns(catLabels(i)).DataBodyRange
     Next i
-    Call SetListsFromNamedRanges(catRng, arr)
+    Call SetListsFromLabelsAndRanges(catLabels, subRanges)
 End Sub
 
 ' -----------------------------------------------------------------------------------

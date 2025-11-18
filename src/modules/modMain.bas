@@ -135,7 +135,7 @@ Public Sub HandleWorkbookOpen()
     ' load options
     modOptions.ReadGeneralOptions
 
-    modFormDropManager.FD_Init
+    modFormDropManager.FD_InitMngrs
     
     ' wire application events when running as add-in
     If RDDAddInWkBk.IsAddin Then
@@ -162,7 +162,7 @@ Public Sub HandleWorkbookBeforeClose()
     ' Detach events
     DisconnectEventHandler
     
-    modFormDropManager.FD_Cleanup
+    modFormDropManager.FD_DisposeMngrs
 
     '  Update ribbon/UI and clear state
     clsState.InvalidateRibbon

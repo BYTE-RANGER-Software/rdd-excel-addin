@@ -262,4 +262,22 @@ Public Sub QuickSortStringArray(ByRef arr() As String, ByVal first As Long, ByVa
     If low < last Then QuickSortStringArray arr, low, last
 End Sub
 
+' -----------------------------------------------------------------------------------
+' Function  : SplitTrim
+' Purpose   : Splits a string by a separator and trims each entry.
+'
+' Parameters:
+'   sourceText   [String] - Text to split.
+'   separator    [String] - Separator string.
+'
+' Returns   : Variant - One-dimensional array (LB=0) of trimmed strings.
+' -----------------------------------------------------------------------------------
+Public Function SplitTrim(ByVal sourceText As String, ByVal separator As String) As Variant
+    Dim splitArray As Variant: splitArray = Split(sourceText, separator)
+    Dim i As Long
+    For i = LBound(splitArray) To UBound(splitArray)
+        splitArray(i) = Trim$(CStr(splitArray(i)))
+    Next
+    SplitTrim = splitArray
+End Function
 

@@ -94,13 +94,13 @@ End Sub
 Private Sub App_SheetDeactivate(ByVal Sh As Object)
     If IsSheetFromNonAddIn(Sh) Then
     
-        modFormDropManager.FD_OnSheetDeactivate Sh
+        modFormDropManager.FD_HandleSheetDeactivate Sh
     End If
 End Sub
 
 Private Sub App_SheetSelectionChange(ByVal Sh As Object, ByVal Target As Range)
     If IsSheetFromNonAddIn(Sh) Then
-        modFormDropManager.FD_OnSelectionChange Sh, Target
+        modFormDropManager.FD_HandleSelectionChange Sh, Target
     End If
 End Sub
 
