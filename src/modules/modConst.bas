@@ -75,17 +75,17 @@ Public Const NAME_RANGE_SPECIAL_FX_NOTES As String = "Range_SpecialFX_Notes"
 Public Const NAME_RANGE_SPECIAL_FX_TRIGGER As String = "Range_SpecialFX_Trigger"
 Public Const NAME_RANGE_SPECIAL_FX_TYPE As String = "Range_SpecialFX_Type"
 Public Const NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID As String = "Range_TouchableObjects_HotspotID"
-Public Const NAME_RANGE_TOUCHABLE_OBJECTS_LABEL As String = "Range_TouchableObjects_Label"
+Public Const NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_NAME As String = "Range_TouchableObjects_Name"
 Public Const NAME_RANGE_TOUCHABLE_OBJECTS_NOTES As String = "Range_TouchableObjects_Notes"
 Public Const NAME_RANGE_WHAT_HAPPENS_HERE As String = "Range_WhatHappensHere"
 
 ' Data Table Named Columns
 ' Deprecated, do not use in further programming => TODO: replace by dynamic ListObject methods
-Public Const NAME_LIST_ROOM_IDS As String = "List_RoomIDs"
-Public Const NAME_LIST_SCENE_IDS As String = "List_SceneIDs"
-Public Const NAME_LIST_OBJECTS As String = "List_Objects"
-Public Const NAME_LIST_ACTORS As String = "List_Actors"
-Public Const NAME_LIST_PUZZLE_TYPES As String = "List_Puzzle_Types"
+'Public Const NAME_LIST_ROOM_IDS As String = "List_RoomIDs"
+'Public Const NAME_LIST_SCENE_IDS As String = "List_SceneIDs"
+'Public Const NAME_LIST_OBJECTS As String = "List_Objects"
+'Public Const NAME_LIST_ACTORS As String = "List_Actors"
+'Public Const NAME_LIST_PUZZLE_TYPES As String = "List_Puzzle_Types"
 
 ' Data Tables (dynamic ListObject)
 Public Const NAME_DATA_TABLE As String = "DropDownLists"
@@ -100,21 +100,50 @@ Public Const ROOM_ADD_PARALLAX_SET_HIDE_TOKEN As String = "None"
 Public Const ROOM_ADD_PARALLAX_SET_COVER_NAME As String = "COVER_ADD_PARALLAX_SET"
 
 'Data Table Header Names
-Public Const LISTS_HEADER_ROOM_ID As String = "Room ID"
+Public Const LISTS_HEADER_STATUS As String = "Status"
+Public Const LISTS_HEADER_PERSPECTIVE As String = "Perspective"
+Public Const LISTS_HEADER_SCENE_MODE As String = "Scene Mode"
+Public Const LISTS_HEADER_PARALLAX As String = "Parallax"
+Public Const LISTS_HEADER_LAYERS As String = "Layers"
+Public Const LISTS_HEADER_WIDTH As String = "Width"
+Public Const LISTS_HEADER_HEIGHT As String = "Height"
+Public Const LISTS_HEADER_UI_HEIGHT As String = "UI Height"
 Public Const LISTS_HEADER_ROOM_ALIAS As String = "Room Alias"
+Public Const LISTS_HEADER_ROOM_ID As String = "Room ID"
+Public Const LISTS_HEADER_ROOM_NO As String = "Room No"
 Public Const LISTS_HEADER_SCENE_ID As String = "Scene ID"
-Public Const LISTS_HEADER_OBJECTS As String = "Objects"
-Public Const LISTS_HEADER_ITEM_ID As String = "Item ID"
 Public Const LISTS_HEADER_ACTOR_ID As String = "Actor ID"
+Public Const LISTS_HEADER_ACTOR_NAME As String = "Actor Name"
+Public Const LISTS_HEADER_SOUND_ID As String = "Sound ID"
+Public Const LISTS_HEADER_SOUND_NAME As String = "Sound Name"
+Public Const LISTS_HEADER_SOUND_TYPE As String = "Sound Type"
+Public Const LISTS_HEADER_ANIMATION_ID As String = "Animation ID"
+Public Const LISTS_HEADER_ANIMATION_NAME As String = "Animation Name"
+Public Const LISTS_HEADER_ANIMATION_TYPE As String = "Animation Type"
+Public Const LISTS_HEADER_ITEM_ID As String = "Item ID"
+Public Const LISTS_HEADER_ITEM_NAME As String = "Item Name"
+Public Const LISTS_HEADER_STATE_OBJECT_NAME As String = "State Object Name"
+Public Const LISTS_HEADER_STATE_OBJECT_STATE As String = "State Object State"
+Public Const LISTS_HEADER_STATE_OBJECT_ID As String = "State Object ID"
 Public Const LISTS_HEADER_HOTSPOT_ID As String = "Hotspot ID"
-Public Const LISTS_STATE_OBJECT_ID As String = "State Object ID"
+Public Const LISTS_HEADER_HOTSPOT_NAME As String = "Hotspot Name"
+Public Const LISTS_HEADER_FLAG_ID As String = "Flag ID"
+Public Const LISTS_HEADER_FLAG_SCOPE As String = "Flag Scope"
+Public Const LISTS_HEADER_FLAG_TYPE As String = "Flag Type"
+Public Const LISTS_HEADER_FLAG_NAME As String = "Flag Name"
+Public Const LISTS_HEADER_PUZZLE_ID As String = "Puzzle ID"
+Public Const LISTS_HEADER_PUZZLE_ACTION As String = "Puzzle Action"
+Public Const LISTS_HEADER_PUZZLE_DIFFICULTY As String = "Puzzle Difficulty"
+Public Const LISTS_HEADER_PUZZLE_OWNER As String = "Puzzle Owner"
+Public Const LISTS_HEADER_PUZZLE_STATUS As String = "Puzzle Status"
+Public Const LISTS_HEADER_PUZZLE_POINTS As String = "Puzzle Points"
 
 'Data Table Column No
 ' Deprecated ! Don't use in further coding => TODO: replace by dynamic ListObject methods
-Public Const LISTS_COL_ROOM_ID As Long = 3
-Public Const LISTS_COL_ROOM_ALIAS As Long = 4
-Public Const LISTS_COL_SCENE_ID As Long = 5
-Public Const LISTS_COL_OBJECTS As Long = 9
+'Public Const LISTS_COL_ROOM_ID As Long = 3
+'Public Const LISTS_COL_ROOM_ALIAS As Long = 4
+'Public Const LISTS_COL_SCENE_ID As Long = 5
+'Public Const LISTS_COL_OBJECTS As Long = 9
 
 ' Dispatcher related constants
 Public Const BTN_INSERT_ROOM_PICTURE As String = "btnInsertImage"
@@ -126,6 +155,8 @@ Public Const APP_DOC_TAG_VAL As String = "v1.0"
 
 ' Error base Number
 Public Const ERR_BASE As Long = 60000
+Public Const ERR_MISSING_DISPATCHER         As Long = ERR_BASE + 1
+Public Const ERR_MISSING_DATA_TABLE         As Long = ERR_BASE + 2
 
 ' errors used in clsFormDrop
 Public Const ERR_FORM_DROP_BASE             As Long = ERR_BASE + 100
@@ -136,6 +167,7 @@ Public Const ERR_LISTS_NOT_SET              As Long = ERR_FORM_DROP_BASE + 3    
 Public Const ERR_NO_ARRAY                   As Long = ERR_FORM_DROP_BASE + 4      ' "must be an array.."
 Public Const ERR_OBJ_IS_NOTHING             As Long = ERR_FORM_DROP_BASE + 5      ' "is Nothing."
 Public Const ERR_DIF_LENGTH                 As Long = ERR_FORM_DROP_BASE + 6      ' ".. must have the same length."
+Public Const ERR_INSTANCE_EXISTS            As Long = ERR_FORM_DROP_BASE + 7
 
 ' errors used in modRooms
 Public Const ERR_ROOMS_BASE                 As Long = ERR_BASE + 200

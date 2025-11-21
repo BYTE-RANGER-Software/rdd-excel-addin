@@ -22,6 +22,12 @@ Attribute VB_Name = "modRooms"
 Option Explicit
 Option Private Module
 
+Public Enum ListUpdateMode
+    LUM_Append = 0 ' only Add new Datas
+    LUM_Sync = 1   ' Rewrite all Datas new
+    LUM_OnlyRoomRelated = 2 ' Rewrite only Room related Data
+End Enum
+
 ' ===== Public API ==================================================================
 
 ' -----------------------------------------------------------------------------------
@@ -83,7 +89,7 @@ Public Function AddRoom(ByVal targetBook As Workbook, ByRef newName As String, B
     Set AddRoom = newRoomSheet
         
     If updateAggregations Then
-        UpdateLists targetBook
+        UpdateLists targetBook, LUM_OnlyRoomRelated
     End If
     
 CleanExit:
@@ -91,7 +97,7 @@ CleanExit:
     Exit Function
     
 ErrHandler:
-    modErr.ReportError "AddRoom", Err.Number, Erl, caption:=modMain.AppProjectName
+    modErr.ReportError "modRooms.AddRoom", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
 End Function
 
@@ -168,7 +174,7 @@ Public Function RemoveRoom(ByVal targetSheet As Worksheet, _
     Set targetSheet = Nothing
     
     If updateAggregations Then
-        UpdateLists targetSheet.Parent
+        UpdateLists targetSheet.Parent, LUM_Sync
     End If
     
 CleanExit:
@@ -259,161 +265,67 @@ ErrHandler:
 End Function
 
 ' -----------------------------------------------------------------------------------
-' Function  : UpdateLists
-' Purpose   : Aggregates Room IDs, Objects, and Scene IDs from all Room sheets into
-'             the Lists sheet and updates the corresponding named ranges.
+' Procedure : UpdateLists
+' Purpose   : Central function for all Room Datalist update operations.
+'             Collects data and writes it differently depending on the mode.
 '
 ' Parameters:
-'   targetBook [Workbook]     - (optional) Target Workbook that contains data lists, default ActiveWorkbook
-' Returns   : (none)
+'   targetBook  [Workbook]        - Target Workbook
+'   mode        [ListUpdateMode]  - Update-Modus (Append/Sync/NewRoomOnly)
 '
 ' Notes     :
-'   - Room ID via IsRoomSheet (tag), Room Alias via NAME_CELL_ROOM_ALIAS.
-'   - Collects object names via named ranges (pickupable/multistate/touchable).
 ' -----------------------------------------------------------------------------------
-Public Sub UpdateLists(Optional targetBook As Workbook)
+Public Sub UpdateLists(targetBook As Workbook, ByVal mode As ListUpdateMode)
     On Error GoTo ErrHandler
-    Dim roomsDict As Scripting.Dictionary: Set roomsDict = New Scripting.Dictionary
-    Dim objectsDict As Scripting.Dictionary:  Set objectsDict = New Scripting.Dictionary
-    Dim scenesDict As Scripting.Dictionary: Set scenesDict = New Scripting.Dictionary
     
-    Dim existingKeysDict As Scripting.Dictionary: Set existingKeysDict = New Scripting.Dictionary
-    Dim targetSheet As Worksheet
-    Dim roomId As String
-    Dim dataList As ListObject
+    ' Enable silent mode
+    modUtil.HideOpMode True, affectScreen:=False, affectEvents:=False
     
+    ' Set workbook
     If targetBook Is Nothing Then Set targetBook = ActiveWorkbook
     
-    For Each targetSheet In targetBook.Worksheets
-        If modRooms.IsRoomSheet(targetSheet, roomId) Then
-            ' Room ID
-            If Len(roomId) = 0 Then GoTo SkipWksIteration
-            If Len(roomId) > 0 Then roomsDict(roomId) = True
-            
-            ' Room Alias
-            Dim roomAlias As String: roomAlias = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_ALIAS, Array("Room Alias", NAME_CELL_ROOM_ALIAS))
-            If Len(roomId) > 0 Then roomsDict(roomId) = roomAlias
-            
-            ' Scene ID
-            Dim sceneId As String: sceneId = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_SCENE_ID, Array("Scene ID", NAME_CELL_SCENE_ID))
-            If Len(sceneId) > 0 Then scenesDict(sceneId) = True
-            
-            modLists.CollectNamedRangeValues targetSheet, NAME_RANGE_PICKUPABLE_OBJECTS_ITEM_ID, objectsDict
-            modLists.CollectNamedRangeValues targetSheet, NAME_RANGE_MULTI_STATE_OBJECTS_STATE_ID, objectsDict
-            modLists.CollectNamedRangeValues targetSheet, NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID, objectsDict
-            
-        End If
-SkipWksIteration:
-    Next targetSheet
-    
-    Dim listsSheet As Worksheet: Set listsSheet = modSheets.GetSheetByCodeName(SHEET_DISPATCHER)
-    
-    If listsSheet Is Nothing Then: Set listsSheet = modTags.GetSheetByTag(targetBook, SHEET_DISPATCHER)
-    
-    If Not listsSheet Is Nothing Then
-        
-        ' Room IDs
-        Set dataList = listsSheet.ListObjects(NAME_DATA_TABLE)
-        modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_ID
-        modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_ALIAS
-        
-        ' Write Room IDs & Room Alias sorted, must always be rewritten, as it is related to the room pages
-        modLists.WriteDictSetToTableColumn dataList, LISTS_HEADER_ROOM_ID, roomsDict, True
-           
-        ' Append only missing Object names
-        modLists.CollectTableColumnValues dataList, LISTS_HEADER_OBJECTS, existingKeysDict
-        modLists.AppendMissingDictKeysToTableColumn dataList, LISTS_HEADER_OBJECTS, existingKeysDict, objectsDict
-        
-        ' Append only missing Scene IDs
-        modLists.CollectTableColumnValues dataList, LISTS_HEADER_SCENE_ID, existingKeysDict
-        modLists.AppendMissingDictKeysToTableColumn dataList, LISTS_HEADER_SCENE_ID, existingKeysDict, scenesDict
-
+    ' Determine Lists Sheet and DataTable
+    Dim listsSheet As Worksheet
+    Dim dataList As ListObject
+    If Not GetListsSheetAndTable(targetBook, listsSheet, dataList) Then
+        Exit Sub
     End If
+    
+    ' Initialize dictionaries
+    Dim roomsDict As Scripting.Dictionary
+    Dim scenesDict As Scripting.Dictionary
+    Dim itemObjectsDict As Scripting.Dictionary
+    Dim stateObjectsDict As Scripting.Dictionary
+    Dim hotspotObjectsDict As Scripting.Dictionary
+    
+    ' Collect data from all room sheets
+    Dim collectObjects As Boolean
+    collectObjects = (mode <> LUM_OnlyRoomRelated)  ' Do not collect property data for NewRoomOnly
+    
+    CollectRoomData targetBook, roomsDict, scenesDict, itemObjectsDict, _
+                    stateObjectsDict, hotspotObjectsDict, collectObjects
+    
+    ' Process differently depending on mode
+    Select Case mode
+        Case LUM_Sync
+            ' SYNC mode: Delete all columns and rewrite them
+            WriteSyncMode dataList, roomsDict, scenesDict, itemObjectsDict, _
+                         stateObjectsDict, hotspotObjectsDict
+                         
+        Case LUM_Append, LUM_OnlyRoomRelated
+            ' APPEND mode: Add only new entries
+            WriteAppendMode dataList, roomsDict, scenesDict, itemObjectsDict, _
+                           stateObjectsDict, hotspotObjectsDict, collectObjects
+    End Select
+
+CleanExit:
+    modUtil.HideOpMode False
     Exit Sub
     
 ErrHandler:
-    modErr.ReportError "UpdateLists", Err.Number, Erl, caption:=modMain.AppProjectName
-End Sub
-
-' -----------------------------------------------------------------------------------
-' Function  : SyncLists
-' Purpose   : Aggregates Room IDs, Objects, and Scene IDs from all Room sheets and
-'             writes them into the Lists sheet. Clears the three target columns,
-'             writes headers, outputs sorted values, and updates named ranges.
-'
-' Parameters: (none)
-'
-' Returns   : (none)
-'
-' Notes     :
-'   - Scans Room sheets via IsRoomSheet (not by name prefix).
-'   - Room Alias is written alongside Room ID (dictionary value).
-' -----------------------------------------------------------------------------------
-Public Sub SyncLists()
-    On Error GoTo ErrHandler
-    Dim roomsDict As Scripting.Dictionary:   Set roomsDict = New Scripting.Dictionary
-    Dim objectsDict As Scripting.Dictionary: Set objectsDict = New Scripting.Dictionary
-    Dim scenesDict As Scripting.Dictionary:  Set scenesDict = New Scripting.Dictionary
-    
-    Dim targetSheet As Worksheet
-    Dim activeBook As Workbook
-    Dim roomId As String
-    
-    Set activeBook = ActiveWorkbook
-    ' collect datas
-    For Each targetSheet In activeBook.Worksheets
-        If modRooms.IsRoomSheet(targetSheet, roomId) Then
-            If Len(roomId) = 0 Then GoTo SkipWksIteration
-            If Len(roomId) > 0 Then roomsDict(roomId) = True
-            
-            ' Room Alias
-            Dim roomAlias As String: roomAlias = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_ALIAS, Array("Room Alias", NAME_CELL_ROOM_ALIAS))
-            If Len(roomId) > 0 Then roomsDict(roomId) = roomAlias
-            
-            Dim sceneId As String
-            sceneId = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_SCENE_ID, Array("Scene ID", NAME_CELL_SCENE_ID))
-            If Len(sceneId) > 0 Then scenesDict(sceneId) = True
-            
-            modLists.CollectNamedRangeValues targetSheet, NAME_RANGE_PICKUPABLE_OBJECTS_ITEM_ID, objectsDict
-            modLists.CollectNamedRangeValues targetSheet, NAME_RANGE_MULTI_STATE_OBJECTS_STATE_ID, objectsDict
-            modLists.CollectNamedRangeValues targetSheet, NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID, objectsDict
-        End If
-SkipWksIteration:
-    Next targetSheet
-    
-    Dim listsSheet As Worksheet: Set listsSheet = modSheets.GetSheetByCodeName(SHEET_DISPATCHER)
-    
-    If listsSheet Is Nothing Then: Set listsSheet = modTags.GetSheetByTag(activeBook, SHEET_DISPATCHER)
-    
-    If Not listsSheet Is Nothing Then
-        ' Clear target columns
-        listsSheet.Columns(LISTS_COL_ROOM_ID).Clear     ' Room IDs
-        listsSheet.Columns(LISTS_COL_ROOM_ALIAS).Clear
-        listsSheet.Columns(LISTS_COL_SCENE_ID).Clear    ' Scene IDs
-        listsSheet.Columns(LISTS_COL_OBJECTS).Clear     ' Objects
-        
-        ' Headers
-        listsSheet.Cells(1, LISTS_COL_ROOM_ID).Value = LISTS_HEADER_ROOM_ID
-        listsSheet.Cells(1, LISTS_COL_ROOM_ALIAS).Value = LISTS_HEADER_ROOM_ALIAS
-        listsSheet.Cells(1, LISTS_COL_OBJECTS).Value = LISTS_HEADER_OBJECTS
-        listsSheet.Cells(1, LISTS_COL_SCENE_ID).Value = LISTS_HEADER_SCENE_ID
-        listsSheet.Range("A1:ZZ1").Font.Bold = True
-    
-        ' Write sorted values
-        modLists.WriteDictSetToColumn listsSheet, roomsDict, 2, LISTS_COL_ROOM_ID, True
-        modLists.WriteDictSetToColumn listsSheet, objectsDict, 2, LISTS_COL_OBJECTS
-        modLists.WriteDictSetToColumn listsSheet, scenesDict, 2, LISTS_COL_SCENE_ID
-        
-        ' Update named ranges
-        modLists.UpdateNamedListRange NAME_LIST_ROOM_IDS, listsSheet, LISTS_COL_ROOM_ID
-        modLists.UpdateNamedListRange NAME_LIST_OBJECTS, listsSheet, LISTS_COL_OBJECTS
-        modLists.UpdateNamedListRange NAME_LIST_SCENE_IDS, listsSheet, LISTS_COL_SCENE_ID
-    End If
-    
-    Exit Sub
-    
-ErrHandler:
-    modErr.ReportError "SyncLists", Err.Number, Erl, caption:=modMain.AppProjectName
+    modUtil.HideOpMode False
+    modErr.ReportError "ProcessListsUpdate", Err.Number, Erl, caption:=modMain.AppProjectName
+    Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -461,6 +373,7 @@ End Sub
 ' Notes     :
 ' -----------------------------------------------------------------------------------
 Private Sub SetupRoom(targetSheet As Worksheet, ByVal roomIdx As Long)
+    On Error GoTo ErrHandler
     Dim insertBtnShape As Shape
     Dim dispatcherSheet As Worksheet
     Dim dataRange As Range
@@ -483,13 +396,10 @@ Private Sub SetupRoom(targetSheet As Worksheet, ByVal roomIdx As Long)
     Set insertBtnShape = targetSheet.Shapes(modConst.BTN_INSERT_ROOM_PICTURE)
     insertBtnShape.OnAction = modConst.MACRO_BTN_INSERT_PICTURE
         
-    ' Add data validations
+    Exit Sub
     
-    ' Type
-    Set dataRange = targetSheet.Range(NAME_RANGE_PUZZLES_ACTION)
-    ApplyListValidation dataRange, NAME_LIST_PUZZLE_TYPES, "Type", "Choose a type from the list."
-
-    
+ErrHandler:
+    modErr.ReportError "modRooms.SetupRoom", Err.Number, Erl, caption:=modMain.AppProjectName
     
 End Sub
 
@@ -581,3 +491,193 @@ Private Function GetCleanRoomAlias(ByVal sourceName As String) As String
 
     GetCleanRoomAlias = sourceName
 End Function
+
+' -----------------------------------------------------------------------------------
+' Function  : GetListsSheetAndTable
+' Purpose   : Helper function for determining the list sheet and the DataTable.
+'
+' Parameters:
+'   listSheet           [Worksheet]            - Returned List Sheet
+'   dataList            [ListObject]           - Returned Data Table
+'
+' Returns   : Boolean - True if successful, False if an error occurs
+' -----------------------------------------------------------------------------------
+Private Function GetListsSheetAndTable(ByVal targetBook As Workbook, _
+                                      ByRef listsSheet As Worksheet, _
+                                      ByRef dataList As ListObject) As Boolean
+    On Error GoTo ErrHandler
+    
+    ' Determine Lists Sheet
+    Set listsSheet = modSheets.GetSheetByCodeName(SHEET_DISPATCHER)
+    If listsSheet Is Nothing Then
+        Set listsSheet = modTags.GetSheetByTag(targetBook, SHEET_DISPATCHER)
+    End If
+    
+    If listsSheet Is Nothing Then
+        Err.Raise ERR_MISSING_DISPATCHER, "GetListsSheetAndTable", _
+                  "Lists sheet (Dispatcher) not found in workbook."
+        Exit Function
+    End If
+    
+    ' Determine DataTable
+    On Error Resume Next
+    Set dataList = listsSheet.ListObjects(NAME_DATA_TABLE)
+    On Error GoTo ErrHandler
+    
+    If dataList Is Nothing Then
+        Err.Raise ERR_MISSING_DATA_TABLE, "GetListsSheetAndTable", _
+                  "Data table '" & NAME_DATA_TABLE & "' not found in Lists sheet."
+        Exit Function
+    End If
+    
+    GetListsSheetAndTable = True
+    Exit Function
+    
+ErrHandler:
+    modErr.ReportError "GetListsSheetAndTable", Err.Number, Erl, caption:=modMain.AppProjectName
+    GetListsSheetAndTable = False
+End Function
+
+' -----------------------------------------------------------------------------------
+' Procedure : CollectRoomData
+' Purpose   : Collect all relevant data from room sheets.
+'
+' Parameters:
+'   targetBook          [Workbook]              - Workbook to be scanned
+'   roomsDict           [Dictionary]            - Receives room IDs/aliases
+'   scenesDict          [Dictionary]            - Receives scene IDs
+'   itemObjectsDict     [Dictionary]            - Receives item objects
+'   stateObjectsDict    [Dictionary]            - Receives state objects
+'   hotspotObjectsDict  [Dictionary]            - Receives hotspot objects
+'   collectObjects      [Boolean]               - If False, no object data is collected.
+' -----------------------------------------------------------------------------------
+Private Sub CollectRoomData(ByVal targetBook As Workbook, _
+                           ByRef roomsDict As Scripting.Dictionary, _
+                           ByRef scenesDict As Scripting.Dictionary, _
+                           ByRef itemObjectsDict As Scripting.Dictionary, _
+                           ByRef stateObjectsDict As Scripting.Dictionary, _
+                           ByRef hotspotObjectsDict As Scripting.Dictionary, _
+                           ByVal collectObjects As Boolean)
+    
+    ' Initialize dictionaries
+    Set roomsDict = New Scripting.Dictionary
+    Set scenesDict = New Scripting.Dictionary
+    Set itemObjectsDict = New Scripting.Dictionary
+    Set stateObjectsDict = New Scripting.Dictionary
+    Set hotspotObjectsDict = New Scripting.Dictionary
+    
+    ' Header arrays for lookup
+    Dim roomAliasHeaders As Variant
+    Dim sceneIdHeaders As Variant
+    roomAliasHeaders = Array("Room Alias", NAME_CELL_ROOM_ALIAS)
+    sceneIdHeaders = Array("Scene ID", NAME_CELL_SCENE_ID)
+    
+    ' Go through all room sheets
+    Dim targetSheet As Worksheet
+    Dim roomId As String
+    Dim roomAlias As String
+    Dim sceneId As String
+    
+    For Each targetSheet In targetBook.Worksheets
+        If modRooms.IsRoomSheet(targetSheet, roomId) Then
+            If Len(roomId) > 0 Then
+                
+                ' Collect room ID and room alias
+                roomAlias = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_ALIAS, roomAliasHeaders)
+                roomsDict(roomId) = roomAlias
+                
+                ' Collect scene IDs
+                sceneId = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_SCENE_ID, sceneIdHeaders)
+                If Len(sceneId) > 0 Then scenesDict(sceneId) = True
+                
+                ' Collect object data (only if desired)
+                If collectObjects Then
+                    modLists.CollectNamedRangePairs targetSheet, NAME_RANGE_PICKUPABLE_OBJECTS_ITEM_ID, _
+                                                    NAME_RANGE_PICKUPABLE_OBJECTS_NAME, itemObjectsDict
+                    modLists.CollectNamedRangePairs targetSheet, NAME_RANGE_MULTI_STATE_OBJECTS_STATE_ID, _
+                                                    NAME_RANGE_MULTI_STATE_OBJECTS_OBJECT_NAME, stateObjectsDict
+                    modLists.CollectNamedRangePairs targetSheet, NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID, _
+                                                    NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_NAME, hotspotObjectsDict
+                End If
+            End If
+        End If
+    Next targetSheet
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : WriteSyncMode
+' Purpose   : SYNC mode: Deletes all columns and rewrites everything.
+' -----------------------------------------------------------------------------------
+Private Sub WriteSyncMode(ByVal dataList As ListObject, _
+                         ByVal roomsDict As Scripting.Dictionary, _
+                         ByVal scenesDict As Scripting.Dictionary, _
+                         ByVal itemObjectsDict As Scripting.Dictionary, _
+                         ByVal stateObjectsDict As Scripting.Dictionary, _
+                         ByVal hotspotObjectsDict As Scripting.Dictionary)
+    
+    ' clear all columns
+    modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_ID
+    modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_ALIAS
+    modLists.ClearTableColumn dataList, LISTS_HEADER_SCENE_ID
+    modLists.ClearTableColumn dataList, LISTS_HEADER_ITEM_ID
+    modLists.ClearTableColumn dataList, LISTS_HEADER_STATE_OBJECT_ID
+    modLists.ClearTableColumn dataList, LISTS_HEADER_HOTSPOT_ID
+    modLists.ClearTableColumn dataList, LISTS_HEADER_ITEM_NAME
+    modLists.ClearTableColumn dataList, LISTS_HEADER_STATE_OBJECT_NAME
+    modLists.ClearTableColumn dataList, LISTS_HEADER_HOTSPOT_NAME
+    
+    ' Rewrite all data
+    modLists.WriteDictSetToTableColumn dataList, LISTS_HEADER_ROOM_ID, roomsDict, LISTS_HEADER_ROOM_ALIAS
+    modLists.WriteDictSetToTableColumn dataList, LISTS_HEADER_SCENE_ID, scenesDict
+    modLists.WriteDictSetToTableColumn dataList, LISTS_HEADER_ITEM_ID, itemObjectsDict, LISTS_HEADER_ITEM_NAME
+    modLists.WriteDictSetToTableColumn dataList, LISTS_HEADER_STATE_OBJECT_ID, stateObjectsDict, LISTS_HEADER_STATE_OBJECT_NAME
+    modLists.WriteDictSetToTableColumn dataList, LISTS_HEADER_HOTSPOT_ID, hotspotObjectsDict, LISTS_HEADER_HOTSPOT_NAME
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : WriteAppendMode
+' Purpose   : APPEND mode: Only deletes and renews Room/Scene columns,
+'             to others columns only adds new objects.
+' -----------------------------------------------------------------------------------
+Private Sub WriteAppendMode(ByVal dataList As ListObject, _
+                           ByVal roomsDict As Scripting.Dictionary, _
+                           ByVal scenesDict As Scripting.Dictionary, _
+                           ByVal itemObjectsDict As Scripting.Dictionary, _
+                           ByVal stateObjectsDict As Scripting.Dictionary, _
+                           ByVal hotspotObjectsDict As Scripting.Dictionary, _
+                           ByVal processObjects As Boolean)
+    
+    ' Always rewrite room/scene columns
+    modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_ID
+    modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_ALIAS
+    modLists.ClearTableColumn dataList, LISTS_HEADER_SCENE_ID
+    
+    modLists.WriteDictSetToTableColumn dataList, LISTS_HEADER_ROOM_ID, roomsDict, LISTS_HEADER_ROOM_ALIAS
+    modLists.WriteDictSetToTableColumn dataList, LISTS_HEADER_SCENE_ID, scenesDict
+    
+    ' Only process object data if desired
+    If processObjects Then
+        'Collect existing object pairs from table
+        Dim existingItemPairsDict As Scripting.Dictionary
+        Dim existingStatePairsDict As Scripting.Dictionary
+        Dim existingHotspotPairsDict As Scripting.Dictionary
+        Dim existingKeysDict As Scripting.Dictionary
+        
+        Set existingItemPairsDict = New Scripting.Dictionary
+        Set existingStatePairsDict = New Scripting.Dictionary
+        Set existingHotspotPairsDict = New Scripting.Dictionary
+        Set existingKeysDict = New Scripting.Dictionary
+        
+        modLists.CollectTableColumnPairs dataList, LISTS_HEADER_ITEM_ID, LISTS_HEADER_ITEM_NAME, existingItemPairsDict
+        modLists.CollectTableColumnPairs dataList, LISTS_HEADER_STATE_OBJECT_ID, LISTS_HEADER_STATE_OBJECT_NAME, existingStatePairsDict
+        modLists.CollectTableColumnPairs dataList, LISTS_HEADER_HOTSPOT_ID, LISTS_HEADER_HOTSPOT_NAME, existingHotspotPairsDict
+        
+        ' Add only missing objects
+        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_ITEM_ID, existingKeysDict, _
+                                                    itemObjectsDict, LISTS_HEADER_ITEM_NAME
+        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_STATE_OBJECT_ID, existingKeysDict, _
+                                                    stateObjectsDict, LISTS_HEADER_STATE_OBJECT_NAME
+        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_HOTSPOT_ID, existingKeysDict, _
+                                                    hotspotObjectsDict, LISTS_HEADER_HOTSPOT_NAME
+    End If
+End Sub

@@ -241,12 +241,12 @@ End Property
 '   - Surrounds the entry with separators (before and after).
 ' -----------------------------------------------------------------------------------
 Private Sub ILog_WriteError(Optional ByVal functionName As String = vbNullString, Optional ByVal errorNumber As Long = -9999, Optional ByVal errorLine As Long = -1)
-    Dim message As String
+    Dim eventText As String
+    Dim infoText As String
     Dim errorDescription As String
+    
     If functionName = vbNullString Then functionName = "The procedure name is not set"
-    message = String(2, vbNewLine) & "Function/procedure name:" & functionName & vbNewLine
-    If errorNumber <> -9999 Then message = message & "Error number:" & CStr(errorNumber) & vbNewLine Else message = message & "Error number:-" & vbNewLine
-    If errorLine <> -1 Then message = message & "Line number:" & CStr(errorLine) Else message = message & "Line number:-"
+    
     If errorNumber <> -9999 Then
         On Error Resume Next
         Err.Clear
@@ -254,7 +254,15 @@ Private Sub ILog_WriteError(Optional ByVal functionName As String = vbNullString
         If Err.Number <> 0 Then errorDescription = Err.Description
         On Error GoTo 0
     End If
-    Call ILog_AddRecord(message, vbTab & vbTab & "Description:" & errorDescription, 0, LST_BEFORE_AND_AFTER, True)
+
+    eventText = vbNewLine & "Function/procedure name:" & functionName & vbNewLine
+    eventText = eventText & "Error number:" & IIf(errorLine <> -9999, CStr(errorNumber), "-") & vbNewLine
+    
+    eventText = eventText & "Line number:" & IIf(errorLine <> -1, CStr(errorLine), "-")
+    
+    infoText = String(2, vbTab) & "Description:" & errorDescription
+    
+    Call ILog_AddRecord(eventText, infoText, 0, LST_BEFORE_AND_AFTER, True)
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -312,7 +320,7 @@ End Sub
 Private Sub ILog_OpenLog(Optional additionalInfo As String = vbNullString, Optional ByVal isNewLog As Boolean = False)
     m_buffer = vbNullString                                             ' Clearing the buffer
     If isNewLog Then SaveTXTfile m_logFileFullName, vbNullString  ' Saving a new empty file
-    ILog_AddRecord "Starting Log Record...", additionalInfo, , LST_BEFORE, True ' start recording
+    ILog_AddRecord IIf(additionalInfo <> vbNullString, "Starting Log Record..." & String(45, " ") & additionalInfo, "Starting Log Record..."), , , LST_BEFORE, True ' start recording
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -380,11 +388,39 @@ Private Sub ILog_AddRecord(ByVal eventText As String, Optional ByVal info As Str
     Optional ByVal LogSeparatorType As LogSeparatorType = LST_NONE, _
     Optional ByVal forceSave As Boolean = False)
     Dim message As String
-    message = String(160, " "): Mid(message, 1) = Left(eventText, 200): Mid(message, 100) = info
+    Dim separator As String
+    Dim wrappedInfo As String
+    Dim infoStartPos As Long
+    
+    ' Add separator if needed
+    If LogSeparatorType = LST_BEFORE Or LogSeparatorType = LST_BEFORE_AND_AFTER Then
+        separator = m_logSeparator
+    End If
+    
+    ' Calculate the start position for info (usually position 100)
+    ' But after the timestamp and tabs, this position is reached
+    infoStartPos = 36  ' Number of spaces for indentation at line breaks
+    
+    ' If info contains text and is longer than 60 characters, wrap with correct indentation
+    If info <> vbNullString And Len(info) > 60 Then
+        wrappedInfo = WrapTextWithIndent(info, 60, String(infoStartPos, " "))
+    Else
+        wrappedInfo = info
+    End If
+    
+    ' base padding
+    message = String(160, " ")
+    Mid(message, 1) = Left(eventText, 99)
+    Mid(message, 100) = wrappedInfo
+    
+    ' add timestamp
     message = String(level, vbTab) & Format(Now, "YYYY-MM-DD HH:NN:SS") & String(2, vbTab) & Trim(message) & vbNewLine
 
-    message = IIf(LogSeparatorType = LST_BEFORE Or LogSeparatorType = LST_BEFORE_AND_AFTER, LogSeparatorType, "") & _
-        message & IIf(LogSeparatorType = LST_AFTER Or LogSeparatorType = LST_BEFORE_AND_AFTER, LogSeparatorType, "")
+    ' add trailing separator
+    message = separator & message
+    If LogSeparatorType = LST_AFTER Or LogSeparatorType = LST_BEFORE_AND_AFTER Then
+        message = message & m_logSeparator
+    End If
 
     m_buffer = m_buffer & message
     If forceSave Or (Len(m_buffer) > m_maxLogSizeBeforeSave) Then ILog_SaveLog
@@ -421,6 +457,76 @@ End Sub
 ' ================================================================================================================================
 ' Private Member
 ' ================================================================================================================================
+
+' -----------------------------------------------------------------------------------
+' Function  : WrapTextWithIndent
+' Purpose   : Wraps long text into multiple lines with proper indentation for
+'             subsequent lines
+'
+' Parameters:
+'   text       [String] - The text to wrap
+'   maxWidth   [Long]   - Maximum characters per line
+'   indent     [String] - Indentation string for wrapped lines
+'
+' Returns   : String - Wrapped text with line breaks and indentation
+'
+' Notes     :
+'   - First line has no indent, subsequent lines are indented
+'   - Tries to break at word boundaries (spaces) when possible
+' -----------------------------------------------------------------------------------
+Private Function WrapTextWithIndent(ByVal text As String, ByVal maxWidth As Long, ByVal indent As String) As String
+    Dim result As String
+    Dim currentLine As String
+    Dim words() As String
+    Dim i As Long
+    Dim firstLine As Boolean
+    
+    ' Remove leading/trailing spaces
+    text = Trim(text)
+    
+    ' If the text is shorter than maxWidth, return it directly.
+    If Len(text) <= maxWidth Then
+        WrapTextWithIndent = text
+        Exit Function
+    End If
+    
+    ' Split text into words
+    words = Split(text, " ")
+    firstLine = True
+    currentLine = ""
+    
+    For i = LBound(words) To UBound(words)
+        ' Check whether the word fits into the current line
+        If Len(currentLine) + Len(words(i)) + 1 <= maxWidth Then
+            ' Add word to current line
+            If currentLine = "" Then
+                currentLine = words(i)
+            Else
+                currentLine = currentLine & " " & words(i)
+            End If
+        Else
+            ' Line is full, add it to the result
+            If result = "" Then
+                result = currentLine
+                firstLine = False
+            Else
+                result = result & vbNewLine & indent & currentLine
+            End If
+            currentLine = words(i)
+        End If
+    Next i
+    
+    ' Add the last line
+    If currentLine <> "" Then
+        If result = "" Then
+            result = currentLine
+        Else
+            result = result & vbNewLine & indent & currentLine
+        End If
+    End If
+    
+    WrapTextWithIndent = result
+End Function
 
 ' -----------------------------------------------------------------------------------
 ' Function  : ReadTXTfile

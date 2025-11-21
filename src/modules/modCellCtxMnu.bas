@@ -34,9 +34,7 @@ Option Private Module
 ' ================================
 Public Enum CellCtxMnu
     CCM_Default      ' Default menu behavior
-    CCM_Rooms        ' Context menu for cells validated against room IDs
-    CCM_Objects      ' Context menu for cells validated against objects list
-    CCM_Actors       ' Context menu for cells validated against actors list
+    CCM_Rooms        ' Context menu for cells that intersect Room ID/Alias cells
 End Enum
 
 ' ================================
@@ -143,54 +141,60 @@ End Sub
 ' -----------------------------------------------------------------------------------
 ' Function  : EvaluateCellCtxMenu
 ' Purpose   : Determines the context menu type for the given cell based on the
-'             worksheet name prefix and data validation (list) source, then prepares
-'             the menu accordingly.
+'             worksheet name prefix and whether the cell intersects with specific
+'             named ranges.
 '
 ' Parameters:
-'   wks     [Worksheet] - Worksheet containing the target cell
-'   Target [Range]     - Target cell whose context is evaluated
+'   sheet     [Worksheet] - Worksheet containing the target cell
+'   cell      [Range]     - Target cell whose context is evaluated
 '
 ' Returns:
 '   Integer - One of the CellCtxMnu enumeration values
-'             (CCM_Default, CCM_Rooms, CCM_Objects, CCM_Actors).
+'             (CCM_Default, CCM_Rooms, ...).
 '
 ' Behavior  :
-'   - If the sheet name starts with ROOM_SHEET_PREFIX and the target has a List validation
-'     driven by a named range, maps NAME_LIST_ROOM_IDS / NAME_LIST_OBJECTS / NAME_LIST_ACTORS
-'     to the respective menu type.
+'   - If the sheet name starts with ROOM_SHEET_PREFIX and the cell intersects with
+'     a named range (NAME_RANGE_...),
+'     maps to the respective menu type.
 '   - For Default: ensures cache exists and matches the live menu, then shows all cached items.
 '   - For non-default: sets clsState.CellCtxMnuHideDefault to True to hide built-ins on prepare.
 '
 ' Notes:
-'   - Uses On Error Resume Next around Validation access.
+'   - Uses On Error Resume Next around Named Range access.
 '   - Updates global clsState.CellCtxMenuType and returns it.
 ' -----------------------------------------------------------------------------------
-Public Function EvaluateCellCtxMenu(wks As Worksheet, Target As Range) As Integer
+Public Function EvaluateCellCtxMenu(sheet As Worksheet, cell As Range) As Integer
     On Error GoTo ErrHandler
      
-    Dim validationTarget As Validation
+    Dim namedRng As Range
     clsState.CellCtxMenuType = CCM_Default
     
-    If modRooms.IsRoomSheet(wks) Then
+    If modRooms.IsRoomSheet(sheet) Then
+        ' Check if cell intersects with NAME_RANGE_DOORS_TO_ROOM_ID
         On Error Resume Next
-        Set validationTarget = Target.Validation
-        If Not validationTarget Is Nothing Then
-            If validationTarget.Type = xlValidateList Then
-                If Left(validationTarget.Formula1, 1) = "=" Then
-                    Dim nameRef As String
-                    nameRef = Mid(validationTarget.Formula1, 2) ' remove '='
-                    If nameRef = NAME_LIST_ROOM_IDS Then
-                        clsState.CellCtxMenuType = CCM_Rooms
-                    ElseIf nameRef = NAME_LIST_OBJECTS Then
-                        clsState.CellCtxMenuType = CCM_Objects
-                    ElseIf nameRef = NAME_LIST_ACTORS Then
-                        clsState.CellCtxMenuType = CCM_Actors
-                    End If
-                End If
+        Set namedRng = sheet.Names(NAME_RANGE_DOORS_TO_ROOM_ID).RefersToRange
+        On Error GoTo ErrHandler
+        If Not namedRng Is Nothing Then
+            If Not Intersect(cell, namedRng) Is Nothing Then
+                clsState.CellCtxMenuType = CCM_Rooms
+                GoTo FoundMatch
             End If
         End If
-        If Err.Number <> 0 Then Err.Clear
+        Set namedRng = Nothing
+        
+        ' Check if cell intersects with NAME_RANGE_DOORS_TO_ROOM_ALIAS
+        On Error Resume Next
+        Set namedRng = sheet.Names(NAME_RANGE_DOORS_TO_ROOM_ALIAS).RefersToRange
         On Error GoTo ErrHandler
+        If Not namedRng Is Nothing Then
+            If Not Intersect(cell, namedRng) Is Nothing Then
+                clsState.CellCtxMenuType = CCM_Rooms
+                GoTo FoundMatch
+            End If
+        End If
+        Set namedRng = Nothing
+                
+FoundMatch:
     End If
     
     EvaluateCellCtxMenu = clsState.CellCtxMenuType

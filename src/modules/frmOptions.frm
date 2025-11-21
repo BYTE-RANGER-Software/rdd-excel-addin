@@ -29,7 +29,7 @@ Friend Sub Init(ByVal strProjectName As String, ByRef optionsDto As tOptions)
         
         ' Load DTO into controls
         m_options = optionsDto
-        Me.txtManualPath.Text = m_options.manualPath
+        Me.txtManualPath.text = m_options.manualPath
         
         'Purpose: mark start page & remember page index
         Const lngStartIndx As Long = 0
@@ -71,7 +71,7 @@ End Sub
 Private Sub cmdSelectManualPath_Click()
 
        With Application.FileDialog(msoFileDialogFolderPicker)
-        .InitialFileName = ReplaceWildcards(Me.txtManualPath.Text) & "\"
+        .InitialFileName = ReplaceWildcards(Me.txtManualPath.text) & "\"
         .AllowMultiSelect = False
         .title = "Please select a folder"
         .InitialView = msoFileDialogViewList
@@ -79,7 +79,7 @@ Private Sub cmdSelectManualPath_Click()
        
         If .Show = -1 Then
            
-            Me.txtManualPath.Text = AddWildcards(.SelectedItems(1))
+            Me.txtManualPath.text = AddWildcards(.SelectedItems(1))
 
         End If
       
@@ -110,7 +110,7 @@ End Function
 
 Private Sub SaveSettings()
 
-    m_options.manualPath = Me.txtManualPath.Text
+    m_options.manualPath = Me.txtManualPath.text
 End Sub
 
 Private Sub UserForm_Layout()

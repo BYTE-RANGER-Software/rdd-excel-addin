@@ -176,9 +176,7 @@ End Sub
 
 Sub RB75dd2c44_btnDynCtxMnu1_getLabel(control As IRibbonControl, ByRef returnedVal)
     
-    If clsState.CellCtxMenuType = CCM_Objects Then
-        returnedVal = "Add New Object"
-    ElseIf clsState.CellCtxMenuType = CCM_Rooms Then
+    If clsState.CellCtxMenuType = CCM_Rooms Then
         returnedVal = "Add New Room"
     End If
     

@@ -16,11 +16,11 @@ Option Private Module
 ' Purpose   : Enable a "silent" mode for automation and restore it safely.
 '
 ' Parameters:
-'   blnSilentMode      (Boolean)           : True enables silent mode, False restores.
-'   blnAffectEvents    (Boolean, Optional) : Toggle Application.EnableEvents. Default True.
-'   blnAffectScreen    (Boolean, Optional) : Toggle ScreenUpdating. Default True.
-'   blnAffectAnimat'ns (Boolean, Optional) : Toggle EnableAnimations. Default True.
-'   blnAffectAlerts    (Boolean, Optional) : Toggle DisplayAlerts. Default True.
+'   silentMode      (Boolean)           : True enables silent mode, False restores.
+'   affectEvents    (Boolean, Optional) : Toggle Application.EnableEvents. Default True.
+'   affectScreen    (Boolean, Optional) : Toggle ScreenUpdating. Default True.
+'   affectAnimat'ns (Boolean, Optional) : Toggle EnableAnimations. Default True.
+'   affectAlerts    (Boolean, Optional) : Toggle DisplayAlerts. Default True.
 '
 ' Notes:
 '   - Captures original values on first entry, restores on last exit (depth-aware).
@@ -28,61 +28,71 @@ Option Private Module
 '   - Uses Static locals to track depth and touched flags.
 ' ---------------------------------------------------------------
 Public Sub HideOpMode( _
-    ByVal blnSilentMode As Boolean, _
-    Optional ByVal blnAffectEvents As Boolean = True, _
-    Optional ByVal blnAffectScreen As Boolean = True, _
-    Optional ByVal blnAffectAnimations As Boolean = True, _
-    Optional ByVal blnAffectAlerts As Boolean = True)
+    ByVal silentMode As Boolean, _
+    Optional ByVal affectEvents As Boolean = True, _
+    Optional ByVal affectScreen As Boolean = True, _
+    Optional ByVal affectAnimations As Boolean = True, _
+    Optional ByVal affectAlerts As Boolean = True, _
+    Optional ByVal affectCalc As Boolean = True)
 
-    Static lngOpDepth                As Long
-    Static blnPrevEnableEvents       As Boolean
-    Static blnPrevScreenUpdating     As Boolean
-    Static blnPrevEnableAnimations   As Boolean
-    Static blnPrevDisplayAlerts      As Boolean
-    Static blnTouchedEvents          As Boolean
-    Static blnTouchedScreen          As Boolean
-    Static blnTouchedAnimations      As Boolean
-    Static blnTouchedAlerts          As Boolean
+    Static opDepth                As Long
+    Static prevEnableEvents       As Boolean
+    Static prevScreenUpdating     As Boolean
+    Static prevEnableAnimations   As Boolean
+    Static prevDisplayAlerts      As Boolean
+    Static prevCalculation     As XlCalculation
+    Static touchedEvents          As Boolean
+    Static touchedScreen          As Boolean
+    Static touchedAnimations      As Boolean
+    Static touchedAlerts          As Boolean
+    Static touchedCalc            As Boolean
 
-    If blnSilentMode Then
-        If lngOpDepth = 0 Then
-            blnPrevEnableEvents = Application.EnableEvents
-            blnPrevScreenUpdating = Application.ScreenUpdating
-            blnPrevEnableAnimations = Application.EnableAnimations
-            blnPrevDisplayAlerts = Application.DisplayAlerts
-            blnTouchedEvents = False
-            blnTouchedScreen = False
-            blnTouchedAnimations = False
-            blnTouchedAlerts = False
+    If silentMode Then
+        If opDepth = 0 Then
+            prevEnableEvents = Application.EnableEvents
+            prevScreenUpdating = Application.ScreenUpdating
+            prevEnableAnimations = Application.EnableAnimations
+            prevDisplayAlerts = Application.DisplayAlerts
+            prevCalculation = Application.Calculation
+            touchedEvents = False
+            touchedScreen = False
+            touchedAnimations = False
+            touchedAlerts = False
+            touchedCalc = False
         End If
 
-        lngOpDepth = lngOpDepth + 1
+        opDepth = opDepth + 1
 
-        If blnAffectEvents Then
+        If affectEvents Then
             Application.EnableEvents = False
-            blnTouchedEvents = True
+            touchedEvents = True
         End If
-        If blnAffectScreen Then
+        If affectScreen Then
             Application.ScreenUpdating = False
-            blnTouchedScreen = True
+            touchedScreen = True
         End If
-        If blnAffectAnimations Then
+        If affectAnimations Then
             Application.EnableAnimations = False
-            blnTouchedAnimations = True
+            touchedAnimations = True
         End If
-        If blnAffectAlerts Then
+        If affectAlerts Then
             Application.DisplayAlerts = False
-            blnTouchedAlerts = True
+            touchedAlerts = True
         End If
-
+        If affectCalc Then
+            Application.Calculation = xlCalculationManual
+            touchedCalc = True
+        End If
+        
     Else
-        If lngOpDepth > 0 Then
-            lngOpDepth = lngOpDepth - 1
-            If lngOpDepth = 0 Then
-                If blnTouchedEvents Then Application.EnableEvents = blnPrevEnableEvents
-                If blnTouchedScreen Then Application.ScreenUpdating = blnPrevScreenUpdating
-                If blnTouchedAnimations Then Application.EnableAnimations = blnPrevEnableAnimations
-                If blnTouchedAlerts Then Application.DisplayAlerts = blnPrevDisplayAlerts
+        If opDepth > 0 Then
+            opDepth = opDepth - 1
+            If opDepth = 0 Then
+                If touchedEvents Then Application.EnableEvents = prevEnableEvents
+                If touchedScreen Then Application.ScreenUpdating = prevScreenUpdating
+                If touchedAnimations Then Application.EnableAnimations = prevEnableAnimations
+                If touchedAlerts Then Application.DisplayAlerts = prevDisplayAlerts
+                If touchedCalc Then Application.Calculation = prevCalculation
             End If
         End If
     End If

@@ -49,7 +49,7 @@ Private Sub cmdCancel_Click()
 End Sub
 
 Private Sub txtName_Change()
-    cmdAdd.enabled = Len(txtName.Text) >= 1
+    cmdAdd.enabled = Len(txtName.text) >= 1
 End Sub
 
 Private Sub CenterToExcelWindow()
@@ -92,19 +92,19 @@ End Property
 
 Public Property Get nameText() As String
 
-    nameText = Me.txtName.Text
+    nameText = Me.txtName.text
 
 End Property
 
 Public Property Let nameText(ByVal NewValue As String)
 
-    Me.txtName.Text = NewValue
+    Me.txtName.text = NewValue
     
 End Property
 
 ' (Optional convenience) set or read ID display text
 Public Property Let IDText(ByVal sValue As String)
-    Me.txtID.Text = sValue
+    Me.txtID.text = sValue
 End Property
 
 ' Indicates whether the dialog was cancelled

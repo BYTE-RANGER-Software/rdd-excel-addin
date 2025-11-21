@@ -132,7 +132,7 @@ End Function
 ' -----------------------------------------------------------------------------------
 Public Sub CollectColumnValues(ByVal sheet As Worksheet, ByVal headerArray As Variant, ByVal valuesDict As Scripting.Dictionary)
     On Error GoTo ErrHandler
-
+    
     Dim searchRange As Range
     Dim headerCell As Range
     Dim bestHeaderCell As Range
@@ -335,6 +335,113 @@ ErrHandler:
 End Sub
 
 ' -----------------------------------------------------------------------------------
+' Procedure : CollectNamedRangePairs
+' Purpose   : Collects paired values from two named ranges on a worksheet and stores
+'             them in a dictionary (first range = Key, second range = Item).
+'
+' Parameters:
+'   sheet           [Worksheet] - The worksheet containing the named ranges.
+'   rangeNameKeys   [String]    - The name of the range containing the keys.
+'   rangeNameItems  [String]    - The name of the range containing the items.
+'   pairsDict       [Scripting.Dictionary] - Dictionary receiving the key-value pairs.
+'
+' Behavior  :
+'   - Resolves both named ranges on the given worksheet.
+'   - Reads values from both ranges as arrays (high performance).
+'   - Ignores pairs where the key is empty.
+'   - If key already exists, updates the item value.
+'   - If ranges have different sizes, uses the smaller count.
+'
+' Notes     :
+'   - If either named range is missing or invalid, the procedure exits silently.
+'   - Uses array access for optimal performance with large ranges.
+'   - Single-cell ranges are handled separately to avoid array issues.
+' -----------------------------------------------------------------------------------
+Public Sub CollectNamedRangePairs(ByVal sheet As Worksheet, _
+                                  ByVal rangeNameKeys As String, _
+                                  ByVal rangeNameItems As String, _
+                                  ByVal pairsDict As Scripting.Dictionary)
+    On Error GoTo ErrHandler
+    
+    Dim rngKeys As Range
+    Dim rngItems As Range
+    Dim arrKeys As Variant
+    Dim arrItems As Variant
+    Dim i As Long
+    Dim maxCount As Long
+    Dim keyVal As Variant
+    Dim itemVal As Variant
+    
+    ' Validate input
+    If Len(rangeNameKeys) = 0 Or Len(rangeNameItems) = 0 Then GoTo CleanExit
+    
+    ' Resolve named ranges
+    On Error Resume Next
+    Set rngKeys = sheet.Range(rangeNameKeys)
+    Set rngItems = sheet.Range(rangeNameItems)
+    On Error GoTo ErrHandler
+    
+    If rngKeys Is Nothing Or rngItems Is Nothing Then GoTo CleanExit
+    
+    ' Determine the minimum count to process
+    maxCount = Application.WorksheetFunction.Min(rngKeys.Cells.Count, rngItems.Cells.Count)
+    If maxCount = 0 Then GoTo CleanExit
+    
+    ' Load values into arrays for performance
+    ' Single cell ranges need special handling
+    If rngKeys.Cells.Count = 1 Then
+        ReDim arrKeys(1 To 1, 1 To 1)
+        arrKeys(1, 1) = rngKeys.Value
+    Else
+        arrKeys = rngKeys.Value
+    End If
+    
+    If rngItems.Cells.Count = 1 Then
+        ReDim arrItems(1 To 1, 1 To 1)
+        arrItems(1, 1) = rngItems.Value
+    Else
+        arrItems = rngItems.Value
+    End If
+    
+    ' Process pairs
+    For i = 1 To maxCount
+        ' Handle both single-column and multi-column ranges
+        If IsArray(arrKeys) Then
+            If UBound(arrKeys, 2) > 1 Then
+                ' Multi-column range - take first column
+                keyVal = arrKeys(i, 1)
+            Else
+                ' Single-column range
+                keyVal = arrKeys(i, 1)
+            End If
+        Else
+            keyVal = arrKeys
+        End If
+        
+        If IsArray(arrItems) Then
+            If UBound(arrItems, 2) > 1 Then
+                itemVal = arrItems(i, 1)
+            Else
+                itemVal = arrItems(i, 1)
+            End If
+        Else
+            itemVal = arrItems
+        End If
+        
+        ' Add or update dictionary entry (skip empty keys)
+        If Not IsEmpty(keyVal) And Len(CStr(keyVal)) > 0 Then
+            pairsDict(keyVal) = itemVal
+        End If
+    Next i
+    
+CleanExit:
+    Exit Sub
+ErrHandler:
+    modErr.ReportError "CollectNamedRangePairs", Err.Number, Erl, caption:=modMain.AppProjectName
+    Resume CleanExit
+End Sub
+
+' -----------------------------------------------------------------------------------
 ' Procedure : CollectTableColumnValues
 ' Purpose   : Collects all non-empty values from a structured table column into a dictionary.
 '
@@ -371,6 +478,115 @@ ErrHandler:
     Resume CleanExit
 End Sub
 
+' -----------------------------------------------------------------------------------
+' Procedure : CollectTableColumnPairs
+' Purpose   : Collects key-value pairs from two columns of a structured table into a dictionary.
+'
+' Parameters:
+'   sourceTable        [ListObject]               - The structured table containing the columns.
+'   keyColumnName      [String]                   - The name of the column containing keys.
+'   itemColumnName     [String]                   - The name of the column containing items/values.
+'   pairsDict          [Scripting.Dictionary]     - Dictionary to store key-value pairs.
+'
+' Behavior  :
+'   - Reads values from both columns simultaneously
+'   - Processes up to the minimum row count of both columns
+'   - Skips rows where the key is empty or whitespace
+'   - Stores key as dictionary key and item as dictionary value
+'   - If key already exists, the value is overwritten
+'
+' Notes     :
+'   - Uses array access for optimal performance with large tables
+'   - Trims key values before storing
+'   - Item values can be any type (string, number, date, etc.)
+'   - If either column doesn't exist, the procedure exits silently
+'   - Empty item values are allowed if the key is non-empty
+' -----------------------------------------------------------------------------------
+Public Sub CollectTableColumnPairs( _
+    ByVal sourceTable As ListObject, _
+    ByVal keyColumnName As String, _
+    ByVal itemColumnName As String, _
+    ByVal pairsDict As Scripting.Dictionary)
+    
+    On Error GoTo ErrHandler
+    
+    Dim keyColumn As Range
+    Dim itemColumn As Range
+    Dim arrKeys As Variant
+    Dim arrItems As Variant
+    Dim i As Long
+    Dim maxCount As Long
+    Dim keyVal As Variant
+    Dim itemVal As Variant
+    Dim keyText As String
+    
+    ' Validate input
+    If sourceTable Is Nothing Then GoTo CleanExit
+    If Len(keyColumnName) = 0 Or Len(itemColumnName) = 0 Then GoTo CleanExit
+    
+    ' Resolve table columns
+    On Error Resume Next
+    Set keyColumn = sourceTable.ListColumns(keyColumnName).DataBodyRange
+    Set itemColumn = sourceTable.ListColumns(itemColumnName).DataBodyRange
+    On Error GoTo ErrHandler
+    
+    If keyColumn Is Nothing Or itemColumn Is Nothing Then GoTo CleanExit
+    
+    ' Check if table has data rows
+    If sourceTable.ListRows.Count = 0 Then GoTo CleanExit
+    
+    ' Determine the minimum count to process
+    maxCount = Application.WorksheetFunction.Min(keyColumn.Rows.Count, itemColumn.Rows.Count)
+    If maxCount = 0 Then GoTo CleanExit
+    
+    ' Load values into arrays for performance
+    ' Single cell ranges need special handling
+    If keyColumn.Cells.Count = 1 Then
+        ReDim arrKeys(1 To 1, 1 To 1)
+        arrKeys(1, 1) = keyColumn.Value
+    Else
+        arrKeys = keyColumn.Value
+    End If
+    
+    If itemColumn.Cells.Count = 1 Then
+        ReDim arrItems(1 To 1, 1 To 1)
+        arrItems(1, 1) = itemColumn.Value
+    Else
+        arrItems = itemColumn.Value
+    End If
+    
+    ' Process pairs
+    For i = 1 To maxCount
+        ' Extract key value (always from first column of the range)
+        If IsArray(arrKeys) Then
+            keyVal = arrKeys(i, 1)
+        Else
+            keyVal = arrKeys
+        End If
+        
+        ' Extract item value (always from first column of the range)
+        If IsArray(arrItems) Then
+            itemVal = arrItems(i, 1)
+        Else
+            itemVal = arrItems
+        End If
+        
+        ' Add or update dictionary entry (skip empty keys)
+        If Not IsEmpty(keyVal) Then
+            keyText = Trim$(CStr(keyVal))
+            If Len(keyText) > 0 Then
+                pairsDict(keyText) = itemVal
+            End If
+        End If
+    Next i
+    
+CleanExit:
+    Exit Sub
+ErrHandler:
+    modErr.ReportError "CollectTableColumnPairs", Err.Number, Erl, caption:=modMain.AppProjectName
+    Resume CleanExit
+End Sub
+
 
 ' -----------------------------------------------------------------------------------
 ' Procedure : UpdateNamedListRange
@@ -379,7 +595,7 @@ End Sub
 '
 ' Parameters:
 '   rangeName  [String]     - The name of the named range to update/create
-'   sheet        [Worksheet]  - The worksheet containing the range
+'   sheet      [Worksheet]  - The worksheet containing the range
 '   columnIdx  [Long]       - The column number containing the list
 '
 ' Notes:
@@ -420,7 +636,7 @@ End Sub
 '             the worksheet, sorted alphabetically.
 '
 ' Parameters:
-'   sheet                     [Worksheet] - The worksheet to write into
+'   sheet                   [Worksheet] - The worksheet to write into
 '   valuesDict              [Scripting.Dictionary]    - Dictionary containing the keys/values
 '   startRow                [Long]      - The row number where writing begins
 '   columnIdx               [Long]      - The column number where keys are written (values added as cell comment)
@@ -472,30 +688,45 @@ End Sub
 
 ' -----------------------------------------------------------------------------------
 ' Procedure : WriteDictSetToTableColumn
-' Purpose   : Writes the contents of a dictionary (set) into a structured table column,
-'             sorted alphabetically, and expands the table if needed.
+' Purpose   : Writes the contents of a dictionary into structured table columns,
+'             sorted alphabetically by keys, and expands the table if needed.
 '
 ' Parameters:
-'   targetTable              [ListObject] - The structured table to write into
-'   columnName               [String]     - Name of the column to write into
-'   valuesDict               [Scripting.Dictionary]     - Dictionary containing the keys/values
-'   writeValuesToNextColumn  [Boolean]    - (optional) Writes the Values of valuesDict to the next column. default = False
+'   targetTable        [ListObject]            - The structured table to write into
+'   keyColumnName      [String]                - Name of the column for dictionary keys
+'   valuesDict         [Scripting.Dictionary]  - Dictionary containing the keys/values
+'   itemColumnName     [String]                - (Optional) Name of the column for dictionary items.
+'                                                 If omitted, only keys are written.
 '
 ' Notes:
 '   - Automatically adds rows to the table if valuesDict.Count > current row count
-'   - Assumes dictionary keys and values are strings
+'   - Keys are sorted alphabetically before writing
+'   - If itemColumnName is provided, writes key-value pairs to both columns
 ' -----------------------------------------------------------------------------------
-Public Sub WriteDictSetToTableColumn(ByVal targetTable As ListObject, ByVal columnName As String, ByVal valuesDict As Scripting.Dictionary, Optional ByVal writeValuesToNextColumn As Boolean = False)
+Public Sub WriteDictSetToTableColumn(ByVal targetTable As ListObject, _
+                                     ByVal keyColumnName As String, _
+                                     ByVal valuesDict As Scripting.Dictionary, _
+                                     Optional ByVal itemColumnName As String = "")
     On Error GoTo ErrHandler
-
+    
+    ' exit if dict is empty
+    If valuesDict.Count = 0 Then
+        Exit Sub
+    End If
+    
     Dim sortedKeys As Collection
     Dim keyArray() As String
     Dim currentKey As Variant
     Dim index As Long
-    Dim targetColumn As Range
-
+    Dim keyColumn As Range
+    Dim itemColumn As Range
+    Dim writeItems As Boolean
+    
     Set sortedKeys = New Collection
-
+    
+    ' Determine if we need to write items
+    writeItems = (Len(itemColumnName) > 0)
+    
     ' Copy keys to array
     ReDim keyArray(0 To valuesDict.Count - 1)
     index = 0
@@ -503,133 +734,198 @@ Public Sub WriteDictSetToTableColumn(ByVal targetTable As ListObject, ByVal colu
         keyArray(index) = CStr(currentKey)
         index = index + 1
     Next currentKey
-
+    
     ' Sort array
     modUtil.QuickSortStringArray keyArray, LBound(keyArray), UBound(keyArray)
-
+    
     ' Load sorted keys into collection
     For index = LBound(keyArray) To UBound(keyArray)
         sortedKeys.Add keyArray(index)
     Next index
-
+    
     ' Ensure table has enough rows
     Do While targetTable.ListRows.Count < sortedKeys.Count
         targetTable.ListRows.Add
     Loop
-
-    ' Write values into table column
-    Set targetColumn = targetTable.ListColumns(columnName).DataBodyRange
-
+    
+    ' Get column references
+    Set keyColumn = targetTable.ListColumns(keyColumnName).DataBodyRange
+    If writeItems Then
+        Set itemColumn = targetTable.ListColumns(itemColumnName).DataBodyRange
+    End If
+    
+    ' Write values into table columns
     For index = 1 To sortedKeys.Count
-        targetColumn.Cells(index, 1).Value = sortedKeys(index)
-        If writeValuesToNextColumn Then
-            targetColumn.Cells(index, 1).Offset(0, 1).Value = valuesDict(sortedKeys(index))
+        keyColumn.Cells(index, 1).Value = sortedKeys(index)
+        If writeItems Then
+            itemColumn.Cells(index, 1).Value = valuesDict(sortedKeys(index))
         End If
     Next index
-
+    
 CleanExit:
     Exit Sub
 ErrHandler:
-    MsgBox "Error (" & Err.Number & "): " & Err.Description, vbCritical, "WriteDictSetToTableColumn"
+    modErr.ReportError "WriteDictSetToTableColumn", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
 End Sub
 
 
 ' -----------------------------------------------------------------------------------
-' Procedure : AppendMissingDictKeysToColumn
-' Purpose   : Appends keys from newKeys to a column if they do not already exist
-'             in the supplied existing dictionary.
+' Procedure : AppendMissingDictSetToColumns
+' Purpose   : Appends key-value pairs from newDictSet to columns if the keys do
+'             not already exist in the supplied existing dictionary.
 '
 ' Parameters:
-'   sheet              [Worksheet]          - Target worksheet.
-'   columnIdx        [Long]               - Target column number to append into.
-'   existingKeysDict [Scripting.Dictionary]          - Dictionary containing existing values (keys only).
-'   newKeysDict      [Scripting.Dictionary]          - Dictionary containing new values to append (keys only).
-'   StartRow         [Long]                  - Optional, First data row. (default 2).
+'   sheet            [Worksheet]             - Target worksheet.
+'   keyColumnIdx     [Long]                  - Target column number for keys.
+'   existingDictSet  [Scripting.Dictionary]  - Dictionary containing existing keys/values.
+'   newDictSet       [Scripting.Dictionary]  - Dictionary containing new keys/value to append.
+'   startRow         [Long]                  - Optional, First data row (default 2).
+'   itemColumnIdx    [Long]                  - Optional, Target column number for items.
+'                                              If 0 or omitted, only keys are written.
+'
+' Notes:
+'   - If itemColumnIdx is provided, both keys and items are written
+'   - existingDictSet is updated with newly added keys
 ' -----------------------------------------------------------------------------------
-Public Sub AppendMissingDictKeysToColumn( _
+Public Sub AppendMissingDictSetToColumns( _
     ByVal sheet As Worksheet, _
-    ByVal columnIdx As Long, _
-    ByVal existingKeysDict As Scripting.Dictionary, _
-    ByVal newKeysDict As Scripting.Dictionary, _
-    Optional ByVal startRow As Long = 2)
-
+    ByVal keyColumnIdx As Long, _
+    ByVal existingDictSet As Scripting.Dictionary, _
+    ByVal newDictSet As Scripting.Dictionary, _
+    Optional ByVal startRow As Long = 2, _
+    Optional ByVal itemColumnIdx As Long = 0)
     On Error GoTo ErrHandler
-
+    
     Dim lastRow As Long
     Dim nextRow As Long
     Dim currentKey As Variant
-    Dim valueText As String
-
-    lastRow = sheet.Cells(sheet.Rows.Count, columnIdx).End(xlUp).Row
+    Dim keyText As String
+    Dim itemValue As Variant
+    Dim writeItems As Boolean
+    
+    ' Determine if we need to write items
+    writeItems = (itemColumnIdx > 0)
+    
+    ' Find last row in key column
+    lastRow = sheet.Cells(sheet.Rows.Count, keyColumnIdx).End(xlUp).Row
     If lastRow < startRow Then
         nextRow = startRow
     Else
         nextRow = lastRow + 1
     End If
-
-    For Each currentKey In newKeysDict.Keys
-        valueText = Trim$(CStr(currentKey))
-        If Len(valueText) > 0 Then
-            If Not existingKeysDict.Exists(valueText) Then
-                sheet.Cells(nextRow, columnIdx).Value = valueText
-                existingKeysDict(valueText) = True
+    
+    ' Iterate through new pairs
+    For Each currentKey In newDictSet.Keys
+        keyText = Trim$(CStr(currentKey))
+        
+        If Len(keyText) > 0 Then
+            If Not existingDictSet.Exists(keyText) Then
+                ' Write key
+                sheet.Cells(nextRow, keyColumnIdx).Value = keyText
+                
+                ' Write item if requested
+                If writeItems Then
+                    itemValue = newDictSet(currentKey)
+                    sheet.Cells(nextRow, itemColumnIdx).Value = itemValue
+                End If
+                
+                ' Update existing keys dictionary
+                existingDictSet(keyText) = True
+                
                 nextRow = nextRow + 1
             End If
         End If
     Next currentKey
-
+    
 CleanExit:
     Exit Sub
 ErrHandler:
-    MsgBox "Error (" & Err.Number & "): " & Err.Description, vbCritical, "AppendMissingDictKeysToColumn"
+    modErr.ReportError "AppendMissingDictSetToColumns", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
-' Procedure : AppendMissingDictKeysToTableColumn
-' Purpose   : Appends keys from newKeysDict to a structured table column if they
-'             do not already exist in existingKeysDict. Expands the table as needed.
+' Procedure : AppendMissingDictSetToTableColumns
+' Purpose   : Appends key-value pairs from newDictSet to structured table columns
+'             if the keys do not already exist in existingDictSet. Expands the table
+'             as needed.
 '
 ' Parameters:
 '   targetTable      [ListObject]               - The structured table to write into.
-'   columnName       [String]                   - The name of the column to append into.
-'   existingKeysDict [Scripting.Dictionary]     - Dictionary containing existing values (keys only).
-'   newKeysDict      [Scripting.Dictionary]     - Dictionary containing new values to append (keys only).
+'   keyColumnName    [String]                   - The name of the column for keys.
+'   existingDictSet  [Scripting.Dictionary]     - Dictionary containing existing keys/values
+'   newDictSet       [Scripting.Dictionary]     - Dictionary containing new keys/values to append.
+'   itemColumnName   [String]                   - (Optional) The name of the column for items.
+'                                                  If omitted, only keys are written.
+'
+' Notes:
+'   - If itemColumnName is provided, both keys and items are written
+'   - existingDictSet is updated with newly added keys
 ' -----------------------------------------------------------------------------------
-Public Sub AppendMissingDictKeysToTableColumn( _
+Public Sub AppendMissingDictSetToTableColumns( _
     ByVal targetTable As ListObject, _
-    ByVal columnName As String, _
-    ByVal existingKeysDict As Scripting.Dictionary, _
-    ByVal newKeysDict As Scripting.Dictionary)
-
+    ByVal keyColumnName As String, _
+    ByVal existingDictSet As Scripting.Dictionary, _
+    ByVal newDictSet As Scripting.Dictionary, _
+    Optional ByVal itemColumnName As String = "")
     On Error GoTo ErrHandler
-
+    
     Dim currentKey As Variant
-    Dim valueText As String
-    Dim targetColumn As Range
+    Dim keyText As String
+    Dim itemValue As Variant
+    Dim keyColumn As Range
+    Dim itemColumn As Range
     Dim nextRowIndex As Long
-
-    Set targetColumn = targetTable.ListColumns(columnName).DataBodyRange
-
-    nextRowIndex = targetColumn.Rows.Count + 1 ' Start writing after last row
-
-    For Each currentKey In newKeysDict.Keys
-        valueText = Trim$(CStr(currentKey))
-        If Len(valueText) > 0 Then
-            If Not existingKeysDict.Exists(valueText) Then
-                targetTable.ListRows.Add ' Add new row to table
-                targetTable.DataBodyRange.Cells(nextRowIndex, targetTable.ListColumns(columnName).index).Value = valueText
-                existingKeysDict(valueText) = True
+    Dim writeItems As Boolean
+    Dim keyColIndex As Long
+    Dim itemColIndex As Long
+    
+    ' Determine if we need to write items
+    writeItems = (Len(itemColumnName) > 0)
+    
+    ' Get column references and indices
+    Set keyColumn = targetTable.ListColumns(keyColumnName).DataBodyRange
+    keyColIndex = targetTable.ListColumns(keyColumnName).index
+    
+    If writeItems Then
+        Set itemColumn = targetTable.ListColumns(itemColumnName).DataBodyRange
+        itemColIndex = targetTable.ListColumns(itemColumnName).index
+    End If
+    
+    ' Start writing after last row
+    nextRowIndex = keyColumn.Rows.Count + 1
+    
+    ' Iterate through new pairs
+    For Each currentKey In newDictSet.Keys
+        keyText = Trim$(CStr(currentKey))
+        
+        If Len(keyText) > 0 Then
+            If Not existingDictSet.Exists(keyText) Then
+                ' Add new row to table
+                targetTable.ListRows.Add
+                
+                ' Write key
+                targetTable.DataBodyRange.Cells(nextRowIndex, keyColIndex).Value = keyText
+                
+                ' Write item if requested
+                If writeItems Then
+                    itemValue = newDictSet(currentKey)
+                    targetTable.DataBodyRange.Cells(nextRowIndex, itemColIndex).Value = itemValue
+                End If
+                
+                ' Update existing keys dictionary
+                existingDictSet(keyText) = True
+                
                 nextRowIndex = nextRowIndex + 1
             End If
         End If
     Next currentKey
-
+    
 CleanExit:
     Exit Sub
 ErrHandler:
-    MsgBox "Error (" & Err.Number & "): " & Err.Description, vbCritical, "AppendMissingDictKeysToTableColumn"
+    modErr.ReportError "AppendMissingDictSetToTableColumns", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
 End Sub
 

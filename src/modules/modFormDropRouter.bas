@@ -19,7 +19,8 @@ Attribute VB_Name = "modFormDropRouter"
 Option Explicit
 
 ' ===== Public State ================================================================
-' Global registry: instance id -> class instance (clsFormDrop).
+' Global clsFormDrop instance registry: instance id -> class instance (clsFormDrop).
+' (only reference) = real dict is hold in clsFormDropManager
 Public g_formDropRegistryDict As Scripting.Dictionary
 
 ' ===== Public API ==================================================================

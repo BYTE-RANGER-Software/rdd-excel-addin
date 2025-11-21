@@ -35,7 +35,10 @@ Private m_isInitialized As Boolean
 
 ' Internal registry: one clsFormDrop manager per worksheet (keyed by CodeName).
 Private m_mngrMap As Scripting.Dictionary     ' key = Worksheet.CodeName, value = clsFormDrop
-Private m_callbackModuleName As String        ' Public Module that holds OnFormDropCatSelected/OnFormDropSubSelected
+Private m_formDropRegistry As Scripting.Dictionary 'clsFormDrop instance registry: instance id -> class instance (clsFormDrop).
+
+Private m_onCatCallback As String  ' Public Module that holds callback method for category
+Private m_onSubCallback As String  ' Public Module that holds callback method for subitems
 
 ' Anchor config cache: key = anchor Name (Name.Name), value = config dictionary
 ' with CatRange / CatLabels / SubRanges.
@@ -66,20 +69,30 @@ End Sub
 ' Purpose   : Initialize feature: create instance map.
 '
 ' Parameters:
-'   callbackHost  [Object] - Optional; name of the module hosting callback
-'                                  procedures.
+'   onCatCallback  [String] - Optional; Full callback names (Module.Procedure) for category
+'   onSubCallback  [String] - Optional; Full callback names (Module.Procedure) for subitems
 '
 ' Returns   : (none)
 '
 ' Notes     : Safe to call multiple times.
 ' -----------------------------------------------------------------------------------
-Public Sub Init(Optional ByVal callbackModuleName As String = vbNullString)
+Public Sub Init(Optional ByVal onCatCallback As String = vbNullString, Optional ByVal onSubCallback As String = vbNullString)
+                
     On Error GoTo ErrHandler
     
     If Not m_isInitialized Then
         If m_mngrMap Is Nothing Then Set m_mngrMap = New Scripting.Dictionary
-        m_callbackModuleName = callbackModuleName
         
+        m_onCatCallback = onCatCallback
+        m_onSubCallback = onSubCallback
+        
+        If m_formDropRegistry Is Nothing Then
+            Set m_formDropRegistry = New Scripting.Dictionary
+        End If
+        
+        ' give router access to instance registry (reference)
+        Set modFormDropRouter.g_formDropRegistryDict = m_formDropRegistry
+                
         If m_anchorConfigCache Is Nothing Then
             Set m_anchorConfigCache = New Scripting.Dictionary
             m_anchorConfigCache.CompareMode = TextCompare
@@ -110,18 +123,37 @@ End Sub
 ' -----------------------------------------------------------------------------------
 Private Sub Class_Terminate()
     On Error GoTo ErrHandler
-    
+        
     If m_isInitialized Then
         Dim key As Variant
         If Not m_mngrMap Is Nothing Then
             For Each key In m_mngrMap.Keys
                 On Error Resume Next
-                m_mngrMap(key).Destroy
+                Dim FormDropInst As clsFormDrop
+                Set FormDropInst = m_mngrMap(key)
+                    
+                If Not FormDropInst Is Nothing Then
+                    FormDropInst.Dispose
+                    Set FormDropInst = Nothing
+                End If
+                
                 On Error GoTo ErrHandler
             Next key
             m_mngrMap.RemoveAll
+            Set m_mngrMap = Nothing
         End If
-        m_callbackModuleName = vbNullString
+        
+        ' clean up instance registry
+        If Not m_formDropRegistry Is Nothing Then
+            m_formDropRegistry.RemoveAll
+            Set m_formDropRegistry = Nothing
+        End If
+        
+        ' remove router access
+        Set modFormDropRouter.g_formDropRegistryDict = Nothing
+                
+        m_onCatCallback = vbNullString
+        m_onSubCallback = vbNullString
         
         If Not m_anchorConfigCache Is Nothing Then
             m_anchorConfigCache.RemoveAll
@@ -199,7 +231,11 @@ Public Sub HandleSheetDeactivate(ByVal eventSheet As Worksheet)
     If m_mngrMap Is Nothing Then Exit Sub
     
     Dim key As String: key = eventSheet.CodeName
-    If m_mngrMap.Exists(key) Then m_mngrMap(key).Hide
+    Dim fd As clsFormDrop
+    If m_mngrMap.Exists(key) Then
+        Set fd = m_mngrMap(key)
+        fd.HideDropDowns
+    End If
     
 CleanExit:
     Exit Sub
@@ -338,20 +374,16 @@ Private Function GetMngr(ByVal hostSheet As Worksheet) As clsFormDrop
     
     If Not m_mngrMap.Exists(key) Then
         Dim formDrop As New clsFormDrop
-        formDrop.Init hostSheet.Parent, modFormDropRouter.g_formDropRegistryDict
+        formDrop.Init hostSheet.Parent, m_formDropRegistry
         
         ' Arrow config
         formDrop.SetArrowEnabled True
         formDrop.SetArrowStyle 2, 10, 10
         formDrop.SetPlacement True
-        
-        ' Provide default list sources
-        formDrop.SetListsFromTable modRanges.GetTable(hostSheet, NAME_DATA_TABLE), _
-            LISTS_HEADER_ITEM_ID, LISTS_HEADER_OBJECTS
-        
+                
         'Set callbacks for drop-downs
-        If m_callbackModuleName <> vbNullString Then
-            formDrop.SetCallbacks m_callbackModuleName
+        If Len(m_onCatCallback) Or Len(m_onSubCallback) Then
+            formDrop.SetCallbacks m_onCatCallback, m_onSubCallback
         End If
                               
         m_mngrMap.Add key, formDrop
@@ -415,10 +447,11 @@ Private Function GetOrCreateAnchorConfig(ByVal anchorName As Name) As Scripting.
     cacheKey = anchorName.Name
     
     ' Use cached config when available
-    If m_anchorConfigCache.Exists(cacheKey) Then
-        Set GetOrCreateAnchorConfig = m_anchorConfigCache(cacheKey)
-        Exit Function
-    End If
+    On Error Resume Next
+    Set GetOrCreateAnchorConfig = m_anchorConfigCache(cacheKey)
+    On Error GoTo 0
+
+    If Not GetOrCreateAnchorConfig Is Nothing Then Exit Function
     
     ' --- Build configuration from metadata ---
     Dim meta As String

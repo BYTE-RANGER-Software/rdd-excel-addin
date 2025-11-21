@@ -167,7 +167,10 @@ Public Sub HandleWorkbookOpen()
     ' load options
     modOptions.ReadGeneralOptions
 
-    If m_formDropMgr Is Nothing Then Set m_formDropMgr = New clsFormDropManager: m_formDropMgr.Init "modFormDropRouter"
+    If m_formDropMgr Is Nothing Then Set m_formDropMgr = New clsFormDropManager
+    m_formDropMgr.Init _
+        onCatCallback:="modFormDropCallbacks.OnFormDropCatSelected", _
+        onSubCallback:="modFormDropCallbacks.OnFormDropSubSelected"
         
     ' wire application events when running as add-in
     If RDDAddInWkBk.IsAddin Then
@@ -229,15 +232,16 @@ Public Sub HandleSheetActivate(ByVal activatedSheet As Worksheet)
     
     ' Check whether the target workbook has a sheet with the Tag SHEET_LISTS
     If modTags.SheetWithTagExists(wb, SHEET_DISPATCHER) Then
-        'Don't update on sheet Lists
-        If activatedSheet.CodeName <> SHEET_DISPATCHER And Not modTags.HasSheetTag(activatedSheet, SHEET_DISPATCHER) Then
+        'update only Room Sheets
+        If modRooms.IsRoomSheet(activatedSheet) Then
+        
             If clsState.RoomSheetChanged Then
                 clsState.RoomSheetChanged = False
-                modRooms.UpdateLists wb
+                modRooms.UpdateLists wb, LUM_Append
             End If
-            If modRooms.IsRoomSheet(activatedSheet) Then
-                modRooms.ApplyParallaxRangeCover activatedSheet
-            End If
+            
+            modRooms.ApplyParallaxRangeCover activatedSheet
+           
         End If
     End If
     
@@ -521,7 +525,7 @@ Public Function AddNewRoom(Optional ByVal shouldGoToNewRoom As Boolean = True) A
                 modUtil.HideOpMode True
                 modRooms.ApplyParallaxRangeCover newSheet
                 If shouldGoToNewRoom Then
-                    Application.GoTo newSheet.Range("A1"), True
+                    Application.Goto newSheet.Range("A1"), True
                 Else
                     currentSheet.Activate
                     If Not currentCell Is Nothing Then currentCell.Select
@@ -624,7 +628,7 @@ Public Sub GotoRoomFromCell()
     
     Dim roomSheet As Worksheet
     If modRooms.HasRoomSheet(currentWorkbook, roomId, roomSheet) Then
-        Application.GoTo roomSheet.Range("A1"), True
+        Application.Goto roomSheet.Range("A1"), True
         Exit Sub
     End If
     

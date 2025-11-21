@@ -69,7 +69,7 @@ Public Sub GeneratePuzzleChart()
         nodeType = dataSheet.Cells(rowIndex, 3).Value
 
         Set nodeShape = chartSheet.Shapes.AddShape(msoShapeRoundedRectangle, posX, posY, 120, 40)
-        nodeShape.TextFrame.Characters.Text = nodeName
+        nodeShape.TextFrame.Characters.text = nodeName
         nodeShape.Name = nodeId
         nodeShape.Fill.ForeColor.RGB = GetColorByType(nodeType)
 
@@ -144,7 +144,7 @@ Public Sub UpdatePuzzleChart()
         On Error GoTo ErrHandler
 
         If Not targetShape Is Nothing Then
-            targetShape.TextFrame.Characters.Text = nodeName
+            targetShape.TextFrame.Characters.text = nodeName
             targetShape.Fill.ForeColor.RGB = GetColorByType(nodeType)
         End If
     Next rowIndex
@@ -245,13 +245,13 @@ Public Sub SyncPuzzleChart()
         If nodesDict.Exists(nodeId) Then
             ' Update existing shape
             Set targetShape = nodesDict(nodeId)
-            targetShape.TextFrame.Characters.Text = nodeName
+            targetShape.TextFrame.Characters.text = nodeName
             targetShape.Fill.ForeColor.RGB = GetColorByType(nodeType)
         Else
             ' Create new shape
             Set targetShape = chartSheet.Shapes.AddShape(msoShapeRoundedRectangle, posX, posY, 120, 40)
             targetShape.Name = nodeId
-            targetShape.TextFrame.Characters.Text = nodeName
+            targetShape.TextFrame.Characters.text = nodeName
             targetShape.Fill.ForeColor.RGB = GetColorByType(nodeType)
             targetShape.TextFrame.HorizontalAlignment = xlHAlignCenter
             

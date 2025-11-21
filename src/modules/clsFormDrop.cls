@@ -57,14 +57,12 @@ Private m_gapPts As Double
 Private m_rowHeight As Double
 
 Private m_catDropDownName As String
-Private m_SubDropDownName As String
+Private m_subDropDownName As String
 
 Private m_catItems As Variant                           ' Stores the category names for the drop-down list, e.g., Array("Category1", "Category2", "Category3")
 Private m_subItems As Variant                           ' Stores sub-items grouped by category , e.g., Array(Array("apple", "pear", "plum"), Array("carrot", "onion"))
 Private m_subListMap As Scripting.Dictionary            ' Scripting.Dictionary: key = category index (1-based) -> address string
 Private m_listsInitialized As Boolean
-
-Private m_instRegistryDict As Scripting.Dictionary ' Global registry: instance id -> class instance
 
 Private m_log As ILog   ' Optional injected logger
 
@@ -87,18 +85,16 @@ Private m_arrowW As Double
 Private m_arrowH As Double
 
 ' --- Optional user macros (callbacks) ---
-Private m_callbackModule As String
-Private m_callbackCatMethod As String
-Private m_callbackSubMethod As String
+Private m_callbackCatAddress As String  ' "Module.Procedure"
+Private m_callbackSubAddress As String  ' "Module.Procedure"
 
 Private Const TRIANGLE_BIG As Long = 9660   ' U+25BC BLACK DOWN-POINTING TRIANGLE
 Private Const TRIANGLE_SMALL As Long = 9662 ' U+25BE BLACK DOWN-POINTING SMALL TRIANGLE
 
 
-
 ' -----------------------------------------------------------------------------------
 ' Procedure : Class_Initialize
-' Purpose   : Handles initialization of a new class instance.
+' Purpose   : default initialization of a new class instance.
 '
 ' Parameters:
 '   (none)
@@ -115,8 +111,7 @@ End Sub
 
 ' -----------------------------------------------------------------------------------
 ' Procedure : Class_Terminate
-' Purpose   : Handles cleanup for a class instance when it is destroyed; unregisters
-'             the instance from the instance registry if it was initialized.
+' Purpose   : default cleanup for a class instance when it is destroyed
 '
 ' Parameters:
 '   (none)
@@ -124,22 +119,12 @@ End Sub
 ' Returns   : (none)
 '
 ' Notes     :
-'   - Safe-guards against missing registry or missing key.
+'   - please use methode dispose() for cleaning
+'   - code in this methode is only for failsafe
 ' -----------------------------------------------------------------------------------
 Private Sub Class_Terminate()
     If m_isInitialized Then
-        On Error Resume Next
-        If Not m_hostSheet Is Nothing Then
-            m_hostSheet.DropDowns(m_catDropDownName).Delete
-            m_hostSheet.DropDowns(m_SubDropDownName).Delete
-            m_hostSheet.Shapes(m_arrowShapeName).Delete
-        End If
-        If Not m_instRegistryDict Is Nothing Then
-            If m_instRegistryDict.Exists(m_instId) Then m_instRegistryDict.Remove m_instId
-        End If
-        On Error GoTo 0
-
-        m_isInitialized = False
+        Call Dispose
     End If
 End Sub
 
@@ -178,11 +163,11 @@ Public Function Init(ByRef hostWorkbook As Workbook, ByRef formDropRegistry As S
         Dim result As Long
         result = CleanWorkbookArtifacts()
         
-        m_instId = Format$(Now, "yymmddhhnnss") & CStr(Int(Rnd() * 10000))  ' digits only id
+        m_instId = GenerateInstanceId
         m_gapPts = 2
         m_rowHeight = 16                                                ' height for Form Control DropDown
         m_catDropDownName = "fd_" & m_instId & "_Cat"
-        m_SubDropDownName = "fd_" & m_instId & "_Sub"
+        m_subDropDownName = "fd_" & m_instId & "_Sub"
         Set m_subListMap = CreateObject("Scripting.Dictionary")
 
         m_listMode = FDLM_None
@@ -195,11 +180,14 @@ Public Function Init(ByRef hostWorkbook As Workbook, ByRef formDropRegistry As S
         m_arrowShapeName = "fd_" & m_instId & "_Arrow"
     
         'Register instance
-        On Error Resume Next
         If formDropRegistry Is Nothing Then Set formDropRegistry = New Scripting.Dictionary
+        
+        If formDropRegistry.Exists(CStr(m_instId)) Then
+    Err.Raise ERR_INSTANCE_EXISTS, "clsFormDrop.Init", _
+        "Instance ID already registered: " & m_instId
+End If
+
         Set formDropRegistry(CStr(m_instId)) = Me
-        Set m_instRegistryDict = formDropRegistry
-        On Error GoTo 0
         
         m_isInitialized = True
     End If
@@ -214,14 +202,47 @@ ErrHandler:
 End Function
 
 ' -----------------------------------------------------------------------------------
+' Procedure : Dispose
+' Purpose   : Handles cleanup for a class instance when it is destroyed; unregisters
+'             the instance from the instance registry if it was initialized.
+'
+' Parameters:
+'   (none)
+'
+' Returns   : (none)
+'
+' Notes     :
+'   - Safe-guards against missing registry or missing key.
+' -----------------------------------------------------------------------------------
+Public Sub Dispose()
+    If Not m_isInitialized Then Exit Sub
+        
+    ' cleanup controls
+    Call CleanupControls
+    
+    ' reset state
+    Set m_hostSheet = Nothing
+    Set m_targetCell = Nothing
+    Set m_hostWorkbook = Nothing
+    
+    If Not m_subListMap Is Nothing Then
+        m_subListMap.RemoveAll
+        Set m_subListMap = Nothing
+    End If
+    
+    Set m_log = Nothing
+    
+    m_isInitialized = False
+End Sub
+
+' -----------------------------------------------------------------------------------
 ' Procedure : SetCallbacks
 ' Purpose   : Registers optional callback macros that are executed when a category
 '             or sub value is selected.
 '
 ' Parameters:
-'   callbackModule    [String] - callback Module name
-'   onCategoryMacro   [String] - Optional; method name for category selection.
-'   onSubMacro        [String] - Optional; medthod name for sub selection.
+'   catCallbackAddress   [String] - Optional; full method name for category selection (Module.Procedure).
+'   subCallbackAddress   [String] - Optional; full medthod name for sub selection (Module.Procedure).
 '
 ' Returns   : (none)
 '
@@ -229,16 +250,14 @@ End Function
 '   - methods are executed via Application.Run.
 '   - methods (macros) must be located in a public module
 ' -----------------------------------------------------------------------------------
-Public Sub SetCallbacks(ByVal callbackModule As String, _
-    Optional ByVal catMethodName As String = "OnFormDropCatSelected", _
-    Optional ByVal subMethodName As String = "OnFormDropSubSelected")
-                              
+Public Sub SetCallbacks(Optional ByVal catCallbackAddress As String = vbNullString, _
+                        Optional ByVal subCallbackAddress As String = vbNullString)
+                        
     If Not EnsureInitialized Then Exit Sub
     If Not EnsureNotDefaultInstance Then Exit Sub
 
-    m_callbackModule = callbackModule
-    m_callbackCatMethod = catMethodName
-    m_callbackSubMethod = subMethodName
+    m_callbackCatAddress = catCallbackAddress
+    m_callbackSubAddress = subCallbackAddress
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -284,6 +303,13 @@ Public Sub SetLists(ByVal categories As Variant, ByVal subLists As Variant)
     If Not EnsureInitialized Then Exit Sub
     If Not EnsureNotDefaultInstance Then Exit Sub
     
+    If Not IsArray(categories) Then Err.Raise ERR_NO_ARRAY, "clsFormDrop.SetList", "categories must be an array of String."
+    If Not IsArray(subLists) Then Err.Raise ERR_NO_ARRAY, "clsFormDrop.SetList", "subLists must be an array of arrays."
+    
+    If (UBound(categories) - LBound(categories)) <> (UBound(subLists) - LBound(subLists)) Then
+        Err.Raise ERR_DIF_LENGTH, "clsFormDrop.SetList", "categories and subLists must have the same length."
+    End If
+    
     ' Store arrays
     m_catItems = categories
     m_subItems = subLists
@@ -312,7 +338,7 @@ Public Sub SetListsFromNamedRanges(ByVal catRange As Range, subRanges As Variant
     If Not EnsureNotDefaultInstance Then Exit Sub
     
     If (Not IsArray(subRanges)) Then
-        Err.Raise ERR_NO_ARRAY, "clsFormDrop", "subRanges must be an array of Range."
+        Err.Raise ERR_NO_ARRAY, "clsFormDrop.SetListsFromNamedRanges", "subRanges must be an array of Range."
     End If
     
     m_catItems = catRange.Value
@@ -324,7 +350,7 @@ Public Sub SetListsFromNamedRanges(ByVal catRange As Range, subRanges As Variant
     For i = LBound(subRanges) To UBound(subRanges)
         Set r = subRanges(i)
         If r Is Nothing Then
-            Err.Raise ERR_OBJ_IS_NOTHING, "clsFormDrop", "subRanges(" & i & ") is Nothing."
+            Err.Raise ERR_OBJ_IS_NOTHING, "clsFormDrop.SetListsFromNamedRanges", "subRanges(" & i & ") is Nothing."
         End If
         m_subListMap(CStr(i - LBound(subRanges) + 1)) = "'" & r.Worksheet.Name & "'!" & r.Address(False, False)
     Next i
@@ -443,7 +469,9 @@ End Sub
 '   - Requires list data to be initialized beforehand.
 '   - Shows only the arrow; dropdowns become visible when the arrow is clicked.
 ' -----------------------------------------------------------------------------------
-Public Sub ShowAt(ByVal hostSheeet As Worksheet, ByVal targetRange As Range)
+Public Sub ShowAt(ByVal hostSheet As Worksheet, ByVal targetRange As Range)
+    On Error GoTo ErrHandler:
+    
     If Not EnsureInitialized Then Exit Sub
     If Not EnsureNotDefaultInstance Then Exit Sub
 
@@ -453,12 +481,12 @@ Public Sub ShowAt(ByVal hostSheeet As Worksheet, ByVal targetRange As Range)
             "No lists have been initialized. Call SetLists / SetListsFromNamedRanges / SetListsFromNames before ShowAt."
     End If
 
-    Set m_hostSheet = hostSheeet
+    Set m_hostSheet = hostSheet
     Set m_targetCell = targetRange.Cells(1, 1)
 
     ' Ensure controls exist but keep them hidden until arrow is clicked
     Dim ddCat As DropDown: Set ddCat = EnsureDropDown(m_catDropDownName)
-    Dim ddSub As DropDown: Set ddSub = EnsureDropDown(m_SubDropDownName)
+    Dim ddSub As DropDown: Set ddSub = EnsureDropDown(m_subDropDownName)
 
     ' Prepare category dropdown (but do not show yet)
     ddCat.LinkedCell = ""
@@ -466,8 +494,10 @@ Public Sub ShowAt(ByVal hostSheeet As Worksheet, ByVal targetRange As Range)
     ddCat.Left = m_targetCell.Left
     ddCat.Top = m_targetCell.Top + m_targetCell.Height + m_gapPts
     ddCat.Width = m_targetCell.Width
-    If Not IsEmpty(m_catItems) Then
-        ddCat.List = m_catItems
+    If IsArray(m_catItems) Then
+        If UBound(m_catItems) >= LBound(m_catItems) Then
+            ddCat.List = m_catItems
+        End If
     End If
     ddCat.Visible = False
 
@@ -482,6 +512,12 @@ Public Sub ShowAt(ByVal hostSheeet As Worksheet, ByVal targetRange As Range)
 
     ' Only show the arrow next to the target cell
     ShowArrow
+    
+CleanExit:
+    Exit Sub
+ErrHandler:
+    ReportError "clsFormDrop.ShowAt", Err.Number, Erl
+    Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -503,7 +539,7 @@ Public Sub HideDropDowns(Optional hideArrow As Boolean = False)
     
     On Error Resume Next
     m_hostSheet.DropDowns(m_catDropDownName).Visible = False
-    m_hostSheet.DropDowns(m_SubDropDownName).Visible = False
+    m_hostSheet.DropDowns(m_subDropDownName).Visible = False
     On Error GoTo 0
     
     If hideArrow Then HideArrowButton
@@ -527,7 +563,7 @@ Friend Sub HandleOnAction(ByVal callerCtrlName As String)
         ' Category changed -> populate sub + optional callback
         Dim ddCat As DropDown: Set ddCat = m_hostSheet.DropDowns(callerCtrlName)
         Dim catIdx As Long: catIdx = ddCat.Value
-        Dim ddSub As DropDown: Set ddSub = EnsureDropDown(m_SubDropDownName)
+        Dim ddSub As DropDown: Set ddSub = EnsureDropDown(m_subDropDownName)
 
         ddSub.Visible = False
         ddSub.LinkedCell = ""
@@ -545,7 +581,7 @@ Friend Sub HandleOnAction(ByVal callerCtrlName As String)
                         ddSub.Width = ddCat.Width
                         ddSub.bringToFront
                         ' Enable OnAction only if Callback exists
-                        If Len(m_callbackModule) And Len(m_callbackSubMethod) Then
+                        If Len(m_callbackSubAddress) Then
                             ddSub.OnAction = "FormDrop_OnAction"
                         End If
                     End If
@@ -562,27 +598,27 @@ Friend Sub HandleOnAction(ByVal callerCtrlName As String)
                     ddSub.Top = ddCat.Top + ddCat.Height + 2
                     ddSub.Width = ddCat.Width
                     ddSub.bringToFront
-                    If Len(m_callbackModule) And Len(m_callbackSubMethod) Then
+                    If Len(m_callbackSubAddress) Then
                         ddSub.OnAction = "FormDrop_OnAction"
                     End If
             End Select
         End If
         
         ' Category-Callback
-        If Len(m_callbackModule) And Len(m_callbackCatMethod) Then
+        If Len(m_callbackCatAddress) Then
             On Error Resume Next
-            Application.Run m_callbackModule + "." + m_callbackCatMethod, ddCat, m_targetCell
+            Application.Run m_callbackCatAddress, ddCat, m_targetCell
             On Error GoTo 0
         End If
         Exit Sub
     End If
 
-     If StrComp(callerCtrlName, m_SubDropDownName, vbTextCompare) = 0 Then
+     If StrComp(callerCtrlName, m_subDropDownName, vbBinaryCompare) = 0 Then
          ' Sub-Callback
-         If Len(m_callbackModule) And Len(m_callbackSubMethod) > 0 Then
+         If Len(m_callbackSubAddress) Then
              Dim dd As DropDown: Set dd = m_hostSheet.DropDowns(callerCtrlName)
              On Error Resume Next
-             Application.Run m_callbackModule + "." + m_callbackSubMethod, dd, m_targetCell
+             Application.Run m_callbackSubAddress, dd, m_targetCell
              On Error GoTo 0
          End If
          Exit Sub
@@ -625,7 +661,7 @@ Private Function EnsureArrowShape() As Shape
             
             .Fill.ForeColor.RGB = RGB(240, 242, 247)
             .Line.ForeColor.RGB = RGB(166, 172, 179)
-            .TextFrame2.TextRange.Characters.Text = ChrW$(TRIANGLE_BIG)
+            .TextFrame2.TextRange.Characters.text = ChrW$(TRIANGLE_BIG)
             .TextFrame2.TextRange.ParagraphFormat.Alignment = msoAlignCenter
             .TextFrame2.VerticalAnchor = msoAnchorMiddle
             .TextFrame2.TextRange.Font.Size = 8
@@ -685,7 +721,7 @@ Private Sub ShowCatOnly()
     If m_hostSheet Is Nothing Or m_targetCell Is Nothing Then Exit Sub
 
     Dim ddCat As DropDown: Set ddCat = EnsureDropDown(m_catDropDownName)
-    Dim ddSub As DropDown: Set ddSub = EnsureDropDown(m_SubDropDownName)
+    Dim ddSub As DropDown: Set ddSub = EnsureDropDown(m_subDropDownName)
 
     ' Ensure cat dropdown is properly configured and positioned
     ddCat.ListFillRange = ""
@@ -834,7 +870,7 @@ Public Sub SetPlacement(Optional ByVal moveAndSize As Boolean = False)
     On Error Resume Next
     Dim dd As DropDown
     Set dd = m_hostSheet.DropDowns(m_catDropDownName): If Not dd Is Nothing Then dd.Placement = IIf(moveAndSize, xlMoveAndSize, xlMove)
-    Set dd = m_hostSheet.DropDowns(m_SubDropDownName): If Not dd Is Nothing Then dd.Placement = IIf(moveAndSize, xlMoveAndSize, xlMove)
+    Set dd = m_hostSheet.DropDowns(m_subDropDownName): If Not dd Is Nothing Then dd.Placement = IIf(moveAndSize, xlMoveAndSize, xlMove)
     On Error GoTo 0
 End Sub
 
@@ -855,7 +891,7 @@ Public Function ParseInstanceId(ByVal ctrlName As String) As String
     ' ctrlName pattern: "fd_<id>_Cat" or "fd_<id>_Sub" or "fd_<id>_Arrow"
     Dim p1 As Long, p2 As Long
     p1 = InStr(1, ctrlName, "fd_", vbTextCompare)
-    If p1 = 0 Then Exit Function
+    If p1 <> 1 Then Exit Function ' must be first part
     p1 = p1 + 3
     p2 = InStr(p1, ctrlName, "_", vbTextCompare)
     If p2 = 0 Then Exit Function
@@ -879,14 +915,17 @@ End Function
 ' -----------------------------------------------------------------------------------
 Private Function EnsureDropDown(ByVal ctrlName As String) As DropDown
     Dim dd As DropDown
+    Dim tmpRng As Range
     On Error Resume Next
     Set dd = m_hostSheet.DropDowns(ctrlName)
     On Error GoTo 0
 
     If dd Is Nothing Then
         ' Temporary position; will be moved in ShowAt
-        Set dd = m_hostSheet.DropDowns.Add(Left:=m_hostSheet.Range("XFD1048575").Left, Top:=m_hostSheet.Range("XFD1048575").Top, _
-            Width:=m_hostSheet.Range("XFD1048575").Width, Height:=m_rowHeight)
+        Set tmpRng = m_hostSheet.Range("XFD1048575")
+        Set dd = m_hostSheet.DropDowns.Add(Left:=tmpRng.Left, Top:=tmpRng.Top, Width:=1, Height:=1)
+        dd.Visible = False
+        
         dd.Name = ctrlName
         dd.Placement = xlMove     ' move with cells (no auto-resize)
         dd.PrintObject = False
@@ -922,6 +961,33 @@ Public Function CleanWorkbookArtifacts() As Long
         CleanWorkbookArtifacts = total
     End If
 End Function
+
+Private Sub CleanupControls()
+    
+    If m_hostSheet Is Nothing Then Exit Sub
+    
+    Dim sheet As Worksheet
+    On Error Resume Next
+    Set sheet = m_hostWorkbook.Worksheets(m_hostSheet.Name)
+    On Error GoTo 0
+    
+    If sheet Is Nothing Then
+        Set m_hostSheet = Nothing
+        Exit Sub
+    End If
+    
+    Dim dd As DropDown
+    Set dd = m_hostSheet.DropDowns(m_catDropDownName)
+    If Not dd Is Nothing Then dd.Delete
+        
+    Set dd = m_hostSheet.DropDowns(m_subDropDownName)
+    If Not dd Is Nothing Then dd.Delete
+        
+    Dim shp As Shape
+    Set shp = m_hostSheet.Shapes(m_arrowShapeName)
+    If Not shp Is Nothing Then shp.Delete
+
+End Sub
 
 ' -----------------------------------------------------------------------------------
 ' Function  : CleanSheetArtifacts
@@ -1101,5 +1167,24 @@ Private Sub ReportError( _
     End If
 End Sub
 
+
+Private Function GenerateInstanceId() As String
+    Dim timestamp As String
+    Dim random1 As Long, random2 As Long, random3 As Long
+    
+    ' micro seconds time stamp
+    timestamp = Format$(Now, "yymmddhhnnssms")
+    
+    '
+    Randomize Timer + (Rnd() * 1000000)
+    random1 = Int(Rnd() * 1000000)
+    random2 = Int(Rnd() * 1000000)
+    random3 = Int(Rnd() * 1000000)
+    
+    GenerateInstanceId = timestamp & _
+                        Format$(random1, "000000") & _
+                        Format$(random2, "000000") & _
+                        Format$(random3, "000000")
+End Function
 
 
