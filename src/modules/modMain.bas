@@ -525,7 +525,7 @@ Public Function AddNewRoom(Optional ByVal shouldGoToNewRoom As Boolean = True) A
                 modUtil.HideOpMode True
                 modRooms.ApplyParallaxRangeCover newSheet
                 If shouldGoToNewRoom Then
-                    Application.Goto newSheet.Range("A1"), True
+                    Application.GoTo newSheet.Range("A1"), True
                 Else
                     currentSheet.Activate
                     If Not currentCell Is Nothing Then currentCell.Select
@@ -628,7 +628,7 @@ Public Sub GotoRoomFromCell()
     
     Dim roomSheet As Worksheet
     If modRooms.HasRoomSheet(currentWorkbook, roomId, roomSheet) Then
-        Application.Goto roomSheet.Range("A1"), True
+        Application.GoTo roomSheet.Range("A1"), True
         Exit Sub
     End If
     

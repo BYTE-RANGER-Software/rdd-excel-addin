@@ -79,14 +79,6 @@ Public Const NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_NAME As String = "Range_Toucha
 Public Const NAME_RANGE_TOUCHABLE_OBJECTS_NOTES As String = "Range_TouchableObjects_Notes"
 Public Const NAME_RANGE_WHAT_HAPPENS_HERE As String = "Range_WhatHappensHere"
 
-' Data Table Named Columns
-' Deprecated, do not use in further programming => TODO: replace by dynamic ListObject methods
-'Public Const NAME_LIST_ROOM_IDS As String = "List_RoomIDs"
-'Public Const NAME_LIST_SCENE_IDS As String = "List_SceneIDs"
-'Public Const NAME_LIST_OBJECTS As String = "List_Objects"
-'Public Const NAME_LIST_ACTORS As String = "List_Actors"
-'Public Const NAME_LIST_PUZZLE_TYPES As String = "List_Puzzle_Types"
-
 ' Data Tables (dynamic ListObject)
 Public Const NAME_DATA_TABLE As String = "DropDownLists"
 
@@ -138,13 +130,6 @@ Public Const LISTS_HEADER_PUZZLE_OWNER As String = "Puzzle Owner"
 Public Const LISTS_HEADER_PUZZLE_STATUS As String = "Puzzle Status"
 Public Const LISTS_HEADER_PUZZLE_POINTS As String = "Puzzle Points"
 
-'Data Table Column No
-' Deprecated ! Don't use in further coding => TODO: replace by dynamic ListObject methods
-'Public Const LISTS_COL_ROOM_ID As Long = 3
-'Public Const LISTS_COL_ROOM_ALIAS As Long = 4
-'Public Const LISTS_COL_SCENE_ID As Long = 5
-'Public Const LISTS_COL_OBJECTS As Long = 9
-
 ' Dispatcher related constants
 Public Const BTN_INSERT_ROOM_PICTURE As String = "btnInsertImage"
 Public Const MACRO_BTN_INSERT_PICTURE As String = "Dispatcher.InsertPicture_Button"
@@ -176,14 +161,14 @@ Public Const ERR_ARG_NULL_TARGETSHEET       As Long = ERR_ROOMS_BASE + 1    ' "A
 Public Const ERR_NOT_A_ROOM_SHEET           As Long = ERR_ROOMS_BASE + 2    ' "The provided sheet is not a Room sheet."
 Public Const ERR_ROOM_SHEET_REFERENCED      As Long = ERR_ROOMS_BASE + 3    ' "Room sheet cannot be deleted because it is referenced..."
 
-Public Const FD_ANCHOR_NAME_PATTERN As String = "DD_Anchor_*"
+Public Const FD_ANCHOR_NAME_PATTERN As String = "*!DD_Anchor_*"
 
 Public Const FD_META_PREFIX        As String = "FD:"
 Public Const FD_META_PAIR_SEP      As String = ";"          ' key=value;key=value
 Public Const FD_META_LIST_SEP      As String = "|"          ' a|b|c
 
-Public Const FD_META_KEY_CAT       As String = "cat"        ' workbook name for category range
-Public Const FD_META_KEY_SUBS      As String = "subs"       ' workbook names for sub ranges (| separated)
+Public Const FD_META_KEY_CAT       As String = "cat"        ' worksheet name for category range
+Public Const FD_META_KEY_SUBS      As String = "subs"       ' worksheet names for sub ranges (| separated)
 
 Public Const FD_META_KEY_CAT_TBL   As String = "cattbl"     ' table name for category
 Public Const FD_META_KEY_CAT_COL   As String = "catcol"     ' header name for category column

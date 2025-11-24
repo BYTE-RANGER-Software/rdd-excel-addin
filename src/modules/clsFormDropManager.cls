@@ -173,7 +173,7 @@ End Sub
 ' -----------------------------------------------------------------------------------
 ' Procedure : HandleSelectionChange
 ' Purpose   : Form Drop handler for App.SheetSelectionChange.
-'             Shows arrow only when the selected cell is an anchor (named DD_Anchor_*).;
+'             Shows arrow only when the selected cell is an anchor (named *!DD_Anchor_*).;
 '             hides otherwise. Dropdowns open on arrow click.
 '
 ' Parameters:
