@@ -65,7 +65,7 @@ Public Function AddRoom(ByVal targetBook As Workbook, ByRef newName As String, B
         Set newRoomSheet = ActiveSheet 'targetBook.Sheets(targetBook.Sheets.Count)
         
         newRoomSheet.Visible = xlSheetHidden
-        newRoomSheet.Name = "DO_NOT_DELETE"
+        newRoomSheet.Name = SHEET_DISPATCHER
         modProps.ClearAllCustomProperties newRoomSheet
         modTags.TagSheet newRoomSheet, SHEET_DISPATCHER
         

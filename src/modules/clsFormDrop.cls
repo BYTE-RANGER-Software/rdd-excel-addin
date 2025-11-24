@@ -923,7 +923,7 @@ Private Function EnsureDropDown(ByVal ctrlName As String) As DropDown
     If dd Is Nothing Then
         ' Temporary position; will be moved in ShowAt
         Set tmpRng = m_hostSheet.Range("XFD1048575")
-        Set dd = m_hostSheet.DropDowns.Add(Left:=tmpRng.Left, Top:=tmpRng.Top, Width:=1, Height:=1)
+        Set dd = m_hostSheet.DropDowns.Add(Left:=tmpRng.Left, Top:=tmpRng.Top, Width:=1, Height:=m_rowHeight)
         dd.Visible = False
         
         dd.Name = ctrlName
@@ -1171,20 +1171,28 @@ End Sub
 Private Function GenerateInstanceId() As String
     Dim timestamp As String
     Dim random1 As Long, random2 As Long, random3 As Long
+    Dim instanceId As String
     
-    ' micro seconds time stamp
+    ' micro seconds time stamp (fixed length: 12 characters)
     timestamp = Format$(Now, "yymmddhhnnssms")
     
-    '
-    Randomize Timer + (Rnd() * 1000000)
-    random1 = Int(Rnd() * 1000000)
-    random2 = Int(Rnd() * 1000000)
-    random3 = Int(Rnd() * 1000000)
+    ' Randomize Timer + (Rnd() * 10000)
+    random1 = Int(Rnd() * 10000)
+    random2 = Int(Rnd() * 10000)
+    random3 = Int(Rnd() * 10000)
     
-    GenerateInstanceId = timestamp & _
-                        Format$(random1, "000000") & _
-                        Format$(random2, "000000") & _
-                        Format$(random3, "000000")
+    ' Combine to form the full instance ID (24 characters max for the instance ID)
+    instanceId = timestamp & _
+                 Format$(random1, "0000") & _
+                 Format$(random2, "0000") & _
+                 Format$(random3, "0000")
+    
+    ' Ensure the instance ID is 24 characters or less (leave space for "fd_" and "_Cat" or "_Sub")
+    If Len(instanceId) > 24 Then
+        instanceId = Left(instanceId, 24)
+    End If
+    
+    GenerateInstanceId = instanceId
 End Function
 
 

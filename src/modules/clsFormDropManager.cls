@@ -190,20 +190,36 @@ Public Sub HandleSelectionChange(ByVal eventSheet As Worksheet, ByVal targetRang
     
     On Error GoTo ErrHandler
     
+    Dim isSlaveAnchor As Boolean
+    Dim targetCell As Range
+    Dim cfgCell As Range
+    
     If Not ShouldHandleSheet(eventSheet) Then Exit Sub
 
     Dim formDropMngr As clsFormDrop: Set formDropMngr = GetMngr(eventSheet)
 
     If targetRange Is Nothing Or targetRange.CountLarge > 1 Then
-        formDropMngr.HideDropDowns
+        formDropMngr.HideDropDowns True
         Exit Sub
     End If
-
-    If IsAnchorCell(eventSheet, targetRange.Cells(1, 1)) Then
-        Call ConfigListsFromAnchorMeta(eventSheet, targetRange.Cells(1, 1), formDropMngr)
-        formDropMngr.ShowAt eventSheet, targetRange.Cells(1, 1)
+    
+    Set targetCell = targetRange.Cells(1, 1)
+     
+    If IsAnchorCell(eventSheet, targetCell, isSlaveAnchor) Then
+        If isSlaveAnchor Then
+            Set cfgCell = GetMasterAnchorCell(eventSheet, targetCell)
+            If cfgCell Is Nothing Then
+                formDropMngr.HideDropDowns True
+                GoTo CleanExit
+            End If
+        Else
+            Set cfgCell = targetCell
+        End If
+        
+        Call ConfigListsFromAnchorMeta(eventSheet, cfgCell, formDropMngr)
+        formDropMngr.ShowAt eventSheet, targetCell
     Else
-        formDropMngr.HideDropDowns
+        formDropMngr.HideDropDowns True
     End If
     
 CleanExit:
@@ -405,14 +421,96 @@ End Function
 ' Parameters:
 '   hostSheet    [Worksheet] - Host sheet.
 '   Cell         [Range]     - Single cell to test.
+'   isSlave      [Boolean]   - Optionl, ByRef: True if the anchor is a slave anchor (with index
+'                              suffix like ".1."); False if master or not an anchor.
+'
 '
 ' Returns   : [Boolean]      - True if the cell is an anchor cell; otherwise False.
 ' -----------------------------------------------------------------------------------
-Private Function IsAnchorCell(ByVal hostSheet As Worksheet, ByVal cell As Range) As Boolean
+Private Function IsAnchorCell(ByVal hostSheet As Worksheet, ByVal cell As Range, Optional ByRef isSlave As Boolean = False) As Boolean
     Dim nm As Name
+    
+    isSlave = False
+    
     Set nm = modRanges.GetCellNameByPattern(cell, FD_ANCHOR_NAME_PATTERN)
-    IsAnchorCell = Not (nm Is Nothing)
+    If nm Is Nothing Then
+        IsAnchorCell = False
+        Exit Function
+    End If
+    
+    IsAnchorCell = True
+    
+    If nm.Name Like FD_SLAVE_ANCHOR_NAME_PATTERN Then
+        isSlave = True
+    End If
+   
+    
 End Function
+
+' -----------------------------------------------------------------------------------
+' Function  : GetMasterAnchorCell
+' Purpose   : Returns the master anchor cell for a given anchor cell (master or slave).
+'
+' Parameters:
+'   hostSheet    [Worksheet] - Host sheet.
+'   cell         [Range]     - Anchor cell (master or slave).
+'
+' Returns   : [Range]        - The master anchor cell, or Nothing if no anchor found.
+' -----------------------------------------------------------------------------------
+Private Function GetMasterAnchorCell( _
+        ByVal hostSheet As Worksheet, _
+        ByVal cell As Range) As Range
+    
+    Dim nm As Name
+    Dim masterNm As Name
+    Dim fullName As String
+    Dim masterName As String
+    Dim lastDot As Long
+    Dim prevDot As Long
+    
+    ' Get the defined name for this cell
+    Set nm = modRanges.GetCellNameByPattern(cell, FD_ANCHOR_NAME_PATTERN)
+    If nm Is Nothing Then
+        Exit Function
+    End If
+    
+    fullName = nm.Name                     ' e.g. "R001!DD_Anchor_Target.1."
+    
+    ' Is it a slave anchor (".<index>." at the end)?
+    If fullName Like FD_SLAVE_ANCHOR_NAME_PATTERN Then
+        lastDot = InStrRev(fullName, ".")          ' trailing "."
+        If lastDot > 0 Then
+            prevDot = InStrRev(fullName, ".", lastDot - 1)
+            If prevDot > 0 Then
+                ' Cut off ".<index>."
+                masterName = Left$(fullName, prevDot - 1)
+            Else
+                masterName = fullName
+            End If
+        Else
+            masterName = fullName
+        End If
+    Else
+        ' Already master
+        masterName = fullName
+    End If
+    
+    ' If the name did not change, we are already on the master anchor
+    If StrComp(masterName, nm.Name, vbTextCompare) = 0 Then
+        Set GetMasterAnchorCell = cell
+        Exit Function
+    End If
+    
+    ' Resolve the master name to a range via the workbook's Names collection
+    On Error Resume Next
+    Set masterNm = nm.Parent.Names(masterName)
+    On Error GoTo 0
+    
+    If Not masterNm Is Nothing Then
+        Set GetMasterAnchorCell = masterNm.RefersToRange
+    End If
+End Function
+
 
 ' -----------------------------------------------------------------------------------
 ' Function  : GetOrCreateAnchorConfig
@@ -433,6 +531,11 @@ End Function
 '   - Only two result shapes are supported:
 '       * CatRange + SubRanges
 '       * CatLabels + SubRanges
+'   - Supports two variants of metadata:
+'       * Variant A: Worksheet Names (cat, subs)
+'       * Variant B: ListObject tables (cattbl, catcol, substbl, subscols)
+'         with optional sheet names (catsheet, subsheet) to specify where
+'         the tables are located (defaults to anchor sheet if not specified)
 ' -----------------------------------------------------------------------------------
 Private Function GetOrCreateAnchorConfig(ByVal anchorName As Name) As Scripting.Dictionary
     
@@ -503,7 +606,7 @@ Private Function GetOrCreateAnchorConfig(ByVal anchorName As Name) As Scripting.
             If catRng Is Nothing Then Exit Function
             Set cfg("CatRange") = catRng
         Else
-            cfg("CatRange") = Nothing
+            Set cfg("CatRange") = Nothing
             cfg("CatLabels") = subsArr
         End If
         
@@ -515,8 +618,21 @@ Private Function GetOrCreateAnchorConfig(ByVal anchorName As Name) As Scripting.
     ' --- Variant B: table & columns ---
     If kv.Exists(FD_META_KEY_SUBS_TBL) And kv.Exists(FD_META_KEY_SUBS_COLS) Then
         
+        ' Determine the sheet where substbl is located
+        Dim subsSheet As Worksheet
+        If kv.Exists(FD_META_KEY_SUBS_SHEET) Then
+            ' Optional: use specified sheet for substbl
+            On Error Resume Next
+            Set subsSheet = anchorSheet.Parent.Worksheets(CStr(kv(FD_META_KEY_SUBS_SHEET)))
+            On Error GoTo ErrHandler
+            If subsSheet Is Nothing Then Exit Function
+        Else
+            ' Default: use anchor sheet
+            Set subsSheet = anchorSheet
+        End If
+        
         Dim loSubs As ListObject
-        Set loSubs = modRanges.GetTable(anchorSheet, CStr(kv(FD_META_KEY_SUBS_TBL)))
+        Set loSubs = modRanges.GetTable(subsSheet, CStr(kv(FD_META_KEY_SUBS_TBL)))
         If loSubs Is Nothing Then Exit Function
         
         Dim cols As Variant
@@ -538,9 +654,23 @@ Private Function GetOrCreateAnchorConfig(ByVal anchorName As Name) As Scripting.
         cfg("SubRanges") = subRanges2
         
         If kv.Exists(FD_META_KEY_CAT_TBL) And kv.Exists(FD_META_KEY_CAT_COL) Then
+        
+            ' Determine the sheet where cattbl is located
+            Dim catSheet As Worksheet
+            If kv.Exists(FD_META_KEY_CAT_SHEET) Then
+                ' Optional: use specified sheet for cattbl
+                On Error Resume Next
+                Set catSheet = anchorSheet.Parent.Worksheets(CStr(kv(FD_META_KEY_CAT_SHEET)))
+                On Error GoTo ErrHandler
+                If catSheet Is Nothing Then Exit Function
+            Else
+                ' Default: use anchor sheet
+                Set catSheet = anchorSheet
+            End If
+            
             Dim loCat As ListObject
             Dim catRng2 As Range
-            Set loCat = modRanges.GetTable(anchorSheet, CStr(kv(FD_META_KEY_CAT_TBL)))
+            Set loCat = modRanges.GetTable(subsSheet, CStr(kv(FD_META_KEY_CAT_TBL)))
             If loCat Is Nothing Then Exit Function
             On Error Resume Next
             Set catRng2 = loCat.ListColumns(CStr(kv(FD_META_KEY_CAT_COL))).DataBodyRange
@@ -548,7 +678,7 @@ Private Function GetOrCreateAnchorConfig(ByVal anchorName As Name) As Scripting.
             If catRng2 Is Nothing Then Exit Function
             Set cfg("CatRange") = catRng2
         Else
-            cfg("CatRange") = Nothing
+            Set cfg("CatRange") = Nothing
             cfg("CatLabels") = cols
         End If
         

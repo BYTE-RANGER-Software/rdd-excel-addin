@@ -162,6 +162,7 @@ Public Const ERR_NOT_A_ROOM_SHEET           As Long = ERR_ROOMS_BASE + 2    ' "T
 Public Const ERR_ROOM_SHEET_REFERENCED      As Long = ERR_ROOMS_BASE + 3    ' "Room sheet cannot be deleted because it is referenced..."
 
 Public Const FD_ANCHOR_NAME_PATTERN As String = "*!DD_Anchor_*"
+Public Const FD_SLAVE_ANCHOR_NAME_PATTERN As String = FD_ANCHOR_NAME_PATTERN & ".[0-9]*."
 
 Public Const FD_META_PREFIX        As String = "FD:"
 Public Const FD_META_PAIR_SEP      As String = ";"          ' key=value;key=value
@@ -174,4 +175,6 @@ Public Const FD_META_KEY_CAT_TBL   As String = "cattbl"     ' table name for cat
 Public Const FD_META_KEY_CAT_COL   As String = "catcol"     ' header name for category column
 Public Const FD_META_KEY_SUBS_TBL  As String = "substbl"    ' table name for subs
 Public Const FD_META_KEY_SUBS_COLS As String = "subscols"   ' header names for sub columns (| separated)
+Public Const FD_META_KEY_CAT_SHEET As String = "catsheet"   ' optional: sheet name where cattbl is located
+Public Const FD_META_KEY_SUBS_SHEET As String = "subsheet"  ' optional: sheet name where substbl is located
 

@@ -291,3 +291,15 @@ Public Function SplitTrim(ByVal sourceText As String, ByVal separator As String)
     SplitTrim = splitArray
 End Function
 
+Sub DeleteAllDropDowns()
+    Dim dd As DropDown
+    Dim ws As Worksheet
+    Set ws = ActiveSheet ' Oder spezifisches Blatt: Set ws = ThisWorkbook.Sheets("SheetName")
+
+    ' Durchlaufe alle DropDowns auf dem Arbeitsblatt und lösche sie
+    For Each dd In ws.DropDowns
+        dd.Delete
+    Next dd
+
+    MsgBox "Alle DropDowns wurden gelöscht!", vbInformation
+End Sub

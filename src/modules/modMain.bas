@@ -538,6 +538,8 @@ Public Function AddNewRoom(Optional ByVal shouldGoToNewRoom As Boolean = True) A
     End With
                         
     Set newItemForm = Nothing
+    
+    clsState.InvalidateRibbon
                 
     On Error GoTo 0
     Exit Function
