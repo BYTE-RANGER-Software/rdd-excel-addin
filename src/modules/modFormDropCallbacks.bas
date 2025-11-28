@@ -43,7 +43,7 @@ Public Sub OnFormDropCatSelected(ByVal ddCat As DropDown, cell As Range)
     
     'TODO:
     
-    Debug.Print "FormDrop Category selected: " & ddCat.List(ddCat.Value)
+    Debug.Print "FormDrop Category selected: " & ddCat.List(ddCat.value)
     
 CleanExit:
     On Error GoTo 0
@@ -91,8 +91,8 @@ Public Sub OnFormDropSubSelected(ByVal ddSub As DropDown, cell As Range)
     selectedValue = ddSub.List(selectedIndex)
 
     ' Vorhandene Werte aufteilen
-    If cell.Value <> "" Then
-        arrVals = Split(cell.Value, ", ")
+    If cell.value <> "" Then
+        arrVals = Split(cell.value, ", ")
     Else
         ReDim arrVals(0)
         arrVals(0) = ""
@@ -124,10 +124,10 @@ Public Sub OnFormDropSubSelected(ByVal ddSub As DropDown, cell As Range)
         End If
     End If
 
-    cell.Value = result
+    cell.value = result
     
     'Reset DropDown value, so that the same selection triggers OnAction again next time
-    If ddSub.ListCount > 0 Then ddSub.Value = selectedIndex - 1
+    If ddSub.ListCount > 0 Then ddSub.value = selectedIndex - 1
         
 CleanExit:
     On Error GoTo 0

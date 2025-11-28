@@ -7,7 +7,29 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = True
-' Encapsulates Add-In Workbook event handling and delegates to modMain
+' ====================================================================================
+' Class     : RDDAddInWkBk (ThisWorkbook)
+' Purpose   : Encapsulates Add-In Workbook event handling and delegates to modMain.
+'             This is the ThisWorkbook class for the Add-In, handling installation,
+'             opening, closing, and worksheet events.
+'
+' Public API:
+'   - (Event Handlers Only)
+'     * Workbook_AddinInstall
+'     * Workbook_Open
+'     * Workbook_BeforeClose
+'     * Workbook_SheetBeforeRightClick (testing only)
+'
+' Dependencies:
+'   - modMain : All event handling logic is delegated to modMain
+'
+' Notes     :
+'   - This class should remain thin; all business logic lives in modMain
+'   - SheetBeforeRightClick is for testing; covered by App_SheetBeforeRightClick
+'     in add-in mode via clsAppEvents
+'   - Event handlers print debug info for troubleshooting
+'
+' ====================================================================================
 Option Explicit
 
 

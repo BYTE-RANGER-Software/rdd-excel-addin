@@ -64,7 +64,7 @@ Public Function GetNamedOrHeaderValue(ByVal sheet As Worksheet, ByVal localName 
 
     ' Try named range first (silent failure if missing)
     On Error Resume Next
-    namedValue = sheet.Range(localName).Value
+    namedValue = sheet.Range(localName).value
     On Error GoTo ErrHandler
 
     If Len(Trim$(CStr(namedValue))) > 0 Then
@@ -98,7 +98,7 @@ Public Function GetNamedOrHeaderValue(ByVal sheet As Worksheet, ByVal localName 
     Next headerIndex
 
     If Not bestHeaderCell Is Nothing Then
-        GetNamedOrHeaderValue = Trim$(CStr(bestHeaderCell.Offset(0, 1).Value))
+        GetNamedOrHeaderValue = Trim$(CStr(bestHeaderCell.offset(0, 1).value))
     End If
 
 CleanExit:
@@ -270,7 +270,7 @@ Public Sub CollectColumnBlockGroupValues( _
         For colIndex = categoryColumnOffset To categoryColumnOffset + columnsPerCategory - 1
             ' Loop over the lines below the header line until endRow
             For rowIndex = headerRow + 1 To endRow
-                cellValue = Trim$(CStr(sheet.Cells(rowIndex, colIndex).Value))
+                cellValue = Trim$(CStr(sheet.Cells(rowIndex, colIndex).value))
                 If Len(cellValue) > 0 Then
                     valuesDict(cellValue) = categoryHeadersArray(categoryIndex)
                 End If
@@ -318,11 +318,11 @@ Public Sub CollectNamedRangeValues(ByVal sheet As Worksheet, rangeName As String
     If rngNamed Is Nothing Then GoTo CleanExit
 
     For Each cell In rngNamed.Cells
-        If Not IsEmpty(cell.Value) Then
-            If Not valuesDict.Exists(cell.Value) Then
-                valuesDict.Add cell.Value, True
+        If Not IsEmpty(cell.value) Then
+            If Not valuesDict.Exists(cell.value) Then
+                valuesDict.Add cell.value, True
             Else
-                valuesDict(cell.Value) = True
+                valuesDict(cell.value) = True
             End If
         End If
     Next cell
@@ -391,16 +391,16 @@ Public Sub CollectNamedRangePairs(ByVal sheet As Worksheet, _
     ' Single cell ranges need special handling
     If rngKeys.Cells.Count = 1 Then
         ReDim arrKeys(1 To 1, 1 To 1)
-        arrKeys(1, 1) = rngKeys.Value
+        arrKeys(1, 1) = rngKeys.value
     Else
-        arrKeys = rngKeys.Value
+        arrKeys = rngKeys.value
     End If
     
     If rngItems.Cells.Count = 1 Then
         ReDim arrItems(1 To 1, 1 To 1)
-        arrItems(1, 1) = rngItems.Value
+        arrItems(1, 1) = rngItems.value
     Else
-        arrItems = rngItems.Value
+        arrItems = rngItems.value
     End If
     
     ' Process pairs
@@ -543,16 +543,16 @@ Public Sub CollectTableColumnPairs( _
     ' Single cell ranges need special handling
     If keyColumn.Cells.Count = 1 Then
         ReDim arrKeys(1 To 1, 1 To 1)
-        arrKeys(1, 1) = keyColumn.Value
+        arrKeys(1, 1) = keyColumn.value
     Else
-        arrKeys = keyColumn.Value
+        arrKeys = keyColumn.value
     End If
     
     If itemColumn.Cells.Count = 1 Then
         ReDim arrItems(1 To 1, 1 To 1)
-        arrItems(1, 1) = itemColumn.Value
+        arrItems(1, 1) = itemColumn.value
     Else
-        arrItems = itemColumn.Value
+        arrItems = itemColumn.value
     End If
     
     ' Process pairs
@@ -673,9 +673,9 @@ Public Sub WriteDictSetToColumn(ByVal sheet As Worksheet, ByVal valuesDict As Sc
 
     ' Add to lists
     For index = 1 To sortedKeys.Count
-        sheet.Cells(startRow + index - 1, columnIdx).Value = sortedKeys(index)
+        sheet.Cells(startRow + index - 1, columnIdx).value = sortedKeys(index)
         If writeValuesToNextColumn Then
-            sheet.Cells(startRow + index - 1, columnIdx + 1).Value = valuesDict(sortedKeys(index))
+            sheet.Cells(startRow + index - 1, columnIdx + 1).value = valuesDict(sortedKeys(index))
         End If
     Next index
 
@@ -756,9 +756,9 @@ Public Sub WriteDictSetToTableColumn(ByVal targetTable As ListObject, _
     
     ' Write values into table columns
     For index = 1 To sortedKeys.Count
-        keyColumn.Cells(index, 1).Value = sortedKeys(index)
+        keyColumn.Cells(index, 1).value = sortedKeys(index)
         If writeItems Then
-            itemColumn.Cells(index, 1).Value = valuesDict(sortedKeys(index))
+            itemColumn.Cells(index, 1).value = valuesDict(sortedKeys(index))
         End If
     Next index
     
@@ -822,12 +822,12 @@ Public Sub AppendMissingDictSetToColumns( _
         If Len(keyText) > 0 Then
             If Not existingDictSet.Exists(keyText) Then
                 ' Write key
-                sheet.Cells(nextRow, keyColumnIdx).Value = keyText
+                sheet.Cells(nextRow, keyColumnIdx).value = keyText
                 
                 ' Write item if requested
                 If writeItems Then
                     itemValue = newDictSet(currentKey)
-                    sheet.Cells(nextRow, itemColumnIdx).Value = itemValue
+                    sheet.Cells(nextRow, itemColumnIdx).value = itemValue
                 End If
                 
                 ' Update existing keys dictionary
@@ -906,12 +906,12 @@ Public Sub AppendMissingDictSetToTableColumns( _
                 targetTable.ListRows.Add
                 
                 ' Write key
-                targetTable.DataBodyRange.Cells(nextRowIndex, keyColIndex).Value = keyText
+                targetTable.DataBodyRange.Cells(nextRowIndex, keyColIndex).value = keyText
                 
                 ' Write item if requested
                 If writeItems Then
                     itemValue = newDictSet(currentKey)
-                    targetTable.DataBodyRange.Cells(nextRowIndex, itemColIndex).Value = itemValue
+                    targetTable.DataBodyRange.Cells(nextRowIndex, itemColIndex).value = itemValue
                 End If
                 
                 ' Update existing keys dictionary
@@ -981,7 +981,7 @@ Private Sub ExtractColumnValues( _
     emptyStreak = 0
 
     For Each cell In column.Cells
-        cellValue = Trim$(CStr(cell.Value))
+        cellValue = Trim$(CStr(cell.value))
 
         If Len(cellValue) = 0 Then
             emptyStreak = emptyStreak + 1

@@ -341,7 +341,7 @@ Public Sub SetListsFromNamedRanges(ByVal catRange As Range, subRanges As Variant
         Err.Raise ERR_NO_ARRAY, "clsFormDrop.SetListsFromNamedRanges", "subRanges must be an array of Range."
     End If
     
-    m_catItems = catRange.Value
+    m_catItems = catRange.value
 
     m_subListMap.RemoveAll
 
@@ -562,7 +562,7 @@ Friend Sub HandleOnAction(ByVal callerCtrlName As String)
     If StrComp(callerCtrlName, m_catDropDownName, vbTextCompare) = 0 Then
         ' Category changed -> populate sub + optional callback
         Dim ddCat As DropDown: Set ddCat = m_hostSheet.DropDowns(callerCtrlName)
-        Dim catIdx As Long: catIdx = ddCat.Value
+        Dim catIdx As Long: catIdx = ddCat.value
         Dim ddSub As DropDown: Set ddSub = EnsureDropDown(m_subDropDownName)
 
         ddSub.Visible = False
@@ -620,6 +620,7 @@ Friend Sub HandleOnAction(ByVal callerCtrlName As String)
              On Error Resume Next
              Application.Run m_callbackSubAddress, dd, m_targetCell
              On Error GoTo 0
+             HideDropDowns
          End If
          Exit Sub
      End If
@@ -1120,8 +1121,8 @@ End Function
 ' Notes     :
 '   - Logging is optional; guards silently if no logger is provided.
 ' -----------------------------------------------------------------------------------
-Public Property Set Logger(ByVal Value As clsLog)
-    Set m_log = Value
+Public Property Set Logger(ByVal value As clsLog)
+    Set m_log = value
 End Property
 
 ' -----------------------------------------------------------------------------------

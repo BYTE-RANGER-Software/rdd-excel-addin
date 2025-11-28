@@ -2,9 +2,9 @@ VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmAbout 
    Caption         =   "About %1"
    ClientHeight    =   3872
-   ClientLeft      =   45
-   ClientTop       =   390
-   ClientWidth     =   5865
+   ClientLeft      =   44
+   ClientTop       =   385
+   ClientWidth     =   5863
    OleObjectBlob   =   "frmAbout.frx":0000
    StartUpPosition =   1  'Fenstermitte
 End
@@ -14,8 +14,26 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+
 Option Explicit
 
+' -----------------------------------------------------------------------------------
+' Procedure : UserForm_Initialize
+' Purpose   : Initializes the About dialog with application information including
+'             name, version, copyright, and links to website and license.
+'
+' Parameters: (none)
+'
+' Returns   : (none)
+'
+' Notes     :
+'   - Centers form to Excel window
+'   - Populates labels with values from modMain (AppProjectName, AppVersion)
+'   - Sets dynamic copyright year
+'   - Configures clickable links for website and license
+'   - Description: "Room design document add-in, including puzzle dependency diagram"
+'   - Error handling with CleanExit label
+' -----------------------------------------------------------------------------------
 Private Sub UserForm_Initialize()
         On Error GoTo ErrHandler
         ' Align form
@@ -25,7 +43,7 @@ Private Sub UserForm_Initialize()
     
         Me.lblAppName.caption = modMain.AppProjectName
         Me.lblVersion.caption = modMain.AppVersion
-        Me.lblCopyright.caption = "© " & Year(Date) & " " & "Byte Ranger Software"
+        Me.lblCopyright.caption = "  " & Year(Date) & " " & "Byte Ranger Software"
         Me.lblCompanyName.caption = "Byte Ranger Software"
         Me.lblWebsiteLink.caption = "Website"
         Me.lblWebsiteLink.Tag = "https://byte-ranger-software.github.io/"
@@ -74,6 +92,19 @@ Private Sub cmdOK_Click()
     Unload Me
 End Sub
 
+' -----------------------------------------------------------------------------------
+' Procedure : CenterToExcelWindow
+' Purpose   : Centers the UserForm to the Excel application window
+'
+' Parameters: (none)
+'
+' Returns   : (none)
+'
+' Notes     :
+'   - Calculates Excel window center position
+'   - Adjusts form's StartUpPosition or Left/Top properties
+'   - Common utility used across all UserForms
+' -----------------------------------------------------------------------------------
 Private Sub CenterToExcelWindow()
     ' Centers the form relative to the Excel application window.
     ' Works even if StartUpPosition is 0 (manual).

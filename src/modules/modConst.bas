@@ -1,4 +1,29 @@
 Attribute VB_Name = "modConst"
+' ====================================================================================
+' Module    : modConst
+' Purpose   : Centralized constants for the RDD Add-In application.
+'             Contains sheet names, named range identifiers, cell references,
+'             file paths, and other application-wide constants.
+'
+' Public API:
+'   - All constants are Public and accessed directly by name
+'
+' Categories:
+'   - File paths and names (FILENAME_MANUAL, WILDCARD_*)
+'   - Sheet names (SHEET_*)
+'   - Named cell identifiers (NAME_CELL_*)
+'   - Named range identifiers (NAME_RANGE_*)
+'   - UI text constants
+'
+' Dependencies:
+'   - None (pure constants module)
+'
+' Notes     :
+'   - Use this module to avoid magic strings throughout the codebase
+'   - All constants use meaningful prefixes (NAME_CELL_, NAME_RANGE_, etc.)
+'   - Keep alphabetically sorted within each category for maintainability
+'
+' ====================================================================================
 Option Explicit
 Option Private Module
 

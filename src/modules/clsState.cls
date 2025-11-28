@@ -7,7 +7,53 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-' Class Module: clsState
+' ====================================================================================
+' Class     : clsState
+' Purpose   : Centralized application state manager. Maintains runtime state that
+'             needs to be shared across modules and coordinates UI updates.
+'             Implements Singleton pattern (PredeclaredId = True) for global access.
+'
+' Public API:
+'   === Properties (Get/Let) ===
+'   - RoomSheetChanged         : Tracks whether Room sheet data has changed
+'   - CellCtxMnuNeedsPrepare   : Indicates if context menu needs rebuilding
+'   - CellCtxMenuType          : Stores resolved context menu type
+'   - CellCtxMnuHideDefault    : Controls visibility of built-in context menu items
+'   - RibbonUI                 : Reference to Excel Ribbon UI interface
+'
+'   === Methods ===
+'   - InvalidateRibbon()       : Forces entire Ribbon UI to refresh
+'   - InvalidateControl(id)    : Refreshes specific Ribbon control by ID
+'   - Init()                   : One-time startup initialization
+'   - Cleanup()                : Releases resources and resets state
+'
+' Usage     :
+'   ' Access singleton instance directly (PredeclaredId = True)
+'   clsState.RoomSheetChanged = True
+'   clsState.InvalidateRibbon
+'
+'   ' Store Ribbon reference during Ribbon_OnLoad callback
+'   Set clsState.RibbonUI = ribbon
+'
+' Dependencies:
+'   - IRibbonUI : Excel Ribbon interface for UI updates
+'   - Used by  : modMain, modCellCtxMnu, modRibbon, modRooms
+'
+' Notes     :
+'   - This class holds ONLY runtime state, not business logic
+'   - No persistence logic (use modOptions for that)
+'   - No user preferences (use modOptions for that)
+'   - No constants (use modConst for that)
+'   - State is transient; reset via Cleanup() on shutdown
+'   - Thread-safe not required (Excel VBA is single-threaded)
+'
+' Lifecycle :
+'   1. Ribbon_OnLoad: Set RibbonUI reference
+'   2. Workbook_Open: Call Init() if needed
+'   3. During operation: Read/write state properties as needed
+'   4. Workbook_BeforeClose: Call Cleanup() to release references
+'
+' ====================================================================================
 Option Explicit
 
 ' Module-scope fields

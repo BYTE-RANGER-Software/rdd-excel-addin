@@ -42,6 +42,7 @@ Attribute VB_Name = "modMain"
 '   - AddNewRoomFromCellCtxMnu    : Creates room and writes ID to cell
 '   - RemoveCurrentRoom           : Deletes active room sheet
 '   - GotoRoomFromCell            : Navigates to room referenced in cell
+'   - EditRoomIdentity            : Edits room ID and alias with dialog
 '
 ' Dependencies:
 '   - clsAppEvents    : Event sink (delegates to this module)
@@ -78,7 +79,7 @@ Private m_activeWorkbookOnInstall As Workbook ' holds ActiveWorkbook on install
 ' Public entry points, properties, and Ribbon callback targets used by the add-in.
 
 ' -----------------------------------------------------------------------------------
-' Function  : AppProjectName (Get)
+' Property  : AppProjectName (Get)
 ' Purpose   : Returns the VBA project name.
 ' Parameters: (none)
 ' Returns   : String - Project name
@@ -89,7 +90,7 @@ Public Property Get AppProjectName() As String
 End Property
 
 ' -----------------------------------------------------------------------------------
-' Function  : AppTempPath (Get/Let)
+' Property  : AppTempPath (Get/Let)
 ' Purpose   : Gets/Sets the path used for temp/log files.
 ' Parameters: (none)
 ' Returns   : String (Get)
@@ -101,20 +102,20 @@ Public Property Get AppTempPath() As String
 
 End Property
 
-Public Property Let AppTempPath(ByVal Value As String)
+Public Property Let AppTempPath(ByVal value As String)
 
     ' Ensure trailing backslash
-    If Len(Value) > 0 Then
-        If Right$(Value, 1) <> "\" Then
-            Value = Value & "\"
+    If Len(value) > 0 Then
+        If Right$(value, 1) <> "\" Then
+            value = value & "\"
         End If
     End If
-    m_appTempPath = Value
+    m_appTempPath = value
 
 End Property
 
 ' -----------------------------------------------------------------------------------
-' Function  : AppVersion (Get)
+' Property  : AppVersion (Get)
 ' Purpose   : Returns version string from the Add-In, holds in custom document property.
 ' Parameters: (none)
 ' Returns   : String - e.g., "1.2.3"
@@ -127,7 +128,7 @@ End Property
 ' -----------------------------------------------------------------------------------
 ' Procedure : HandleWorkbookAddinInstall
 ' Purpose   : Initializes application-specific settings and resources during first-time add-in installation.
-'             Setts default properties, creating required named ranges,
+'             Sets default properties, creating required named ranges,
 '             registering document tags, or preparing the workbook for use with the add-in.
 '             Stores ActiveWorkbook reference on installation for later use..
 ' Parameters: (none)
@@ -172,6 +173,9 @@ Public Sub HandleWorkbookOpen()
         onCatCallback:="modFormDropCallbacks.OnFormDropCatSelected", _
         onSubCallback:="modFormDropCallbacks.OnFormDropSubSelected"
         
+    'init frmWait
+    frmWait.Init
+    
     ' wire application events when running as add-in
     If RDDAddInWkBk.IsAddin Then
         ConnectEventHandler
@@ -207,10 +211,29 @@ Public Sub HandleWorkbookBeforeClose()
     modErr.CloseLogger
 End Sub
 
+' -----------------------------------------------------------------------------------
+' Procedure : HandleSheetActivate
+' Purpose   : Handles business logic when a worksheet is activated.
+'             Updates application state, refreshes UI elements, and manages
+'             context-sensitive features based on the activated sheet.
+' Parameters: sh  [Worksheet] - Worksheet that was activated
+' Returns   : (none)
+' Notes     : Called by clsAppEvents.App_SheetActivate event handler.
+' -----------------------------------------------------------------------------------
 Public Sub HandleSheetDeactivate(ByVal Sh As Worksheet)
         m_formDropMgr.HandleSheetDeactivate Sh
 End Sub
 
+' -----------------------------------------------------------------------------------
+' Procedure : HandleSheetChange
+' Purpose   : Handles business logic when worksheet cells are changed.
+'             Implements data validation, cascading updates, or other change-triggered
+'             workflows based on changed ranges.
+' Parameters: sh      [Worksheet]   - Worksheet where changes occurred
+'             Target  [Range]    - Range that was changed
+' Returns   : (none)
+' Notes     : Called by clsAppEvents.App_SheetChange event handler.
+' -----------------------------------------------------------------------------------
 Public Sub HandleSheetSelectionChange(ByVal Sh As Worksheet, ByVal Target As Range)
         m_formDropMgr.HandleSelectionChange Sh, Target
 End Sub
@@ -488,7 +511,7 @@ End Sub
 ' Parameters:
 '   shouldGoToNewRoom [Boolean] - If True, jumps to A1 of the created sheet.
 ' Returns   : String - The created Room ID (empty if cancelled).
-' Notes     : Uses frmNewItem and modRooms.
+' Notes     : Uses frmObjectEdit and modRooms.
 ' -----------------------------------------------------------------------------------
 Public Function AddNewRoom(Optional ByVal shouldGoToNewRoom As Boolean = True) As String
     On Error GoTo ErrHandler
@@ -499,48 +522,57 @@ Public Function AddNewRoom(Optional ByVal shouldGoToNewRoom As Boolean = True) A
 
     Dim newSheet As Worksheet
     Dim roomIndex As Long
-    Dim roomId As String
+    Dim roomID As String
+    Dim roomName As String
     
-    Dim newItemForm As frmNewItem: Set newItemForm = New frmNewItem
+    Dim newItemForm As frmObjectEdit: Set newItemForm = New frmObjectEdit
             
     Application.StatusBar = False
     
     With newItemForm
+        .Field1Visible = True
+        .Field2Visible = True
         .FormCaption = "New Room Sheet"
-        .NameLabel = "Room Name"
-        .IDLabel = "Room ID"
-        .IDVisible = True
+        .Label1Text = "Room Name"
+        .Label2Text = "Room ID"
         roomIndex = modRooms.GetNextRoomIndex(currentWorkbook)
-        roomId = modRooms.GetFormattedRoomID(roomIndex)
-        .IDText = roomId
-        .nameText = roomId
-
-        .Show                       ' modal
-        If Not .Cancelled Then
-            
-            EnsureWorkbookIsTagged currentWorkbook
-     
-            Set newSheet = modRooms.AddRoom(currentWorkbook, .nameText, roomIndex)
-            If Not newSheet Is Nothing Then
-                modUtil.HideOpMode True
-                modRooms.ApplyParallaxRangeCover newSheet
-                If shouldGoToNewRoom Then
-                    Application.GoTo newSheet.Range("A1"), True
-                Else
-                    currentSheet.Activate
-                    If Not currentCell Is Nothing Then currentCell.Select
-                End If
-                modUtil.HideOpMode False
-                AddNewRoom = roomId
-            End If
+        roomID = modRooms.GetFormattedRoomID(roomIndex)
+        .Text1Value = roomID
+        .Text2Value = roomID
+        .Text1RequiresValue = True
+        
+        .Show vbModal
+        If .Cancelled Then
+            Unload newItemForm: Set newItemForm = Nothing
+            Exit Function
         End If
-        Unload newItemForm
+        roomName = .Text1Value
+
     End With
-                        
-    Set newItemForm = Nothing
+    
+    Unload newItemForm: Set newItemForm = Nothing
+    
+    frmWait.ShowDialog
+    
+    EnsureWorkbookIsTagged currentWorkbook
+     
+    Set newSheet = modRooms.AddRoom(currentWorkbook, roomName, roomIndex)
+    If Not newSheet Is Nothing Then
+        modUtil.HideOpMode True
+        modRooms.ApplyParallaxRangeCover newSheet
+        If shouldGoToNewRoom Then
+            Application.GoTo newSheet.Range("A1"), True
+        Else
+            currentSheet.Activate
+            If Not currentCell Is Nothing Then currentCell.Select
+        End If
+        modUtil.HideOpMode False
+        AddNewRoom = roomID
+    End If
     
     clsState.InvalidateRibbon
                 
+    frmWait.Hide
     On Error GoTo 0
     Exit Function
     
@@ -551,22 +583,24 @@ End Function
 
 ' -----------------------------------------------------------------------------------
 ' Procedure : AddNewRoomFromCellCtxMnu
-' Purpose   : Creates a new room via dialog and writes the new Room ID into ActiveCell.
+' Purpose   : Creates a new room sheet and writes the Room ID into the currently
+'             selected cell. Triggered from cell context menu.
 ' Parameters: (none)
 ' Returns   : (none)
-' Notes     : Safe when there is no active cell value.
+' Notes     : Context menu callback. Similar to AddNewRoom but auto-populates cell.
+'             Requires active cell selection.
 ' -----------------------------------------------------------------------------------
 Public Sub AddNewRoomFromCellCtxMnu()
     On Error GoTo ErrHandler
     
     Dim targetCell As Range: Set targetCell = ActiveCell
     
-    Dim roomId As String
+    Dim roomID As String
     
-    roomId = AddNewRoom(False)
+    roomID = AddNewRoom(False)
         
-    If Len(roomId) > 0 Then
-        If Not targetCell Is Nothing Then targetCell.Value = roomId
+    If Len(roomID) > 0 Then
+        If Not targetCell Is Nothing Then targetCell.value = roomID
     End If
     
     
@@ -576,10 +610,12 @@ End Sub
 
 ' -----------------------------------------------------------------------------------
 ' Procedure : RemoveCurrentRoom
-' Purpose   : Deletes the active room sheet after confirmation and safety checks.
+' Purpose   : Deletes the currently active room sheet after user confirmation.
+'             Validates sheet is a room sheet before deletion.
 ' Parameters: (none)
 ' Returns   : (none)
-' Notes     : Delegates the deletion to modRooms.RemoveRoom.
+' Notes     : Requires room sheet validation via modRooms.IsRoomSheet.
+'             Shows confirmation dialog before deletion.
 ' -----------------------------------------------------------------------------------
 Public Sub RemoveCurrentRoom()
     On Error GoTo ErrHandler
@@ -610,35 +646,151 @@ End Sub
 
 ' -----------------------------------------------------------------------------------
 ' Procedure : GotoRoomFromCell
-' Purpose   : Jumps to the room sheet referenced by the active cell value.
+' Purpose   : Navigates to the room sheet referenced by the Room ID in the active cell.
+'             Displays message if room not found or cell is empty.
 ' Parameters: (none)
 ' Returns   : (none)
 ' Notes     : Requires room sheets to be discoverable via modRooms.HasRoomSheet.
+'             Context menu callback.
 ' -----------------------------------------------------------------------------------
 Public Sub GotoRoomFromCell()
     On Error GoTo ErrHandler
     
-    Dim roomId As String
+    Dim roomID As String
     Dim currentWorkbook As Workbook: Set currentWorkbook = ActiveWorkbook
     Dim currentCell As Range: Set currentCell = ActiveCell
     
-    roomId = Trim$(CStr(currentCell.Value))
-    If Len(roomId) = 0 Then
+    roomID = Trim$(CStr(currentCell.value))
+    If Len(roomID) = 0 Then
         MsgBox "No Room ID in the selected cell.", vbInformation, AppProjectName
         Exit Sub
     End If
     
     Dim roomSheet As Worksheet
-    If modRooms.HasRoomSheet(currentWorkbook, roomId, roomSheet) Then
+    If modRooms.HasRoomSheet(currentWorkbook, roomID, roomSheet) Then
         Application.GoTo roomSheet.Range("A1"), True
         Exit Sub
     End If
     
-    MsgBox "Room '" & roomId & "' not found.", vbInformation, AppProjectName
+    MsgBox "Room '" & roomID & "' not found.", vbInformation, AppProjectName
     Exit Sub
 
 ErrHandler:
     modErr.ReportError "GotoRoomFromCell", Err.Number, Erl, caption:=modMain.AppProjectName
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : EditRoomIdentity
+' Purpose   : Opens dialog to edit Room ID and Room Alias of the active room sheet,
+'             then updates all references throughout the workbook.
+' Parameters: (none)
+' Returns   : (none)
+' Notes     : Uses frmObjectEdit for input. Delegates reference updates to
+'             modRooms.UpdateRoomReferences. Shows progress via HideOpMode.
+' -----------------------------------------------------------------------------------
+Public Sub EditRoomIdentity()
+    On Error GoTo ErrHandler
+    
+    Dim targetSheet As Worksheet
+    Dim currentRoomID As String
+    Dim currentRoomAlias As String
+    Dim newRoomID As String
+    Dim newRoomAlias As String
+    Dim oldRoomIDCell As Range
+    Dim oldRoomAliasCell As Range
+    
+    Set targetSheet = ActiveSheet
+    
+    If Not modRooms.IsRoomSheet(targetSheet, currentRoomID) Then
+        MsgBox "The active sheet is not a Room sheet.", vbExclamation, AppProjectName
+        Exit Sub
+    End If
+    
+    On Error Resume Next
+    Set oldRoomIDCell = targetSheet.Range(NAME_CELL_ROOM_ID)
+    Set oldRoomAliasCell = targetSheet.Range(NAME_CELL_ROOM_ALIAS)
+    On Error GoTo ErrHandler
+    
+    If oldRoomIDCell Is Nothing Then
+        MsgBox "Named range '" & NAME_CELL_ROOM_ID & "' not found on this sheet.", _
+            vbExclamation, AppProjectName
+        Exit Sub
+    End If
+    
+    If oldRoomAliasCell Is Nothing Then
+        MsgBox "Named range '" & NAME_CELL_ROOM_ALIAS & "' not found on this sheet.", _
+            vbExclamation, AppProjectName
+        Exit Sub
+    End If
+    
+    currentRoomID = oldRoomIDCell.value
+    currentRoomAlias = oldRoomAliasCell.value
+    
+    Dim frmEdit As frmObjectEdit: Set frmEdit = New frmObjectEdit
+    
+    With frmEdit
+        .Field1Visible = True
+        .Field2Visible = True
+        .Field3Visible = True
+        .Field4Visible = False
+        
+        .Label1Text = "Current Room ID:"
+        .Text1Locked = True
+        .Text1Value = currentRoomID
+        
+        .Label2Text = "New Room ID:"
+        .Text2Locked = False
+        .Text2Value = currentRoomID
+        .Text2RequiresValue = True
+        
+        .Label3Text = "Room Alias:"
+        .Text3Locked = False
+        .Text3Value = currentRoomAlias
+        .Text3RequiresValue = True
+    
+        .Show vbModal
+    
+        If .Cancelled Then
+            Unload frmEdit: Set frmEdit = Nothing
+            Exit Sub
+        End If
+            newRoomID = .Text2Value
+            newRoomAlias = .Text3Value
+    End With
+    
+    Unload frmEdit: Set frmEdit = Nothing
+    
+    'No changes were made.
+    If newRoomID = currentRoomID And newRoomAlias = currentRoomAlias Then
+        Exit Sub
+    End If
+    
+    modUtil.HideOpMode True
+    
+    oldRoomIDCell.value = newRoomID
+    oldRoomAliasCell.value = newRoomAlias
+    
+    If newRoomID <> currentRoomID Then
+        modTags.TagSheet targetSheet, ROOM_SHEET_ID_TAG_NAME, newRoomID
+    End If
+    
+    Call modRooms.UpdateRoomReferences(targetSheet.Parent, currentRoomID, currentRoomAlias, _
+        newRoomID, newRoomAlias)
+    
+    modUtil.HideOpMode False
+    
+    MsgBox "Room Identity updated successfully." & vbCrLf & vbCrLf & _
+        "Old Room ID: " & currentRoomID & vbCrLf & _
+        "New Room ID: " & newRoomID & vbCrLf & vbCrLf & _
+        "Old Room Alias: " & currentRoomAlias & vbCrLf & _
+        "New Room Alias: " & newRoomAlias, _
+        vbInformation, AppProjectName
+    
+    Exit Sub
+    
+ErrHandler:
+    modUtil.HideOpMode False
+    modErr.ReportError "modMain.EditRoomIdentity", Err.Number, Erl, caption:=AppProjectName
 End Sub
 
 ' ===== Private Methods ===============================================================

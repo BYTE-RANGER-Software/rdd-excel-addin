@@ -769,10 +769,10 @@ Private Function ParseMetaKeyValues(ByVal metaString As String) As Scripting.Dic
         If Len(part) > 0 Then
             Dim eqPos As Long: eqPos = InStr(1, part, "=", vbTextCompare)
             If eqPos > 1 Then
-                Dim key As String, Value As String
+                Dim key As String, value As String
                 key = Trim$(Left$(part, eqPos - 1))
-                Value = Trim$(Mid$(part, eqPos + 1))
-                If Len(key) > 0 Then metaDict(key) = Value
+                value = Trim$(Mid$(part, eqPos + 1))
+                If Len(key) > 0 Then metaDict(key) = value
             End If
         End If
     Next

@@ -1,4 +1,47 @@
 Attribute VB_Name = "modRibbon"
+' ====================================================================================
+' Module    : modRibbon
+' Purpose   : Ribbon callback procedures for the RDD Add-In custom Ribbon tab.
+'             Contains all callback methods referenced in the Ribbon XML customUI.
+'             Acts as the routing layer between Ribbon UI and business logic.
+'
+' Public API:
+'   === Ribbon Lifecycle ===
+'   - RB75dd2c44_Ribbon_OnLoad          : Ribbon initialization callback
+'
+'   === Button OnAction Callbacks ===
+'   - RB75dd2c44_btnAddRoom_OnAction          : Add new room sheet
+'   - RB75dd2c44_btnEditRoomIdentity_OnAction : Edit room identity
+'   - RB75dd2c44_BtnRemoveRoom_OnAction       : Remove current room sheet
+'
+'   === Button getEnabled Callbacks ===
+'   - RB75dd2c44_btnAddRoom_getEnabled          : Controls Add Room button state
+'   - RB75dd2c44_btnEditRoomIdentity_getEnabled : Controls Edit Room button state
+'
+'   === Dynamic Content Callbacks ===
+'   - (getLabel, getImage, getVisible callbacks if present)
+'
+' Dependencies:
+'   - clsState        : Stores Ribbon UI reference, state flags
+'   - modMain         : Business logic for all Ribbon actions
+'   - modRooms        : Room-specific operations
+'   - modCellCtxMnu   : Context menu initialization
+'
+' Notes:
+'   - Keep callbacks THIN - delegate all business logic to modMain or feature modules
+'   - Return values via ByRef parameters (not Function returns)
+'   - Use clsState.InvalidateControl(id) to refresh specific controls
+'   - Use clsState.InvalidateRibbon to refresh entire Ribbon
+'   - getEnabled callbacks determine button availability (True/False)
+'   - Check Workbooks.Count > 0 before accessing ActiveWorkbook/ActiveSheet
+'   - Callbacks should not raise errors to Ribbon (causes Excel instability)
+'   - Use On Error Resume Next or proper error handling
+'   - Log errors via modErr.ReportError if needed
+'   - Callback names must match EXACTLY with Ribbon XML definitions
+'   - Ribbon XML file location: customUI/customUI14.xml (in XLAM)
+'
+' ====================================================================================
+
 Option Explicit
 Option Private Module
 
@@ -24,6 +67,7 @@ End Sub
 ' -----------------------------------------------------------------------------
 
 Sub RB75dd2c44_btnEditRoomIdentity_OnAction(control As IRibbonControl)
+    Call modMain.EditRoomIdentity
 End Sub
 
 

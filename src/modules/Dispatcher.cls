@@ -24,15 +24,31 @@ Attribute VB_Exposed = True
 ' ================================================
 
 Option Explicit
+
+' -----------------------------------------------------------------------------------
+' Procedure : InsertPicture_Button
+' Purpose   : Opens file picker dialog, inserts selected image into named range,
+'             scales to fit while maintaining aspect ratio, and centers it.
+'             Replaces any existing image in the target range.
+'
+' Parameters: (none)
+'
+' Returns   : (none)
+'
+' Notes     :
+'   - Target range: "Range_ImageArea" (named range)
+'   - Image shape name: "Scene image"
+'   - Maintains aspect ratio during scaling
+'   - Supports common image formats (jpg, png, gif, bmp)
+'   - Error handling included for missing range and file selection
+' -----------------------------------------------------------------------------------
 Public Sub InsertPicture_Button()
-    ' Opens a file picker, inserts the chosen image into a named range "ImageArea",
-    ' scales it to fit while keeping aspect ratio, centers it, and replaces any previous image.
 
     Const TARGET_RANGE_NAME As String = "Range_ImageArea"
     Const PICTURE_NAME As String = "Scene image"
 
     Dim fd As FileDialog
-    Dim filePath As String
+    Dim filepath As String
     Dim ws As Worksheet
     Dim rng As Range
     Dim pic As Picture
@@ -59,7 +75,7 @@ Public Sub InsertPicture_Button()
         .Filters.Clear
         .Filters.Add "image files", "*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff"
         If .Show <> -1 Then Exit Sub
-        filePath = .SelectedItems(1)
+        filepath = .SelectedItems(1)
     End With
 
     Application.ScreenUpdating = False
@@ -71,7 +87,7 @@ Public Sub InsertPicture_Button()
     On Error GoTo 0
 
     ' Insert picture at default size
-    Set pic = ws.Pictures.Insert(filePath)
+    Set pic = ws.Pictures.Insert(filepath)
 
     ' Name, place, and scale while keeping aspect ratio
     With pic

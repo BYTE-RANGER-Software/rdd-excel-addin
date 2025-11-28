@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmOptions 
    Caption         =   "Settings %1"
-   ClientHeight    =   7410
-   ClientLeft      =   120
-   ClientTop       =   465
-   ClientWidth     =   6960
+   ClientHeight    =   7414
+   ClientLeft      =   121
+   ClientTop       =   462
+   ClientWidth     =   6963
    OleObjectBlob   =   "frmOptions.frx":0000
    StartUpPosition =   1  'Fenstermitte
 End
@@ -18,28 +18,46 @@ Private m_blnInit As Boolean
 Private m_blnConfirmed As Boolean
 Private m_options As tOptions
 
-' Initialize with project name (for caption templating) and current options DTO
+' -----------------------------------------------------------------------------------
+' Procedure : Init (Friend)
+' Purpose   : Initializes the Options dialog with project name and current settings.
+'             Loads options DTO into form controls.
+'
+' Parameters:
+'   strProjectName [String]   - Project name for caption templating
+'   optionsDto     [tOptions] - Current options data transfer object (ByRef)
+'
+' Returns   : (none)
+'
+' Notes     :
+'   - Friend scope; called by modMain.ShowOptionsDialog
+'   - Guards against multiple initialization with m_blnInit flag
+'   - Centers form to Excel window
+'   - Populates txtManualPath from optionsDto.manualPath
+'   - Configures MultiPage control starting at page index 0
+'   - Sets m_blnConfirmed = False (assumes cancel by default)
+' -----------------------------------------------------------------------------------
 Friend Sub Init(ByVal strProjectName As String, ByRef optionsDto As tOptions)
     If m_blnInit Then Exit Sub
     
-        'adjust Form
-        CenterToExcelWindow
+    'adjust Form
+    CenterToExcelWindow
 
-        Me.caption = Replace$(Me.caption, "%1", strProjectName)
+    Me.caption = Replace$(Me.caption, "%1", strProjectName)
         
-        ' Load DTO into controls
-        m_options = optionsDto
-        Me.txtManualPath.text = m_options.manualPath
+    ' Load DTO into controls
+    m_options = optionsDto
+    Me.txtManualPath.text = m_options.manualPath
         
-        'Purpose: mark start page & remember page index
-        Const lngStartIndx As Long = 0
-        With Me.mpgOptions
-            .Pages(lngStartIndx).caption = ChkMark & .Pages(lngStartIndx).caption
-            .Tag = lngStartIndx
-            .Value = lngStartIndx
-        End With
+    'Purpose: mark start page & remember page index
+    Const lngStartIndx As Long = 0
+    With Me.mpgOptions
+        .Pages(lngStartIndx).caption = ChkMark & .Pages(lngStartIndx).caption
+        .Tag = lngStartIndx
+        .value = lngStartIndx
+    End With
 
-        m_blnInit = True
+    m_blnInit = True
     
 End Sub
 
@@ -95,16 +113,16 @@ Private Sub mpgOptions_Change()
         Set pg = oldPage(Me.mpgOptions)
         pg.caption = Replace(pg.caption, ChkMark, vbNullString)
         'b) mark new caption & remember latest multipage value
-        Set pg = .Pages(.Value)
+        Set pg = .Pages(.value)
         pg.caption = ChkMark & pg.caption
-        .Tag = .Value                         ' << remember latest page index
+        .Tag = .value                         ' << remember latest page index
     End With
 End Sub
 
 Function oldPage(mp As MSForms.MultiPage) As MSForms.Page
     'Purpose: return currently marked page in given multipage
     With mp
-        Set oldPage = .Pages(val(.Tag))
+        Set oldPage = .Pages(Val(.Tag))
     End With
 End Function
 

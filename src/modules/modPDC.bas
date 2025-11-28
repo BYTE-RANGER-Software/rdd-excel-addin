@@ -64,9 +64,9 @@ Public Sub GeneratePuzzleChart()
     posX = 100: posY = 100
 
     For rowIndex = 2 To lastRow ' skip header row
-        nodeId = dataSheet.Cells(rowIndex, 1).Value
-        nodeName = dataSheet.Cells(rowIndex, 2).Value
-        nodeType = dataSheet.Cells(rowIndex, 3).Value
+        nodeId = dataSheet.Cells(rowIndex, 1).value
+        nodeName = dataSheet.Cells(rowIndex, 2).value
+        nodeType = dataSheet.Cells(rowIndex, 3).value
 
         Set nodeShape = chartSheet.Shapes.AddShape(msoShapeRoundedRectangle, posX, posY, 120, 40)
         nodeShape.TextFrame.Characters.text = nodeName
@@ -85,8 +85,8 @@ Public Sub GeneratePuzzleChart()
     ' Draw connectors
     lastRow = dataSheet.Cells(dataSheet.Rows.Count, 5).End(xlUp).Row
     For rowIndex = 2 To lastRow
-        fromId = dataSheet.Cells(rowIndex, 5).Value
-        toId = dataSheet.Cells(rowIndex, 6).Value
+        fromId = dataSheet.Cells(rowIndex, 5).value
+        toId = dataSheet.Cells(rowIndex, 6).value
 
         Set fromShape = nodesDict(fromId)
         Set toShape = nodesDict(toId)
@@ -135,9 +135,9 @@ Public Sub UpdatePuzzleChart()
     ' 1) Update node texts & colors
     lastRow = dataSheet.Cells(dataSheet.Rows.Count, 1).End(xlUp).Row
     For rowIndex = 2 To lastRow
-        nodeId = dataSheet.Cells(rowIndex, 1).Value
-        nodeName = dataSheet.Cells(rowIndex, 2).Value
-        nodeType = dataSheet.Cells(rowIndex, 3).Value
+        nodeId = dataSheet.Cells(rowIndex, 1).value
+        nodeName = dataSheet.Cells(rowIndex, 2).value
+        nodeType = dataSheet.Cells(rowIndex, 3).value
 
         On Error Resume Next
         Set targetShape = chartSheet.Shapes(nodeId)
@@ -160,8 +160,8 @@ Public Sub UpdatePuzzleChart()
     ' 3) Draw new connections (From/To)
     lastRow = dataSheet.Cells(dataSheet.Rows.Count, 5).End(xlUp).Row
     For rowIndex = 2 To lastRow
-        fromId = dataSheet.Cells(rowIndex, 5).Value
-        toId = dataSheet.Cells(rowIndex, 6).Value
+        fromId = dataSheet.Cells(rowIndex, 5).value
+        toId = dataSheet.Cells(rowIndex, 6).value
 
         On Error Resume Next
         Set fromShape = chartSheet.Shapes(fromId)
@@ -238,9 +238,9 @@ Public Sub SyncPuzzleChart()
     ' 3) Process all nodes from data table
     lastRow = dataSheet.Cells(dataSheet.Rows.Count, 1).End(xlUp).Row
     For rowIndex = 2 To lastRow
-        nodeId = Trim$(dataSheet.Cells(rowIndex, 1).Value)
-        nodeName = dataSheet.Cells(rowIndex, 2).Value
-        nodeType = dataSheet.Cells(rowIndex, 3).Value
+        nodeId = Trim$(dataSheet.Cells(rowIndex, 1).value)
+        nodeName = dataSheet.Cells(rowIndex, 2).value
+        nodeType = dataSheet.Cells(rowIndex, 3).value
 
         If nodesDict.Exists(nodeId) Then
             ' Update existing shape
@@ -279,8 +279,8 @@ Public Sub SyncPuzzleChart()
     ' 5) Redraw new connectors based on E:F
     lastRow = dataSheet.Cells(dataSheet.Rows.Count, 5).End(xlUp).Row
     For rowIndex = 2 To lastRow
-        fromId = Trim$(dataSheet.Cells(rowIndex, 5).Value)
-        toId = Trim$(dataSheet.Cells(rowIndex, 6).Value)
+        fromId = Trim$(dataSheet.Cells(rowIndex, 5).value)
+        toId = Trim$(dataSheet.Cells(rowIndex, 6).value)
 
         If nodesDict.Exists(fromId) And nodesDict.Exists(toId) Then
             Set fromShape = nodesDict(fromId)
@@ -336,12 +336,12 @@ Public Sub BuildPdcData()
                 Dim colMap As Object: Set colMap = MapColumns(ws.Rows(headerCell.Row))
                 Dim rowIndex As Long
                 For rowIndex = headerCell.Row + 1 To lastRow
-                    Dim toId As String: toId = Trim$(CStr(ws.Cells(rowIndex, colMap("PuzzleID")).Value))
+                    Dim toId As String: toId = Trim$(CStr(ws.Cells(rowIndex, colMap("PuzzleID")).value))
                     If Len(toId) = 0 Then GoTo NextRR
-                    Dim dependsOn As String: dependsOn = CStr(ws.Cells(rowIndex, colMap("DependsOn")).Value)
-                    Dim edgeType As String: edgeType = CStr(ws.Cells(rowIndex, colMap("Typ")).Value)
-                    Dim conditionText As String: conditionText = CStr(ws.Cells(rowIndex, colMap("ErfordertItem")).Value)
-                    Dim noteText As String: noteText = CStr(ws.Cells(rowIndex, colMap("Notes")).Value)
+                    Dim dependsOn As String: dependsOn = CStr(ws.Cells(rowIndex, colMap("DependsOn")).value)
+                    Dim edgeType As String: edgeType = CStr(ws.Cells(rowIndex, colMap("Typ")).value)
+                    Dim conditionText As String: conditionText = CStr(ws.Cells(rowIndex, colMap("ErfordertItem")).value)
+                    Dim noteText As String: noteText = CStr(ws.Cells(rowIndex, colMap("Notes")).value)
                     Dim depParts() As String, idx As Long
                     If Len(Trim$(dependsOn)) = 0 Then
                         ' orphan; still emit node info via empty From if desired (not implemented)
@@ -350,12 +350,12 @@ Public Sub BuildPdcData()
                         For idx = LBound(depParts) To UBound(depParts)
                             Dim fromId As String: fromId = Trim$(depParts(idx))
                             If Len(fromId) > 0 Then
-                                targetSheet.Cells(rowOut, 1).Value = rowOut - 1
-                                targetSheet.Cells(rowOut, 2).Value = fromId
-                                targetSheet.Cells(rowOut, 3).Value = toId
-                                targetSheet.Cells(rowOut, 4).Value = IIf(Len(edgeType) > 0, edgeType, "requires")
-                                targetSheet.Cells(rowOut, 5).Value = conditionText
-                                targetSheet.Cells(rowOut, 6).Value = noteText
+                                targetSheet.Cells(rowOut, 1).value = rowOut - 1
+                                targetSheet.Cells(rowOut, 2).value = fromId
+                                targetSheet.Cells(rowOut, 3).value = toId
+                                targetSheet.Cells(rowOut, 4).value = IIf(Len(edgeType) > 0, edgeType, "requires")
+                                targetSheet.Cells(rowOut, 5).value = conditionText
+                                targetSheet.Cells(rowOut, 6).value = noteText
                                 rowOut = rowOut + 1
                             End If
                         Next idx
@@ -407,11 +407,11 @@ Public Sub ValidateModel()
                 lastRow = ws.Cells(ws.Rows.Count, headerCell.column).End(xlUp).Row
                 Dim colMap As Object: Set colMap = MapColumns(ws.Rows(headerCell.Row))
                 For rowIndex = headerCell.Row + 1 To lastRow
-                    Dim curId As String: curId = Trim$(CStr(ws.Cells(rowIndex, colMap("PuzzleID")).Value))
+                    Dim curId As String: curId = Trim$(CStr(ws.Cells(rowIndex, colMap("PuzzleID")).value))
                     If Len(curId) > 0 Then
                         If idsDict.Exists(curId) Then
-                            issuesSheet.Cells(rowOut, 1).Value = "Duplicate"
-                            issuesSheet.Cells(rowOut, 2).Value = "PuzzleID appears multiple times: " & curId
+                            issuesSheet.Cells(rowOut, 1).value = "Duplicate"
+                            issuesSheet.Cells(rowOut, 2).value = "PuzzleID appears multiple times: " & curId
                             rowOut = rowOut + 1
                         Else
                             idsDict(curId) = True
@@ -427,16 +427,16 @@ Public Sub ValidateModel()
     Dim lastDataRow As Long: lastDataRow = dataSheet.Cells(dataSheet.Rows.Count, 1).End(xlUp).Row
     Dim edgeRow As Long
     For edgeRow = 2 To lastDataRow
-        Dim fromId As String: fromId = Trim$(CStr(dataSheet.Cells(edgeRow, 2).Value))
-        Dim toId As String: toId = Trim$(CStr(dataSheet.Cells(edgeRow, 3).Value))
+        Dim fromId As String: fromId = Trim$(CStr(dataSheet.Cells(edgeRow, 2).value))
+        Dim toId As String: toId = Trim$(CStr(dataSheet.Cells(edgeRow, 3).value))
         If Len(fromId) > 0 And Not idsDict.Exists(fromId) Then
-            issuesSheet.Cells(rowOut, 1).Value = "MissingRef"
-            issuesSheet.Cells(rowOut, 2).Value = "From not found: " & fromId
+            issuesSheet.Cells(rowOut, 1).value = "MissingRef"
+            issuesSheet.Cells(rowOut, 2).value = "From not found: " & fromId
             rowOut = rowOut + 1
         End If
         If Len(toId) > 0 And Not idsDict.Exists(toId) Then
-            issuesSheet.Cells(rowOut, 1).Value = "MissingRef"
-            issuesSheet.Cells(rowOut, 2).Value = "To not found: " & toId
+            issuesSheet.Cells(rowOut, 1).value = "MissingRef"
+            issuesSheet.Cells(rowOut, 2).value = "To not found: " & toId
             rowOut = rowOut + 1
         End If
     Next edgeRow
@@ -493,7 +493,7 @@ Private Function LocatePuzzleTable(ByVal ws As Worksheet) As Range
     For rowIndex = 1 To 50
         hits = 0
         For colIndex = 1 To 50
-            Dim cellText As String: cellText = CStr(ws.Cells(rowIndex, colIndex).Value)
+            Dim cellText As String: cellText = CStr(ws.Cells(rowIndex, colIndex).value)
             If UBound(Filter(requiredHeaders, cellText, True, vbTextCompare)) >= 0 Then hits = hits + 1
         Next colIndex
         If hits >= 2 Then
@@ -520,7 +520,7 @@ Private Function MapColumns(ByVal headerRow As Range) As Scripting.Dictionary
     Dim map As Scripting.Dictionary: Set map = New Scripting.Dictionary
     Dim colIndex As Long
     For colIndex = headerRow.column To headerRow.column + 50
-        Dim nameText As String: nameText = CStr(headerRow.Parent.Cells(headerRow.Row, colIndex).Value)
+        Dim nameText As String: nameText = CStr(headerRow.Parent.Cells(headerRow.Row, colIndex).value)
         If Len(nameText) > 0 Then
             map(Trim$(nameText)) = colIndex
         End If
@@ -544,7 +544,7 @@ End Function
 Private Sub WriteHeaders(ByVal ws As Worksheet, ByVal headerArray As Variant)
     Dim idx As Long
     For idx = LBound(headerArray) To UBound(headerArray)
-        ws.Cells(1, 1 + idx).Value = headerArray(idx)
+        ws.Cells(1, 1 + idx).value = headerArray(idx)
         ws.Cells(1, 1 + idx).Font.Bold = True
     Next idx
 End Sub

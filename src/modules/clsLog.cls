@@ -96,11 +96,11 @@ End Sub
 ' Notes     :
 '   - Uses the class' current m_LogFilePath as base folder.
 ' -----------------------------------------------------------------------------------
-Private Property Let ILog_LogFileName(ByVal Value As String)
-    If Value = vbNullString Then
+Private Property Let ILog_LogFileName(ByVal value As String)
+    If value = vbNullString Then
         m_logFileFullName = m_logFilePath & DEFAULT_LOG_FILENAME
     Else
-        m_logFileFullName = m_logFilePath & Value & DEFAULT_LOG_EXT
+        m_logFileFullName = m_logFilePath & value & DEFAULT_LOG_EXT
     End If
 End Property
 
@@ -116,9 +116,9 @@ End Property
 ' Notes     :
 '   - Uses Dir to detect; calls MkDir to create.
 ' -----------------------------------------------------------------------------------
-Private Property Let ILog_LogFilePath(ByVal Value As String)
+Private Property Let ILog_LogFilePath(ByVal value As String)
 
-    m_logFilePath = Value
+    m_logFilePath = value
     If Dir(m_logFilePath, vbDirectory) = "" Then MkDir (m_logFilePath)
 
 End Property
@@ -151,9 +151,9 @@ End Property
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Private Property Let ILog_Buffer(ByVal Value As String)
+Private Property Let ILog_Buffer(ByVal value As String)
 
-    m_buffer = Value
+    m_buffer = value
 
 End Property
 
@@ -185,9 +185,9 @@ End Property
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Private Property Let ILog_MaxLogSizeBeforeSave(ByVal Value As Long)
+Private Property Let ILog_MaxLogSizeBeforeSave(ByVal value As Long)
 
-    m_maxLogSizeBeforeSave = Value
+    m_maxLogSizeBeforeSave = value
 
 End Property
 
@@ -219,9 +219,9 @@ End Property
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Private Property Let ILog_LogSeparator(ByVal Value As String)
+Private Property Let ILog_LogSeparator(ByVal value As String)
 
-    m_logSeparator = Value
+    m_logSeparator = value
 
 End Property
 ' -----------------------------------------------------------------------------------
@@ -320,7 +320,7 @@ End Sub
 Private Sub ILog_OpenLog(Optional additionalInfo As String = vbNullString, Optional ByVal isNewLog As Boolean = False)
     m_buffer = vbNullString                                             ' Clearing the buffer
     If isNewLog Then SaveTXTfile m_logFileFullName, vbNullString  ' Saving a new empty file
-    ILog_AddRecord IIf(additionalInfo <> vbNullString, "Starting Log Record..." & String(45, " ") & additionalInfo, "Starting Log Record..."), , , LST_BEFORE, True ' start recording
+    ILog_AddRecord IIf(additionalInfo <> vbNullString, "Starting Log Record..." & String(46 - Len(additionalInfo), " ") & additionalInfo, "Starting Log Record..."), , , LST_BEFORE, True ' start recording
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -387,7 +387,7 @@ Private Sub ILog_AddRecord(ByVal eventText As String, Optional ByVal info As Str
     Optional ByVal level As Long = 0, _
     Optional ByVal LogSeparatorType As LogSeparatorType = LST_NONE, _
     Optional ByVal forceSave As Boolean = False)
-    Dim message As String
+    Dim Message As String
     Dim separator As String
     Dim wrappedInfo As String
     Dim infoStartPos As Long
@@ -409,20 +409,20 @@ Private Sub ILog_AddRecord(ByVal eventText As String, Optional ByVal info As Str
     End If
     
     ' base padding
-    message = String(160, " ")
-    Mid(message, 1) = Left(eventText, 99)
-    Mid(message, 100) = wrappedInfo
+    Message = String(160, " ")
+    Mid(Message, 1) = Left(eventText, 99)
+    Mid(Message, 100) = wrappedInfo
     
     ' add timestamp
-    message = String(level, vbTab) & Format(Now, "YYYY-MM-DD HH:NN:SS") & String(2, vbTab) & Trim(message) & vbNewLine
+    Message = String(level, vbTab) & Format(Now, "YYYY-MM-DD HH:NN:SS") & String(2, vbTab) & Trim(Message) & vbNewLine
 
     ' add trailing separator
-    message = separator & message
+    Message = separator & Message
     If LogSeparatorType = LST_AFTER Or LogSeparatorType = LST_BEFORE_AND_AFTER Then
-        message = message & m_logSeparator
+        Message = Message & m_logSeparator
     End If
 
-    m_buffer = m_buffer & message
+    m_buffer = m_buffer & Message
     If forceSave Or (Len(m_buffer) > m_maxLogSizeBeforeSave) Then ILog_SaveLog
 End Sub
 
@@ -443,14 +443,14 @@ End Sub
 ' -----------------------------------------------------------------------------------
 Private Sub ILog_SaveLogAs(ByVal fileName As String, Optional ByVal overwrite As Boolean = False)
     On Error Resume Next
-    Dim message    As String
+    Dim Message    As String
     fileName = m_logFilePath & fileName
     If Not fileName Like "*" & DEFAULT_LOG_EXT Then fileName = fileName & DEFAULT_LOG_EXT
-    message = ReadTXTfile(m_logFileFullName)
+    Message = ReadTXTfile(m_logFileFullName)
     If overwrite Then
-        SaveTXTfile fileName, message
+        SaveTXTfile fileName, Message
     Else
-        AddIntoTXTfile fileName, message
+        AddIntoTXTfile fileName, Message
     End If
 End Sub
 
@@ -540,11 +540,11 @@ End Function
 ' Notes     :
 '   - Creates a late-bound Scripting.FileSystemObject and TextStream.
 ' -----------------------------------------------------------------------------------
-Private Function ReadTXTfile(ByVal filePath As String) As String
+Private Function ReadTXTfile(ByVal filepath As String) As String
     Dim fso    As Object
     Dim textStream     As Object
     Set fso = CreateObject("scripting.filesystemobject")
-    Set textStream = fso.OpenTextFile(filePath, 1, True): ReadTXTfile = textStream.ReadAll: textStream.Close
+    Set textStream = fso.OpenTextFile(filepath, 1, True): ReadTXTfile = textStream.ReadAll: textStream.Close
     Set textStream = Nothing: Set fso = Nothing
 End Function
 
@@ -561,13 +561,13 @@ End Function
 ' Notes     :
 '   - Creates or overwrites the file.
 ' -----------------------------------------------------------------------------------
-Private Function SaveTXTfile(ByVal fileName As String, ByVal message As String) As Boolean
+Private Function SaveTXTfile(ByVal fileName As String, ByVal Message As String) As Boolean
     Dim fso    As Object
     Dim textStream     As Object
     On Error Resume Next: Err.Clear
     Set fso = CreateObject("scripting.filesystemobject")
     Set textStream = fso.CreateTextFile(fileName, True)
-    textStream.Write message: textStream.Close
+    textStream.Write Message: textStream.Close
     SaveTXTfile = Err = 0
     Set textStream = Nothing: Set fso = Nothing
 End Function
@@ -585,13 +585,13 @@ End Function
 ' Notes     :
 '   - Opens the file with ForAppending mode (8).
 ' -----------------------------------------------------------------------------------
-Private Function AddIntoTXTfile(ByVal fileName As String, ByVal message As String) As Boolean
+Private Function AddIntoTXTfile(ByVal fileName As String, ByVal Message As String) As Boolean
     Dim fso    As Object
     Dim textStream     As Object
     On Error Resume Next: Err.Clear
     Set fso = CreateObject("scripting.filesystemobject")
     Set textStream = fso.OpenTextFile(fileName, 8, True)
-    textStream.Write message: textStream.Close
+    textStream.Write Message: textStream.Close
     Set textStream = Nothing: Set fso = Nothing
     AddIntoTXTfile = Err = 0
 End Function

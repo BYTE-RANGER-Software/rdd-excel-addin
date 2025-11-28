@@ -47,8 +47,8 @@ End Property
 ' Parameters:
 '   Value [Boolean] - True to set, False to clear.
 ' -----------------------------------------------------------------------------------
-Public Property Let HasGeneralOptionsChanged(ByVal Value As Boolean)
-    If Value Then
+Public Property Let HasGeneralOptionsChanged(ByVal value As Boolean)
+    If value Then
         m_optionsChangedFlags = m_optionsChangedFlags Or OCF_General
     Else
         m_optionsChangedFlags = m_optionsChangedFlags And Not OCF_General
@@ -70,8 +70,8 @@ End Property
 ' Parameters:
 '   Value [Boolean] - True to set, False to clear.
 ' -----------------------------------------------------------------------------------
-Public Property Let HasWorkbookOptionsChanged(ByVal Value As Boolean)
-    If Value Then
+Public Property Let HasWorkbookOptionsChanged(ByVal value As Boolean)
+    If value Then
         m_optionsChangedFlags = m_optionsChangedFlags Or OCF_Workbook
     Else
         m_optionsChangedFlags = m_optionsChangedFlags And Not OCF_Workbook
@@ -104,9 +104,9 @@ End Property
 ' Parameters:
 '   value [String] - New path value.
 ' -----------------------------------------------------------------------------------
-Public Property Let Opt_ManualPath(ByVal Value As String)
-    If Value <> m_options.manualPath Then
-        m_options.manualPath = Value
+Public Property Let Opt_ManualPath(ByVal value As String)
+    If value <> m_options.manualPath Then
+        m_options.manualPath = value
         HasGeneralOptionsChanged = True
     End If
 End Property

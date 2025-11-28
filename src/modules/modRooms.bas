@@ -131,7 +131,6 @@ End Function
 ' Returns   : Boolean - True on success; False is not used (errors are raised/logged).
 '
 ' Notes     :
-'   - Collects Room sheets via modSheets.BuildDictFromSheetsByTag (excludes target sheet).
 '   - Checks references via GetAllSheetNamesUsingRoomID.
 '   - Uses HideOpMode during deletion; hands back referencing sheets if found.
 ' -----------------------------------------------------------------------------------
@@ -142,23 +141,19 @@ Public Function RemoveRoom(ByVal targetSheet As Worksheet, _
     On Error GoTo ErrHandler
 
     Dim parentBook As Workbook: Set parentBook = targetSheet.Parent
-    Dim roomId As String
+    Dim roomID As String
 
     If targetSheet Is Nothing Then
         Err.Raise ERR_ARG_NULL_TARGETSHEET, "modRooms.RemoveRoom", "Argument 'targetSheet' must not be Nothing."
     End If
     
-    If Not IsRoomSheet(targetSheet, roomId) Then
+    If Not IsRoomSheet(targetSheet, roomID) Then
         Err.Raise ERR_NOT_A_ROOM_SHEET, "modRooms.RemoveRoom", "The provided sheet is not a Room sheet."
     End If
-    
-    ' Collect all Room-sheets except the active one
-    Dim roomsDict As Scripting.Dictionary
-    Set roomsDict = modSheets.BuildDictFromSheetsByTag(parentBook, ROOM_SHEET_ID_TAG_NAME, sheetToExclude:=targetSheet)
-    
+        
     ' Check references to the active room sheet in all other room sheets
     Dim usedByCol As Collection
-    Set usedByCol = GetAllSheetNamesUsingRoomID(roomId, roomsDict)
+    Set usedByCol = GetAllSheetNamesUsingRoomID(roomID, parentBook, targetSheet)
     If Not usedByCol Is Nothing Then
         If usedByCol.Count > 0 Then
             ' Hand result back to caller for UI, then raise a error
@@ -187,6 +182,68 @@ ErrHandler:
 End Function
 
 ' -----------------------------------------------------------------------------------
+' Procedure : UpdateRoomReferences
+' Purpose   : Updates all references to a room ID and alias throughout the workbook.
+' -----------------------------------------------------------------------------------
+Public Function UpdateRoomReferences(ByVal targetBook As Workbook, _
+                                ByVal oldRoomID As String, _
+                                ByVal oldRoomAlias As String, _
+                                ByVal newRoomID As String, _
+                                ByVal newRoomAlias As String) As Long
+    On Error GoTo ErrHandler
+    
+    Dim ws As Worksheet
+    Dim roomID As String
+    Dim doorsToRoomIDRange As Range
+    Dim doorsToRoomAliasRange As Range
+    Dim cell As Range
+    Dim updatedCount As Long
+    
+    For Each ws In targetBook.Worksheets
+        If modRooms.IsRoomSheet(ws, roomID) Then
+            
+            ' Update Room ID and Room Alias Cell
+            On Error Resume Next
+            Set doorsToRoomIDRange = ws.Range(NAME_RANGE_DOORS_TO_ROOM_ID)
+            Set doorsToRoomAliasRange = ws.Range(NAME_RANGE_DOORS_TO_ROOM_ALIAS)
+            On Error GoTo ErrHandler
+            
+            ' Update Framed Range "DOORS TO..."
+            If Not doorsToRoomIDRange Is Nothing Then
+                For Each cell In doorsToRoomIDRange.Cells
+                    If Not IsEmpty(cell.value) Then
+                        If StrComp(CStr(cell.value), oldRoomID, vbTextCompare) = 0 Then
+                            cell.value = newRoomID
+                            updatedCount = updatedCount + 1
+                        End If
+                    End If
+                Next cell
+            End If
+            
+            If Not doorsToRoomAliasRange Is Nothing Then
+                For Each cell In doorsToRoomAliasRange.Cells
+                    If Not IsEmpty(cell.value) Then
+                        If StrComp(CStr(cell.value), oldRoomAlias, vbTextCompare) = 0 Then
+                            cell.value = newRoomAlias
+                        End If
+                    End If
+                Next cell
+            End If
+            
+        End If
+    Next ws
+    
+    Call UpdateDispatcherTable(targetBook, oldRoomID, oldRoomAlias, newRoomID, newRoomAlias)
+    
+    UpdateRoomReferences = updatedCount
+    
+    Exit Function
+    
+ErrHandler:
+    modErr.ReportError "modMain.UpdateRoomReferences", Err.Number, Erl, caption:=AppProjectName
+End Function
+
+' -----------------------------------------------------------------------------------
 ' Function  : GetNextRoomIndex
 ' Purpose   : Computes the next free numeric index by scanning existing Room sheets
 '             and returning (max index + 1).
@@ -209,7 +266,7 @@ Public Function GetNextRoomIndex(ByVal targetBook As Workbook) As Long
     
     For Each sheet In targetBook.Worksheets
         If modTags.HasSheetTag(sheet, ROOM_SHEET_ID_TAG_NAME, tagValue) Then
-            numIdx = val(Mid$(CStr(tagValue), Len(ROOM_SHEET_ID_TAG_VAL_PRE) + 1))
+            numIdx = Val(Mid$(CStr(tagValue), Len(ROOM_SHEET_ID_TAG_VAL_PRE) + 1))
             If numIdx > maxIdx Then maxIdx = numIdx
         End If
     Next sheet
@@ -238,7 +295,7 @@ End Function
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Public Function HasRoomSheet(ByVal targetBook As Workbook, ByVal roomId As String, Optional ByRef returnSheet As Worksheet = Nothing) As Boolean
+Public Function HasRoomSheet(ByVal targetBook As Workbook, ByVal roomID As String, Optional ByRef returnSheet As Worksheet = Nothing) As Boolean
     Dim sheet As Worksheet
     Dim tagValue As String
     Dim isFound As Boolean
@@ -247,7 +304,7 @@ Public Function HasRoomSheet(ByVal targetBook As Workbook, ByVal roomId As Strin
     
     For Each sheet In targetBook.Worksheets
         If modTags.HasSheetTag(sheet, ROOM_SHEET_ID_TAG_NAME, tagValue) Then
-            If StrComp(roomId, tagValue, vbBinaryCompare) = 0 Then
+            If StrComp(roomID, tagValue, vbBinaryCompare) = 0 Then
                 Set returnSheet = sheet
                 isFound = True
                 GoTo CleanExit
@@ -379,9 +436,9 @@ Private Sub SetupRoom(targetSheet As Worksheet, ByVal roomIdx As Long)
     Dim dataRange As Range
     
     'Set 'RoomID' named cell on the template
-    targetSheet.Range(modConst.NAME_CELL_ROOM_ID).Value = GetFormattedRoomID(roomIdx)
+    targetSheet.Range(modConst.NAME_CELL_ROOM_ID).value = GetFormattedRoomID(roomIdx)
     'Set 'RoomAlias" named Cell on the Template
-    targetSheet.Range(modConst.NAME_CELL_ROOM_ALIAS).Value = "r_" & GetCleanRoomAlias(targetSheet.Name)
+    targetSheet.Range(modConst.NAME_CELL_ROOM_ALIAS).value = "r_" & GetCleanRoomAlias(targetSheet.Name)
     
     ' remove wrong links
     Dim nm As Name
@@ -437,33 +494,43 @@ End Sub
 '
 ' Parameters:
 '   roomId           [String]  - Room sheet id to search for.
-'   roomSheetsDict   [Object]  - Dictionary of Room worksheets to inspect (values = Worksheet).
+'   targetBook       [Object]  - target Workbook.
+'   sheetToExclude        [Worksheet]- (Optional) Sheet to exclude from results.
 '
 ' Returns   : Collection - Sheet names that reference roomId.
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Private Function GetAllSheetNamesUsingRoomID(ByVal roomId As String, ByVal roomSheetsDict As Scripting.Dictionary) As Collection
-    ' Returns a collection of sheet names that reference roomId
+Private Function GetAllSheetNamesUsingRoomID(ByVal roomID As String, _
+                                            ByVal targetBook As Workbook, _
+                                            ByVal sheetToExclude As Worksheet) As Collection
     Dim col As New Collection
-    Dim dictKey As Variant, targetSheet As Worksheet
-    Dim cellRange As Range
+    Dim targetSheet As Worksheet
+    Dim currentRoomID As String
+    Dim cell As Range
     
-    For Each dictKey In roomSheetsDict.Keys
-        Set targetSheet = roomSheetsDict(dictKey)
+    For Each targetSheet In targetBook.Worksheets
+        ' Skip the sheet to be deleted/excluded
+        If targetSheet.Name = sheetToExclude.Name Then GoTo NextSheet
         
-        ' in Framed area "DOORS TO..."
-        Set cellRange = targetSheet.Range(NAME_RANGE_DOORS_TO_ROOM_ID) 'FindFramedRangeByHeading(targetSheet, "DOORS TO", False)
-        If Not cellRange Is Nothing Then
-            If modRanges.RangeHasValue(cellRange, roomId, True, False) Then
+        ' Only check Room sheets
+        If Not IsRoomSheet(targetSheet, currentRoomID) Then GoTo NextSheet
+        
+        ' Check for references in "DOORS TO..." area
+        On Error Resume Next
+        Set cell = targetSheet.Range(NAME_RANGE_DOORS_TO_ROOM_ID)
+        On Error GoTo 0
+        
+        If Not cell Is Nothing Then
+            If modRanges.RangeHasValue(cell, roomID, True, False) Then
                 col.Add targetSheet.Name
-                GoTo NextSheet
+                ' Continue checking other sheets for complete list
             End If
         End If
                 
 NextSheet:
-        Set cellRange = Nothing
-    Next
+        Set cell = Nothing
+    Next targetSheet
     
     Set GetAllSheetNamesUsingRoomID = col
 End Function
@@ -574,17 +641,17 @@ Private Sub CollectRoomData(ByVal targetBook As Workbook, _
     
     ' Go through all room sheets
     Dim targetSheet As Worksheet
-    Dim roomId As String
-    Dim roomAlias As String
+    Dim roomID As String
+    Dim RoomAlias As String
     Dim sceneId As String
     
     For Each targetSheet In targetBook.Worksheets
-        If modRooms.IsRoomSheet(targetSheet, roomId) Then
-            If Len(roomId) > 0 Then
+        If modRooms.IsRoomSheet(targetSheet, roomID) Then
+            If Len(roomID) > 0 Then
                 
                 ' Collect room ID and room alias
-                roomAlias = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_ALIAS, roomAliasHeaders)
-                roomsDict(roomId) = roomAlias
+                RoomAlias = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_ALIAS, roomAliasHeaders)
+                roomsDict(roomID) = RoomAlias
                 
                 ' Collect scene IDs
                 sceneId = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_SCENE_ID, sceneIdHeaders)
@@ -681,3 +748,73 @@ Private Sub WriteAppendMode(ByVal dataList As ListObject, _
                                                     hotspotObjectsDict, LISTS_HEADER_HOTSPOT_NAME
     End If
 End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : UpdateDispatcherTable
+' Purpose   : Updates Room ID and Room Alias in the DropDownLists table.
+' -----------------------------------------------------------------------------------
+Private Sub UpdateDispatcherTable(ByVal targetBook As Workbook, _
+                                 ByVal oldRoomID As String, _
+                                 ByVal oldRoomAlias As String, _
+                                 ByVal newRoomID As String, _
+                                 ByVal newRoomAlias As String)
+    On Error GoTo ErrHandler
+    
+    Dim dispatcherSheet As Worksheet
+    Dim dataTable As ListObject
+    Dim roomIDCol As ListColumn
+    Dim roomAliasCol As ListColumn
+    Dim cell As Range
+    
+    For Each dispatcherSheet In targetBook.Worksheets
+        If modTags.HasSheetTag(dispatcherSheet, SHEET_DISPATCHER) Then
+            Exit For
+        End If
+    Next dispatcherSheet
+    
+    If dispatcherSheet Is Nothing Then Exit Sub
+    
+    On Error Resume Next
+    Set dataTable = dispatcherSheet.ListObjects(NAME_DATA_TABLE)
+    On Error GoTo ErrHandler
+    
+    If dataTable Is Nothing Then Exit Sub
+    
+    On Error Resume Next
+    Set roomIDCol = dataTable.ListColumns(LISTS_HEADER_ROOM_ID)
+    On Error GoTo ErrHandler
+    
+    If Not roomIDCol Is Nothing Then
+        If Not roomIDCol.DataBodyRange Is Nothing Then
+            For Each cell In roomIDCol.DataBodyRange.Cells
+                If Not IsEmpty(cell.value) Then
+                    If StrComp(CStr(cell.value), oldRoomID, vbTextCompare) = 0 Then
+                        cell.value = newRoomID
+                    End If
+                End If
+            Next cell
+        End If
+    End If
+    
+    On Error Resume Next
+    Set roomAliasCol = dataTable.ListColumns(LISTS_HEADER_ROOM_ALIAS)
+    On Error GoTo ErrHandler
+    
+    If Not roomAliasCol Is Nothing Then
+        If Not roomAliasCol.DataBodyRange Is Nothing Then
+            For Each cell In roomAliasCol.DataBodyRange.Cells
+                If Not IsEmpty(cell.value) Then
+                    If StrComp(CStr(cell.value), oldRoomAlias, vbTextCompare) = 0 Then
+                        cell.value = newRoomAlias
+                    End If
+                End If
+            Next cell
+        End If
+    End If
+    
+    Exit Sub
+    
+ErrHandler:
+    modErr.ReportError "modMain.UpdateDispatcherTable", Err.Number, Erl, caption:=AppProjectName
+End Sub
+
