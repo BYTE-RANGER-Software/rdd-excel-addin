@@ -7,17 +7,13 @@ Attribute VB_Name = "modSheets"
 ' Public API:
 '   - SheetNameMatchMode          : Enum defining name matching strategies.
 '   - EnsureSheet                 : Ensures a sheet exists, creating it if necessary.
-'   - SheetExists                 : Checks if a sheet exists by name.
 '   - SheetCodeNameExists         : Checks if a sheet exists by VBA CodeName.
 '   - GetSheetByCodeName          : Retrieves a sheet by VBA CodeName.
-'   - BuildDictFromSheetsByName   : Builds a dictionary of sheets/charts by name.
-'   - BuildDictFromSheetsByTag    : Builds a dictionary of sheets by tag.
 '
 ' Private Helpers:
 '   - SheetNameMatches            : Internal helper for sheet name matching.
 '
 ' Dependencies:
-'   - modTags (for BuildDictFromSheetsByTag)
 '
 ' Notes     :
 '   - Keep this module focused on sheet/chart lookup and selection utilities.
@@ -60,31 +56,6 @@ Public Function EnsureSheet(sheetName As String, Optional targetWorkbook As Work
         Set EnsureSheet = targetWorkbook.Worksheets.Add(After:=Sheets(Sheets.Count))
         EnsureSheet.Name = sheetName
     End If
-End Function
-
-' -----------------------------------------------------------------------------------
-' Function  : SheetExists
-' Purpose   : Checks whether a worksheet with the specified name exists
-'             in the given workbook (or ActiveWorkbook by default).
-'
-' Parameters:
-'   sheetName      [String]     - The name of the worksheet to search for
-'   targetWorkbook [Workbook]   - Optional, The workbook to search in (defaults to ActiveWorkbook)
-'
-' Returns:
-'   Boolean - True if the sheet exists, False otherwise
-'
-' Notes:
-'   - Uses error handling to prevent runtime error if sheet doesn't exist
-' -----------------------------------------------------------------------------------
-Public Function SheetExists(sheetName As String, Optional targetWorkbook As Workbook = Nothing) As Boolean
-    Dim foundSheet As Worksheet
-    
-    On Error Resume Next
-    If targetWorkbook Is Nothing Then Set targetWorkbook = ActiveWorkbook
-    Set foundSheet = targetWorkbook.Worksheets(sheetName)
-    SheetExists = Not foundSheet Is Nothing
-    On Error GoTo 0
 End Function
 
 ' -----------------------------------------------------------------------------------
@@ -143,162 +114,6 @@ Public Function GetSheetByCodeName(sheetCodeName As String, Optional targetWorkb
         End If
     Next foundSheet
     Set GetSheetByCodeName = Nothing
-End Function
-
-' -----------------------------------------------------------------------------------
-' Function  : BuildDictFromSheetsByName
-' Purpose   : Builds a dictionary of sheets (and optionally charts) whose names match
-'             a given pattern using the specified match mode.
-'
-' Parameters:
-'   srcWorkbook     [Workbook]           - Workbook to scan.
-'   namePattern     [String]             - Name or pattern used for matching.
-'   mode            [SheetNameMatchMode] - Matching strategy (exact, prefix, etc.).
-'   sheetToExclude  [Worksheet]          - Optional, sheet to exclude from results.
-'   ignoreCase      [Boolean]            - Optional, if True compare ignoring case.
-'   includeCharts   [Boolean]            - Optional, if True include charts as well.
-'   excludeHidden   [Boolean]            - Optional, if True exclude hidden sheets.
-'
-' Returns   : Scripting.Dictionary - with Keys = sheet/chart name,
-'                                    Items = Worksheet or Chart objects.
-'
-' Notes     :
-'   - Never returns Nothing; returns an empty dictionary when there are no matches.
-' -----------------------------------------------------------------------------------
-Public Function BuildDictFromSheetsByName( _
-        ByVal srcWorkbook As Workbook, _
-        ByVal namePattern As String, _
-        Optional ByVal mode As SheetNameMatchMode = SNMM_Exact, _
-        Optional ByVal sheetToExclude As Worksheet = Nothing, _
-        Optional ByVal ignoreCase As Boolean = True, _
-        Optional ByVal includeCharts As Boolean = False, _
-        Optional ByVal excludeHidden As Boolean = False _
-    ) As Scripting.Dictionary
-    
-    Dim sheetDict As Scripting.Dictionary: Set sheetDict = New Scripting.Dictionary
-    Dim patternValue As String: patternValue = IIf(ignoreCase, LCase$(namePattern), namePattern)
-    Dim sheetName As String
-    Dim Sh As Worksheet
-    Dim cht As Chart
-    Dim regExObject As Object
-    Dim useRegex As Boolean
-    
-    ' Prepare RegExp if requested
-    If mode = SNMM_Regex Then
-        On Error Resume Next
-        Set regExObject = CreateObject("VBScript.RegExp")
-        On Error GoTo 0
-        If Not regExObject Is Nothing Then
-            regExObject.pattern = namePattern
-            regExObject.ignoreCase = ignoreCase
-            regExObject.Global = False
-            useRegex = True
-        Else
-            ' Fallback to substring if RegExp is unavailable
-            mode = SNMM_Contains
-        End If
-    End If
-    
-    ' Worksheets
-    For Each Sh In srcWorkbook.Worksheets
-        If Not sheetToExclude Is Nothing Then
-            If Sh.Name = sheetToExclude.Name Then GoTo NextWS
-        End If
-        If excludeHidden And (Sh.Visible = xlSheetHidden Or Sh.Visible = xlSheetVeryHidden) Then GoTo NextWS
-        
-        sheetName = IIf(ignoreCase, LCase$(Sh.Name), Sh.Name)
-        If SheetNameMatches(sheetName, patternValue, mode, regExObject, useRegex) Then sheetDict(Sh.Name) = Sh
-NextWS:
-    Next Sh
-    
-    ' Optional: Charts
-    If includeCharts Then
-        For Each cht In srcWorkbook.Charts
-            sheetName = IIf(ignoreCase, LCase$(cht.Name), cht.Name)
-            If SheetNameMatches(sheetName, patternValue, mode, regExObject, useRegex) Then sheetDict(cht.Name) = cht
-        Next cht
-    End If
-    
-    Set BuildDictFromSheetsByName = sheetDict
-End Function
-
-' -----------------------------------------------------------------------------------
-' Function  : BuildDictFromSheetsByTag
-' Purpose   : Build a dictionary of worksheets in a workbook that carry a given tag
-'             (stored as a worksheet CustomProperty via your tagging system).
-'
-' Parameters:
-'   srcWorkbook           [Workbook] - Source workbook to scan.
-'   tagName               [String]   - Tag name (free-text as used with modTags.*).
-'   sheetToExclude        [Worksheet]- (Optional) Sheet to exclude from results.
-'   excludeHidden         [Boolean]  - (Optional) Exclude hidden/very hidden sheets.
-'   tagValueFilter        [String]   - (Optional) When provided, only include sheets
-'                                      whose tag value equals this string.
-'   valueCaseSensitive    [Boolean]  - (Optional) Case-sensitive value comparison.
-'
-' Returns   :Scripting.Dictionary - with Keys  = Worksheet.Name,
-'                                        Items = Worksheet object. Never returns Nothing (empty on no matches).
-'
-' Notes     :
-'   - Uses modTags.HasSheetTag(sheet, tagName, rValue) to probe for tags.
-'   - If tagValueFilter is empty, only the presence of the tag is required.
-' -----------------------------------------------------------------------------------
-Public Function BuildDictFromSheetsByTag( _
-        ByVal srcWorkbook As Workbook, _
-        ByVal tagName As String, _
-        Optional ByVal sheetToExclude As Worksheet = Nothing, _
-        Optional ByVal excludeHidden As Boolean = False, _
-        Optional ByVal tagValueFilter As String = vbNullString, _
-        Optional ByVal valueCaseSensitive As Boolean = False _
-    ) As Scripting.Dictionary
-
-    On Error GoTo ErrHandler
-
-    Dim sheetDict As Scripting.Dictionary
-    Set sheetDict = New Scripting.Dictionary
-
-    If srcWorkbook Is Nothing Then
-        Set BuildDictFromSheetsByTag = sheetDict
-        Exit Function
-    End If
-
-    Dim sheet As Worksheet
-    Dim tagValue As String
-    Dim cmpMode As VbCompareMethod
-    cmpMode = IIf(valueCaseSensitive, vbBinaryCompare, vbTextCompare)
-
-    For Each sheet In srcWorkbook.Worksheets
-        ' exclude a specific sheet if requested
-        If Not sheetToExclude Is Nothing Then
-            If sheet.Name = sheetToExclude.Name Then GoTo NextSheet
-        End If
-
-        ' optionally skip hidden sheets
-        If excludeHidden Then
-            If (sheet.Visible = xlSheetHidden) Or (sheet.Visible = xlSheetVeryHidden) Then GoTo NextSheet
-        End If
-
-        ' tag check (presence and optional value filter)
-        If modTags.HasSheetTag(sheet, tagName, tagValue) Then
-            If LenB(tagValueFilter) = 0 Then
-                sheetDict(sheet.Name) = sheet
-            ElseIf StrComp(CStr(tagValue), CStr(tagValueFilter), cmpMode) = 0 Then
-                sheetDict(sheet.Name) = sheet
-            End If
-        End If
-
-NextSheet:
-    Next sheet
-
-    Set BuildDictFromSheetsByTag = sheetDict
-    Exit Function
-
-ErrHandler:
-    ' Fail-safe: still return an empty dictionary
-    Dim dicSafe As Scripting.Dictionary
-    Set dicSafe = New Scripting.Dictionary
-    Set BuildDictFromSheetsByTag = dicSafe
-    Err.Clear
 End Function
 
 ' -----------------------------------------------------------------------------------

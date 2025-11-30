@@ -740,11 +740,11 @@ Private Sub WriteSyncMode(ByVal dataList As ListObject, _
     modLists.ClearTableColumn dataList, LISTS_HEADER_HOTSPOT_NAME
     
     ' Rewrite all data
-    modLists.WriteDictSetToTableColumn dataList, LISTS_HEADER_ROOM_ID, roomsDict, LISTS_HEADER_ROOM_ALIAS
-    modLists.WriteDictSetToTableColumn dataList, LISTS_HEADER_SCENE_ID, scenesDict
-    modLists.WriteDictSetToTableColumn dataList, LISTS_HEADER_ITEM_ID, itemObjectsDict, LISTS_HEADER_ITEM_NAME
-    modLists.WriteDictSetToTableColumn dataList, LISTS_HEADER_STATE_OBJECT_ID, stateObjectsDict, LISTS_HEADER_STATE_OBJECT_NAME
-    modLists.WriteDictSetToTableColumn dataList, LISTS_HEADER_HOTSPOT_ID, hotspotObjectsDict, LISTS_HEADER_HOTSPOT_NAME
+    modLists.WriteDictionaryToTableColumns dataList, LISTS_HEADER_ROOM_ID, roomsDict, LISTS_HEADER_ROOM_ALIAS
+    modLists.WriteDictionaryToTableColumns dataList, LISTS_HEADER_SCENE_ID, scenesDict
+    modLists.WriteDictionaryToTableColumns dataList, LISTS_HEADER_ITEM_ID, itemObjectsDict, LISTS_HEADER_ITEM_NAME
+    modLists.WriteDictionaryToTableColumns dataList, LISTS_HEADER_STATE_OBJECT_ID, stateObjectsDict, LISTS_HEADER_STATE_OBJECT_NAME
+    modLists.WriteDictionaryToTableColumns dataList, LISTS_HEADER_HOTSPOT_ID, hotspotObjectsDict, LISTS_HEADER_HOTSPOT_NAME
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -765,8 +765,8 @@ Private Sub WriteAppendMode(ByVal dataList As ListObject, _
     modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_ALIAS
     modLists.ClearTableColumn dataList, LISTS_HEADER_SCENE_ID
     
-    modLists.WriteDictSetToTableColumn dataList, LISTS_HEADER_ROOM_ID, roomsDict, LISTS_HEADER_ROOM_ALIAS
-    modLists.WriteDictSetToTableColumn dataList, LISTS_HEADER_SCENE_ID, scenesDict
+    modLists.WriteDictionaryToTableColumns dataList, LISTS_HEADER_ROOM_ID, roomsDict, LISTS_HEADER_ROOM_ALIAS
+    modLists.WriteDictionaryToTableColumns dataList, LISTS_HEADER_SCENE_ID, scenesDict
     
     ' Only process object data if desired
     If processObjects Then
