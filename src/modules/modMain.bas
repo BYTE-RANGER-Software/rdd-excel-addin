@@ -342,6 +342,7 @@ End Sub
 Public Sub HandleWorkbookBeforeSave(ByVal targetBook As Workbook, ByVal showSaveAsUi As Boolean, ByRef shouldCancel As Boolean)
     Call modOptions.SaveWorkbookOptions(targetBook)
 End Sub
+
 ' -----------------------------------------------------------------------------------
 ' Procedure : EnsureWorkbookIsTagged
 ' Purpose   : Marks workbook as compatible with this add-in if not already tagged.
@@ -540,14 +541,15 @@ Public Function AddNewRoom(Optional ByVal shouldGoToNewRoom As Boolean = True) A
         .Text1Value = roomID
         .Text2Value = roomID
         .Text1RequiresValue = True
-        
+                
         .Show vbModal
         If .Cancelled Then
             Unload newItemForm: Set newItemForm = Nothing
             Exit Function
         End If
-        roomName = .Text1Value
-
+        
+        roomName = Trim$(.Text1Value)
+        
     End With
     
     Unload newItemForm: Set newItemForm = Nothing
@@ -650,7 +652,7 @@ End Sub
 '             Displays message if room not found or cell is empty.
 ' Parameters: (none)
 ' Returns   : (none)
-' Notes     : Requires room sheets to be discoverable via modRooms.HasRoomSheet.
+' Notes     : Requires room sheets to be discoverable via modRooms.HasRoomID.
 '             Context menu callback.
 ' -----------------------------------------------------------------------------------
 Public Sub GotoRoomFromCell()
@@ -667,7 +669,7 @@ Public Sub GotoRoomFromCell()
     End If
     
     Dim roomSheet As Worksheet
-    If modRooms.HasRoomSheet(currentWorkbook, roomID, roomSheet) Then
+    If modRooms.HasRoomID(currentWorkbook, roomID, roomSheet) Then
         Application.GoTo roomSheet.Range("A1"), True
         Exit Sub
     End If
@@ -748,22 +750,48 @@ Public Sub EditRoomIdentity()
         .Text3Value = currentRoomAlias
         .Text3RequiresValue = True
     
-        .Show vbModal
+        Do
+            .Show vbModal
     
-        If .Cancelled Then
-            Unload frmEdit: Set frmEdit = Nothing
-            Exit Sub
-        End If
-            newRoomID = .Text2Value
-            newRoomAlias = .Text3Value
+            If .Cancelled Then
+                Unload frmEdit: Set frmEdit = Nothing
+                Exit Sub
+            End If
+            newRoomID = Trim$(.Text2Value)
+            newRoomAlias = Trim$(.Text3Value)
+            
+            'No changes were made.
+            If newRoomID = currentRoomID And newRoomAlias = currentRoomAlias Then
+                Unload frmEdit: Set frmEdit = Nothing
+                Exit Sub
+            End If
+            
+            If newRoomID <> currentRoomID Then
+                If modRooms.HasRoomID(targetSheet.Parent, newRoomID) Then
+                    MsgBox "Room ID '" & newRoomID & "' already exists !" & vbCrLf & _
+                        "Please choose a different Room ID.", _
+                        vbExclamation, AppProjectName
+                Else 'New room ID is unique
+                    Exit Do
+                End If
+            End If
+            If newRoomAlias <> currentRoomAlias Then
+                 
+                If modRooms.HasRoomAlias(targetSheet.Parent, newRoomAlias) Then
+                    MsgBox "Room Alias '" & newRoomAlias & "' already exists !" & vbCrLf & _
+                        "Please choose a different Room Alias.", _
+                        vbExclamation, AppProjectName
+                Else 'New room Alias is unique
+                    Exit Do
+                End If
+            End If
+        Loop
+           
     End With
     
     Unload frmEdit: Set frmEdit = Nothing
-    
-    'No changes were made.
-    If newRoomID = currentRoomID And newRoomAlias = currentRoomAlias Then
-        Exit Sub
-    End If
+        
+    frmWait.ShowDialog
     
     modUtil.HideOpMode True
     
@@ -778,6 +806,8 @@ Public Sub EditRoomIdentity()
         newRoomID, newRoomAlias)
     
     modUtil.HideOpMode False
+    
+    frmWait.Hide
     
     MsgBox "Room Identity updated successfully." & vbCrLf & vbCrLf & _
         "Old Room ID: " & currentRoomID & vbCrLf & _

@@ -273,7 +273,7 @@ Public Function RangeHasValue( _
     If searchRange Is Nothing Then Exit Function
 
     Dim dataValues As Variant
-    dataValues = searchRange.Value2  ' Could be scalar for 1x1
+    dataValues = searchRange.value2  ' Could be scalar for 1x1
 
     Dim cmpMode As VbCompareMethod
     cmpMode = IIf(isCaseSensitive, vbBinaryCompare, vbTextCompare)

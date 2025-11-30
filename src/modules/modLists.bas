@@ -13,6 +13,7 @@ Attribute VB_Name = "modLists"
 '   - CollectColumnBlockGroupValues
 '   - CollectNamedRangeValues
 '   - CollectTableColumnValues
+'   - CollectTableColumnsToDictionary
 '   - UpdateNamedListRange
 '   - WriteDictSetToColumn
 '   - WriteDictSetToTableColumn
@@ -115,8 +116,8 @@ End Function
 '
 ' Parameters:
 '   sheet             [Worksheet] - The worksheet to scan
-'   headerArray    [Variant]   - Array of possible header names to match (case-insensitive)
-'   valuesDict      [Scripting.Dictionary] - Dictionary object to store unique values as keys
+'   headerArray       [Variant]   - Array of possible header names to match (case-insensitive)
+'   valuesDict        [Scripting.Dictionary] - Dictionary object to store unique values as keys
 '
 ' Behavior  :
 '   - Scans the top 50 rows and columns to find a matching header
@@ -335,21 +336,161 @@ ErrHandler:
 End Sub
 
 ' -----------------------------------------------------------------------------------
+' Procedure : CollectTableColumnsToDictionary
+' Purpose   : Reads values from structured table columns into a dictionary,
+'             with the key column and optional value columns.
+'
+' Parameters:
+'   sourceTable      [ListObject]            - The structured table to read from
+'   keyColumnName    [String]                - Name of the column containing dictionary keys
+'   valuesDict       [Scripting.Dictionary]  - Dictionary to store the key-value pairs
+'   value1ColumnName [String]                - (Optional) Name of the column for dictionary value 1.
+'                                              If omitted, only keys are stored (with empty string values).
+'   value2ColumnName [String]                - (Optional) Name of the column for dictionary value 2.
+'                                              If provided, values are concatenated with "|" delimiter.
+'
+' Behavior:
+'   - Reads values from table columns as arrays (high performance).
+'   - Ignores rows where the key is empty.
+'   - If key already exists, updates the value.
+'   - If value2ColumnName is provided, concatenates value1 and value2 with "|" delimiter.
+'   - If only value2ColumnName is provided (value1 empty), uses value2 as the sole value.
+'
+' Notes:
+'   - If table is empty or columns don't exist, exits silently.
+'   - Uses array access for optimal performance with large tables.
+'   - Single-row tables are handled separately to avoid array issues.
+' -----------------------------------------------------------------------------------
+Public Sub CollectTableColumnsToDictionary(ByVal sourceTable As ListObject, _
+                                        ByVal keyColumnName As String, _
+                                        ByVal valuesDict As Scripting.Dictionary, _
+                                        Optional ByVal value1ColumnName As String = "", _
+                                        Optional ByVal value2ColumnName As String = "")
+    On Error GoTo ErrHandler
+    
+    Dim arrKeys As Variant
+    Dim arrValue1 As Variant
+    Dim arrValue2 As Variant
+    Dim i As Long
+    Dim rowCount As Long
+    Dim key As Variant
+    Dim value As String
+    Dim hasValue1 As Boolean
+    Dim hasValue2 As Boolean
+    
+    ' Validate input
+    If sourceTable Is Nothing Then GoTo CleanExit
+    If Len(keyColumnName) = 0 Then GoTo CleanExit
+    
+    ' Check if table has data
+    rowCount = sourceTable.ListRows.Count
+    If rowCount = 0 Then GoTo CleanExit
+    
+    ' Determine which value columns to read
+    If Len(value1ColumnName) = 0 And Len(value2ColumnName) > 0 Then
+        value1ColumnName = value2ColumnName
+        value2ColumnName = ""
+    End If
+    
+    hasValue1 = (Len(value1ColumnName) > 0)
+    hasValue2 = (Len(value2ColumnName) > 0)
+    
+    ' Validate column existence
+    On Error Resume Next
+    Dim keyCol As ListColumn
+    Dim val1Col As ListColumn
+    Dim val2Col As ListColumn
+    
+    Set keyCol = sourceTable.ListColumns(keyColumnName)
+    If keyCol Is Nothing Then GoTo CleanExit
+    
+    If hasValue1 Then
+        Set val1Col = sourceTable.ListColumns(value1ColumnName)
+        If val1Col Is Nothing Then GoTo CleanExit
+    End If
+    
+    If hasValue2 Then
+        Set val2Col = sourceTable.ListColumns(value2ColumnName)
+        If val2Col Is Nothing Then GoTo CleanExit
+    End If
+    On Error GoTo ErrHandler
+    
+    ' Load values into arrays for performance
+    If rowCount = 1 Then
+        ' Single row - handle separately to avoid array issues
+        ReDim arrKeys(1 To 1, 1 To 1)
+        arrKeys(1, 1) = keyCol.DataBodyRange.value
+        
+        If hasValue1 Then
+            ReDim arrValue1(1 To 1, 1 To 1)
+            arrValue1(1, 1) = val1Col.DataBodyRange.value
+        End If
+        
+        If hasValue2 Then
+            ReDim arrValue2(1 To 1, 1 To 1)
+            arrValue2(1, 1) = val2Col.DataBodyRange.value
+        End If
+    Else
+        ' Multiple rows - read as arrays
+        arrKeys = keyCol.DataBodyRange.value
+        
+        If hasValue1 Then
+            arrValue1 = val1Col.DataBodyRange.value
+        End If
+        
+        If hasValue2 Then
+            arrValue2 = val2Col.DataBodyRange.value
+        End If
+    End If
+    
+    ' Process rows and populate dictionary
+    For i = 1 To rowCount
+        key = arrKeys(i, 1)
+        
+        ' Skip empty keys
+        If Not IsEmpty(key) And Len(CStr(key)) > 0 Then
+            value = ""
+            
+            If hasValue1 Then
+                value = CStr(arrValue1(i, 1))
+            End If
+            
+            If hasValue2 Then
+                If Len(value) > 0 Then
+                    value = value & "|" & CStr(arrValue2(i, 1))
+                Else
+                    value = CStr(arrValue2(i, 1))
+                End If
+            End If
+            
+            ' Add or update dictionary entry
+            valuesDict(CStr(key)) = value
+        End If
+    Next i
+    
+CleanExit:
+    Exit Sub
+ErrHandler:
+    modErr.ReportError "CollectTableColumnsToDictionary", Err.Number, Erl, caption:=modMain.AppProjectName
+    Resume CleanExit
+End Sub
+
+' -----------------------------------------------------------------------------------
 ' Procedure : CollectNamedRangePairs
 ' Purpose   : Collects paired values from two named ranges on a worksheet and stores
-'             them in a dictionary (first range = Key, second range = Item).
+'             them in a dictionary (first range = Key, second range = Value).
 '
 ' Parameters:
 '   sheet           [Worksheet] - The worksheet containing the named ranges.
 '   rangeNameKeys   [String]    - The name of the range containing the keys.
-'   rangeNameItems  [String]    - The name of the range containing the items.
+'   rangeNameValues  [String]    - The name of the range containing the Values.
 '   pairsDict       [Scripting.Dictionary] - Dictionary receiving the key-value pairs.
 '
 ' Behavior  :
 '   - Resolves both named ranges on the given worksheet.
 '   - Reads values from both ranges as arrays (high performance).
 '   - Ignores pairs where the key is empty.
-'   - If key already exists, updates the item value.
+'   - If key already exists, updates the Value.
 '   - If ranges have different sizes, uses the smaller count.
 '
 ' Notes     :
@@ -359,32 +500,32 @@ End Sub
 ' -----------------------------------------------------------------------------------
 Public Sub CollectNamedRangePairs(ByVal sheet As Worksheet, _
                                   ByVal rangeNameKeys As String, _
-                                  ByVal rangeNameItems As String, _
+                                  ByVal rangeNameValues As String, _
                                   ByVal pairsDict As Scripting.Dictionary)
     On Error GoTo ErrHandler
     
     Dim rngKeys As Range
-    Dim rngItems As Range
+    Dim rngValues As Range
     Dim arrKeys As Variant
-    Dim arrItems As Variant
+    Dim arrValues As Variant
     Dim i As Long
     Dim maxCount As Long
-    Dim keyVal As Variant
-    Dim itemVal As Variant
+    Dim key As Variant
+    Dim value As Variant
     
     ' Validate input
-    If Len(rangeNameKeys) = 0 Or Len(rangeNameItems) = 0 Then GoTo CleanExit
+    If Len(rangeNameKeys) = 0 Or Len(rangeNameValues) = 0 Then GoTo CleanExit
     
     ' Resolve named ranges
     On Error Resume Next
     Set rngKeys = sheet.Range(rangeNameKeys)
-    Set rngItems = sheet.Range(rangeNameItems)
+    Set rngValues = sheet.Range(rangeNameValues)
     On Error GoTo ErrHandler
     
-    If rngKeys Is Nothing Or rngItems Is Nothing Then GoTo CleanExit
+    If rngKeys Is Nothing Or rngValues Is Nothing Then GoTo CleanExit
     
     ' Determine the minimum count to process
-    maxCount = Application.WorksheetFunction.Min(rngKeys.Cells.Count, rngItems.Cells.Count)
+    maxCount = Application.WorksheetFunction.Min(rngKeys.Cells.Count, rngValues.Cells.Count)
     If maxCount = 0 Then GoTo CleanExit
     
     ' Load values into arrays for performance
@@ -396,11 +537,11 @@ Public Sub CollectNamedRangePairs(ByVal sheet As Worksheet, _
         arrKeys = rngKeys.value
     End If
     
-    If rngItems.Cells.Count = 1 Then
+    If rngValues.Cells.Count = 1 Then
         ReDim arrItems(1 To 1, 1 To 1)
-        arrItems(1, 1) = rngItems.value
+        arrItems(1, 1) = rngValues.value
     Else
-        arrItems = rngItems.value
+        arrItems = rngValues.value
     End If
     
     ' Process pairs
@@ -409,28 +550,28 @@ Public Sub CollectNamedRangePairs(ByVal sheet As Worksheet, _
         If IsArray(arrKeys) Then
             If UBound(arrKeys, 2) > 1 Then
                 ' Multi-column range - take first column
-                keyVal = arrKeys(i, 1)
+                key = arrKeys(i, 1)
             Else
                 ' Single-column range
-                keyVal = arrKeys(i, 1)
+                key = arrKeys(i, 1)
             End If
         Else
-            keyVal = arrKeys
+            key = arrKeys
         End If
         
         If IsArray(arrItems) Then
             If UBound(arrItems, 2) > 1 Then
-                itemVal = arrItems(i, 1)
+                value = arrItems(i, 1)
             Else
-                itemVal = arrItems(i, 1)
+                value = arrItems(i, 1)
             End If
         Else
-            itemVal = arrItems
+            value = arrItems
         End If
         
         ' Add or update dictionary entry (skip empty keys)
-        If Not IsEmpty(keyVal) And Len(CStr(keyVal)) > 0 Then
-            pairsDict(keyVal) = itemVal
+        If Not IsEmpty(key) And Len(CStr(key)) > 0 Then
+            pairsDict(key) = value
         End If
     Next i
     
@@ -695,39 +836,48 @@ End Sub
 '   targetTable        [ListObject]            - The structured table to write into
 '   keyColumnName      [String]                - Name of the column for dictionary keys
 '   valuesDict         [Scripting.Dictionary]  - Dictionary containing the keys/values
-'   itemColumnName     [String]                - (Optional) Name of the column for dictionary items.
-'                                                 If omitted, only keys are written.
+'   value1ColumnName   [String]                - (Optional) Name of the column for dictionary value / value 1.
+'                                                If omitted, only keys are written.
+'   value2ColumnName   [String]                - (Optional) Name of the column for dictionary value 2.
+'                                                If omitted, only keys and value1 are written.
 '
 ' Notes:
 '   - Automatically adds rows to the table if valuesDict.Count > current row count
 '   - Keys are sorted alphabetically before writing
-'   - If itemColumnName is provided, writes key-value pairs to both columns
+'   - If value1ColumnName is provided, writes key-value pairs to key and value1 columns
+'   - If value2ColumnName is provided without value1ColumnName, value2ColumnName is used as value1ColumnName
+'   - If dictionary values contain "|" delimiter and both value columns are specified,
+'     the value is split and written to both value1 and value2 columns
+'   - Dictionary values without "|" delimiter are written entirely to value1Column
 ' -----------------------------------------------------------------------------------
 Public Sub WriteDictSetToTableColumn(ByVal targetTable As ListObject, _
                                      ByVal keyColumnName As String, _
                                      ByVal valuesDict As Scripting.Dictionary, _
-                                     Optional ByVal itemColumnName As String = "")
+                                     Optional ByVal value1ColumnName As String = "", _
+                                     Optional ByVal value2ColumnName As String = "")
     On Error GoTo ErrHandler
     
-    ' exit if dict is empty
-    If valuesDict.Count = 0 Then
-        Exit Sub
-    End If
+    ' Exit if dict is empty
+    If valuesDict.Count = 0 Then Exit Sub
     
     Dim sortedKeys As Collection
     Dim keyArray() As String
     Dim currentKey As Variant
     Dim index As Long
-    Dim keyColumn As Range
-    Dim itemColumn As Range
-    Dim writeItems As Boolean
+    Dim writeValues As Long
+    Dim values() As Variant
+    Dim hasTwoColumns As Boolean
     
-    Set sortedKeys = New Collection
+    ' Determine if we need to write values
+    If Len(value1ColumnName) = 0 And Len(value2ColumnName) > 0 Then
+        value1ColumnName = value2ColumnName
+        value2ColumnName = ""
+    End If
     
-    ' Determine if we need to write items
-    writeItems = (Len(itemColumnName) > 0)
+    writeValues = (Len(value1ColumnName) > 0) + (Len(value2ColumnName) > 0)
+    hasTwoColumns = (writeValues = 2)
     
-    ' Copy keys to array
+    ' Copy keys to array and sort
     ReDim keyArray(0 To valuesDict.Count - 1)
     index = 0
     For Each currentKey In valuesDict.Keys
@@ -735,10 +885,10 @@ Public Sub WriteDictSetToTableColumn(ByVal targetTable As ListObject, _
         index = index + 1
     Next currentKey
     
-    ' Sort array
     modUtil.QuickSortStringArray keyArray, LBound(keyArray), UBound(keyArray)
     
     ' Load sorted keys into collection
+    Set sortedKeys = New Collection
     For index = LBound(keyArray) To UBound(keyArray)
         sortedKeys.Add keyArray(index)
     Next index
@@ -748,19 +898,45 @@ Public Sub WriteDictSetToTableColumn(ByVal targetTable As ListObject, _
         targetTable.ListRows.Add
     Loop
     
-    ' Get column references
-    Set keyColumn = targetTable.ListColumns(keyColumnName).DataBodyRange
-    If writeItems Then
-        Set itemColumn = targetTable.ListColumns(itemColumnName).DataBodyRange
-    End If
+    ' Prepare arrays for batch writing
+    Dim keyData() As Variant
+    Dim value1Data() As Variant
+    Dim value2Data() As Variant
+    Dim splitValues() As String
+    Dim currentValue As Variant
     
-    ' Write values into table columns
+    ReDim keyData(1 To sortedKeys.Count, 1 To 1)
+    If writeValues > 0 Then ReDim value1Data(1 To sortedKeys.Count, 1 To 1)
+    If hasTwoColumns Then ReDim value2Data(1 To sortedKeys.Count, 1 To 1)
+    
+    ' Fill arrays
     For index = 1 To sortedKeys.Count
-        keyColumn.Cells(index, 1).value = sortedKeys(index)
-        If writeItems Then
-            itemColumn.Cells(index, 1).value = valuesDict(sortedKeys(index))
+        keyData(index, 1) = sortedKeys(index)
+        
+        If writeValues > 0 Then
+            currentValue = valuesDict(sortedKeys(index))
+            
+            If hasTwoColumns And InStr(currentValue, "|") > 0 Then
+                splitValues = Split(currentValue, "|", 2, vbTextCompare)
+                value1Data(index, 1) = CStr(splitValues(0))
+                value2Data(index, 1) = CStr(splitValues(1))
+            Else
+                value1Data(index, 1) = currentValue
+                If hasTwoColumns Then value2Data(index, 1) = ""
+            End If
         End If
     Next index
+    
+    ' Write arrays to table
+    targetTable.ListColumns(keyColumnName).DataBodyRange.Resize(sortedKeys.Count, 1).value = keyData
+    
+    If writeValues > 0 Then
+        targetTable.ListColumns(value1ColumnName).DataBodyRange.Resize(sortedKeys.Count, 1).value = value1Data
+    End If
+    
+    If hasTwoColumns Then
+        targetTable.ListColumns(value2ColumnName).DataBodyRange.Resize(sortedKeys.Count, 1).value = value2Data
+    End If
     
 CleanExit:
     Exit Sub

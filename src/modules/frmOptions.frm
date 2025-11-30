@@ -2,9 +2,9 @@ VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmOptions 
    Caption         =   "Settings %1"
    ClientHeight    =   7414
-   ClientLeft      =   121
-   ClientTop       =   462
-   ClientWidth     =   6963
+   ClientLeft      =   120
+   ClientTop       =   465
+   ClientWidth     =   6960
    OleObjectBlob   =   "frmOptions.frx":0000
    StartUpPosition =   1  'Fenstermitte
 End
@@ -122,7 +122,7 @@ End Sub
 Function oldPage(mp As MSForms.MultiPage) As MSForms.Page
     'Purpose: return currently marked page in given multipage
     With mp
-        Set oldPage = .Pages(Val(.Tag))
+        Set oldPage = .Pages(val(.Tag))
     End With
 End Function
 

@@ -8,7 +8,7 @@ Attribute VB_Name = "modRooms"
 '   - IsRoomSheet             : Check whether a sheet is a room sheet (by tag).
 '   - RemoveRoom              : Delete a room sheet after reference checks.
 '   - GetNextRoomIndex        : Compute next numeric room index.
-'   - HasRoomSheet            : Determine whether a room with specific ID exists.
+'   - HasRoomID            : Determine whether a room with specific ID exists.
 '   - UpdateLists             : Append/merge room/object/scene items into Lists table.
 '   - SyncLists               : Rebuild Lists columns (clear + write).
 '   - GetFormattedRoomID      : Build a formatted room ID from an index.
@@ -266,7 +266,7 @@ Public Function GetNextRoomIndex(ByVal targetBook As Workbook) As Long
     
     For Each sheet In targetBook.Worksheets
         If modTags.HasSheetTag(sheet, ROOM_SHEET_ID_TAG_NAME, tagValue) Then
-            numIdx = Val(Mid$(CStr(tagValue), Len(ROOM_SHEET_ID_TAG_VAL_PRE) + 1))
+            numIdx = val(Mid$(CStr(tagValue), Len(ROOM_SHEET_ID_TAG_VAL_PRE) + 1))
             If numIdx > maxIdx Then maxIdx = numIdx
         End If
     Next sheet
@@ -283,7 +283,7 @@ ErrHandler:
 End Function
 
 ' -----------------------------------------------------------------------------------
-' Function  : HasRoomSheet
+' Function  : HasRoomID
 ' Purpose   : Determine whether the workbook contains a Room sheet with the given ID.
 '
 ' Parameters:
@@ -295,7 +295,7 @@ End Function
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Public Function HasRoomSheet(ByVal targetBook As Workbook, ByVal roomID As String, Optional ByRef returnSheet As Worksheet = Nothing) As Boolean
+Public Function HasRoomID(ByVal targetBook As Workbook, ByVal roomID As String, Optional ByRef returnSheet As Worksheet = Nothing) As Boolean
     Dim sheet As Worksheet
     Dim tagValue As String
     Dim isFound As Boolean
@@ -313,11 +313,57 @@ Public Function HasRoomSheet(ByVal targetBook As Workbook, ByVal roomID As Strin
     Next sheet
     
 CleanExit:
-    HasRoomSheet = isFound
+    HasRoomID = isFound
     Exit Function
 
 ErrHandler:
-    modErr.ReportError "HasRoomSheet", Err.Number, Erl, caption:=modMain.AppProjectName
+    modErr.ReportError "HasRoomID", Err.Number, Erl, caption:=modMain.AppProjectName
+    Resume CleanExit
+End Function
+
+' -----------------------------------------------------------------------------------
+' Function  : HasRoomAlias
+' Purpose   : Determine whether the workbook contains a Room sheet with the given Alias.
+'
+' Parameters:
+'   targetBook       [Workbook]              - Workbook to scan.
+'   roomAlis         [String]                - Room Alias to search for (e.g., "r_TempleEntrance").
+'   returnSheet      [Worksheet]             - (Optional ByRef) Receives the first matching sheet if found.
+'
+' Returns   : Boolean - True if found; otherwise False.
+'
+' Notes     :
+' -----------------------------------------------------------------------------------
+Public Function HasRoomAlias(ByVal targetBook As Workbook, ByVal roomAlias As String, Optional ByRef returnSheet As Worksheet = Nothing) As Boolean
+    Dim sheet As Worksheet
+    Dim tagValue As String
+    Dim isFound As Boolean
+    Dim cell As Range
+    
+    On Error GoTo ErrHandler
+    
+    For Each sheet In targetBook.Worksheets
+        If modTags.HasSheetTag(sheet, ROOM_SHEET_ID_TAG_NAME) Then
+            On Error Resume Next
+            Set cell = sheet.Range(modConst.NAME_CELL_ROOM_ALIAS)
+            On Error GoTo ErrHandler
+            
+            If Not cell Is Nothing Then
+                If StrComp(roomAlias, cell.value, vbBinaryCompare) = 0 Then
+                    Set returnSheet = sheet
+                    isFound = True
+                    GoTo CleanExit
+                End If
+            End If
+        End If
+    Next sheet
+    
+CleanExit:
+    HasRoomAlias = isFound
+    Exit Function
+
+ErrHandler:
+    modErr.ReportError "HasRoomAlias", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
 End Function
 
@@ -642,7 +688,7 @@ Private Sub CollectRoomData(ByVal targetBook As Workbook, _
     ' Go through all room sheets
     Dim targetSheet As Worksheet
     Dim roomID As String
-    Dim RoomAlias As String
+    Dim roomAlias As String
     Dim sceneId As String
     
     For Each targetSheet In targetBook.Worksheets
@@ -650,8 +696,8 @@ Private Sub CollectRoomData(ByVal targetBook As Workbook, _
             If Len(roomID) > 0 Then
                 
                 ' Collect room ID and room alias
-                RoomAlias = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_ALIAS, roomAliasHeaders)
-                roomsDict(roomID) = RoomAlias
+                roomAlias = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_ALIAS, roomAliasHeaders)
+                roomsDict(roomID) = roomAlias
                 
                 ' Collect scene IDs
                 sceneId = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_SCENE_ID, sceneIdHeaders)

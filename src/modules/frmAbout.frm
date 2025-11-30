@@ -2,9 +2,9 @@ VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmAbout 
    Caption         =   "About %1"
    ClientHeight    =   3872
-   ClientLeft      =   44
-   ClientTop       =   385
-   ClientWidth     =   5863
+   ClientLeft      =   45
+   ClientTop       =   390
+   ClientWidth     =   5865
    OleObjectBlob   =   "frmAbout.frx":0000
    StartUpPosition =   1  'Fenstermitte
 End

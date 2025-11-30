@@ -90,7 +90,7 @@ Public Sub ApplyCoverVisibilityByDropdown( _
     Dim showBlock As Boolean
     Dim coverShape As Shape
     
-    cellValue = Trim$(CStr(targetSheet.Range(dropdownAddress).Value2))
+    cellValue = Trim$(CStr(targetSheet.Range(dropdownAddress).value2))
     showBlock = (Len(cellValue) > 0 And LCase$(cellValue) <> LCase$(noneToken))
     
     Set coverShape = TryGetShape(targetSheet, coverName)

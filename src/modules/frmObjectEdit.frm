@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmObjectEdit 
    Caption         =   "New Item"
-   ClientHeight    =   3267
-   ClientLeft      =   99
-   ClientTop       =   429
-   ClientWidth     =   7799
+   ClientHeight    =   4335
+   ClientLeft      =   105
+   ClientTop       =   435
+   ClientWidth     =   7800
    OleObjectBlob   =   "frmObjectEdit.frx":0000
 End
 Attribute VB_Name = "frmObjectEdit"
@@ -19,6 +19,8 @@ Private m_txt1RequiresValue As Boolean
 Private m_txt2RequiresValue As Boolean
 Private m_txt3RequiresValue As Boolean
 Private m_txt4RequiresValue As Boolean
+Private m_txt5RequiresValue As Boolean
+Private m_txt6RequiresValue As Boolean
 
 ' -----------------------------------------------------------------------------------
 ' Procedure : UserForm_Initialize
@@ -43,6 +45,8 @@ Private Sub UserForm_Initialize()
         Field2Visible = False
         Field3Visible = False
         Field4Visible = False
+        Field5Visible = False
+        Field6Visible = False
                 
         CenterToExcelWindow
         
@@ -92,6 +96,12 @@ End Sub
 Private Sub m_txt4_Change()
     Call UpdateOKButton
 End Sub
+Private Sub m_txt5_Change()
+    Call UpdateOKButton
+End Sub
+Private Sub m_txt6_Change()
+    Call UpdateOKButton
+End Sub
 
 Private Sub CenterToExcelWindow()
     ' Centers the form relative to the Excel application window.
@@ -132,6 +142,16 @@ End Property
 ' Label text for m_lbl2
 Public Property Let Label4Text(ByVal sValue As String)
     Me.m_lbl4.caption = sValue
+End Property
+
+' Label text for m_lbl2
+Public Property Let Label5Text(ByVal sValue As String)
+    Me.m_lbl5.caption = sValue
+End Property
+
+' Label text for m_lbl2
+Public Property Let Label6Text(ByVal sValue As String)
+    Me.m_lbl6.caption = sValue
 End Property
 
 Public Property Get Field1Visible() As Boolean
@@ -228,6 +248,51 @@ Public Property Let Field4Visible(value As Boolean)
     Me.m_lbl4.Visible = value
 End Property
 
+Public Property Get Field5Visible() As Boolean
+    Field5Visible = Me.m_txt5.Visible
+End Property
+
+Public Property Let Field5Visible(value As Boolean)
+
+    Dim delta As Single
+    delta = Me.m_txt5.Height + 6
+
+    If value = False And Me.m_txt5.Visible Then
+        Me.Height = Me.Height - delta
+        Me.m_cmdOK.Top = Me.m_cmdOK.Top - delta
+        Me.m_cmdCancel.Top = Me.m_cmdCancel.Top - delta
+    ElseIf value = True And Not Me.m_txt5.Visible Then
+        Me.Height = Me.Height + delta
+        Me.m_cmdOK.Top = Me.m_cmdOK.Top + delta
+        Me.m_cmdCancel.Top = Me.m_cmdCancel.Top + delta
+    End If
+    
+    Me.m_txt5.Visible = value
+    Me.m_lbl5.Visible = value
+End Property
+
+Public Property Get Field6Visible() As Boolean
+    Field6Visible = Me.m_txt6.Visible
+End Property
+
+Public Property Let Field6Visible(value As Boolean)
+
+    Dim delta As Single
+    delta = Me.m_txt6.Height + 6
+
+    If value = False And Me.m_txt6.Visible Then
+        Me.Height = Me.Height - delta
+        Me.m_cmdOK.Top = Me.m_cmdOK.Top - delta
+        Me.m_cmdCancel.Top = Me.m_cmdCancel.Top - delta
+    ElseIf value = True And Not Me.m_txt6.Visible Then
+        Me.Height = Me.Height + delta
+        Me.m_cmdOK.Top = Me.m_cmdOK.Top + delta
+        Me.m_cmdCancel.Top = Me.m_cmdCancel.Top + delta
+    End If
+    
+    Me.m_txt6.Visible = value
+    Me.m_lbl6.Visible = value
+End Property
 Public Property Get Text1Value() As String
 
     Text1Value = Me.m_txt1.text
@@ -273,6 +338,18 @@ End Property
 Public Property Let Text4Value(ByVal value As String)
 
     Me.m_txt4.text = value
+    
+End Property
+
+Public Property Let Text5Value(ByVal value As String)
+
+    Me.m_txt5.text = value
+    
+End Property
+
+Public Property Let Text6Value(ByVal value As String)
+
+    Me.m_txt6.text = value
     
 End Property
 
@@ -348,6 +425,42 @@ Public Property Let Text4Locked(ByVal value As Boolean)
     
 End Property
 
+Public Property Get Text5Locked() As Boolean
+
+    Text5Locked = Me.m_txt5.Locked
+    
+End Property
+
+Public Property Let Text5Locked(ByVal value As Boolean)
+
+    Me.m_txt5.Locked = value
+
+    If value Then
+        Me.m_txt5.BackColor = &H8000000F
+    Else
+        Me.m_txt5.BackColor = &H80000005
+    End If
+    
+End Property
+
+Public Property Get Text6Locked() As Boolean
+
+    Text6Locked = Me.m_txt6.Locked
+    
+End Property
+
+Public Property Let Text6Locked(ByVal value As Boolean)
+
+    Me.m_txt6.Locked = value
+
+    If value Then
+        Me.m_txt6.BackColor = &H8000000F
+    Else
+        Me.m_txt6.BackColor = &H80000005
+    End If
+    
+End Property
+
 Public Property Get Text1RequiresValue() As Boolean
     Text1RequiresValue = m_txt1RequiresValue
 End Property
@@ -357,7 +470,7 @@ Public Property Let Text1RequiresValue(ByVal value As Boolean)
 End Property
 
 Public Property Get Text2RequiresValue() As Boolean
-    Text2RequiresValue = m_txt1RequiresValue
+    Text2RequiresValue = m_txt2RequiresValue
 End Property
 
 Public Property Let Text2RequiresValue(ByVal value As Boolean)
@@ -365,7 +478,7 @@ Public Property Let Text2RequiresValue(ByVal value As Boolean)
 End Property
 
 Public Property Get Text3RequiresValue() As Boolean
-    Text3RequiresValue = m_txt1RequiresValue
+    Text3RequiresValue = m_txt3RequiresValue
 End Property
 
 Public Property Let Text3RequiresValue(ByVal value As Boolean)
@@ -373,11 +486,27 @@ Public Property Let Text3RequiresValue(ByVal value As Boolean)
 End Property
 
 Public Property Get Text4RequiresValue() As Boolean
-    Text4RequiresValue = m_txt1RequiresValue
+    Text4RequiresValue = m_txt4RequiresValue
 End Property
 
 Public Property Let Text4RequiresValue(ByVal value As Boolean)
      m_txt4RequiresValue = value
+End Property
+
+Public Property Get Text5RequiresValue() As Boolean
+    Text5RequiresValue = m_txt5RequiresValue
+End Property
+
+Public Property Let Text5RequiresValue(ByVal value As Boolean)
+     m_txt5RequiresValue = value
+End Property
+
+Public Property Get Text6RequiresValue() As Boolean
+    Text6RequiresValue = m_txt6RequiresValue
+End Property
+
+Public Property Let Text6RequiresValue(ByVal value As Boolean)
+     m_txt6RequiresValue = value
 End Property
 
 ' -----------------------------------------------------------------------------------
@@ -403,6 +532,8 @@ Private Sub UpdateOKButton()
     If m_txt2RequiresValue And Len(m_txt2.text) = 0 Then canEnable = False
     If m_txt3RequiresValue And Len(m_txt3.text) = 0 Then canEnable = False
     If m_txt4RequiresValue And Len(m_txt4.text) = 0 Then canEnable = False
+    If m_txt5RequiresValue And Len(m_txt5.text) = 0 Then canEnable = False
+    If m_txt6RequiresValue And Len(m_txt6.text) = 0 Then canEnable = False
 
     m_cmdOK.enabled = canEnable
 End Sub
