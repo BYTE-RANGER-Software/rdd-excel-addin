@@ -8,6 +8,8 @@ Attribute VB_Name = "modRanges"
 '   - RangeHasValue            : Checks if any cell equals/contains a given value.
 '   - GetCellNameByPattern     : Returns the Name object of a cell if it has a defined name
 '   - GetTable                 : Returns the ListObject with name and worksheet
+'   - IntersectsNamedCell      : Checks if a range intersects with a named cell
+'   - IntersectsNamedRange     : Checks if a range intersects with a named range
 '
 ' Dependencies:
 '   - modErr : error reporting
@@ -98,20 +100,117 @@ End Function
 ' -----------------------------------------------------------------------------------
 Public Function GetCellNameByPattern( _
     ByVal cell As Range, _
-    ByVal pattern As String) As Name
+    ByVal pattern As String) As name
 
-    Dim cellName As Name
+    Dim cellName As name
     
     If cell Is Nothing Then Exit Function
     If cell.CountLarge <> 1 Then Exit Function
 
     On Error Resume Next
-    If cell.Name.Name Like pattern Then
-        Set cellName = cell.Name
+    If cell.name.name Like pattern Then
+        Set cellName = cell.name
     End If
     On Error GoTo 0
 
     Set GetCellNameByPattern = cellName
+End Function
+
+' -----------------------------------------------------------------------------------
+' Function  : IntersectsNamedCell
+' Purpose   : Checks if a changed range intersects with a named cell
+'
+' Parameters:
+'   targetSheet  [Worksheet] - The worksheet containing the named cell
+'   changedRange [Range]     - The range that was changed
+'   cellName     [String]    - Name of the cell to check
+'
+' Returns   : [Boolean] - True if the ranges intersect
+'
+' Notes     :
+'   - Uses error handling for missing named ranges
+'   - Returns False if named range doesn't exist
+' -----------------------------------------------------------------------------------
+Public Function IntersectsNamedCell( _
+    ByVal targetSheet As Worksheet, _
+    ByVal changedRange As Range, _
+    ByVal cellName As String) As Boolean
+    
+    On Error Resume Next
+    Dim namedCell As Range
+    Set namedCell = targetSheet.Range(cellName)
+    
+    If Err.Number <> 0 Then
+        ' Named range doesn't exist
+        IntersectsNamedCell = False
+        Exit Function
+    End If
+    
+    On Error GoTo 0
+    
+    ' Check intersection
+    IntersectsNamedCell = Not Intersect(changedRange, namedCell) Is Nothing
+    
+End Function
+
+' -----------------------------------------------------------------------------------
+' Function  : IntersectsNamedRange
+' Purpose   : Checks if a changed range intersects with a named range
+'
+' Parameters:
+'   targetSheet  [Worksheet] - The worksheet containing the named range
+'   changedRange [Range]     - The range that was changed
+'   rangeName    [String]    - Name of the range to check
+'
+' Returns   : [Boolean] - True if the ranges intersect
+'
+' Notes     :
+'   - Uses error handling for missing named ranges
+'   - Returns False if named range doesn't exist
+' -----------------------------------------------------------------------------------
+Public Function IntersectsNamedRange( _
+    ByVal targetSheet As Worksheet, _
+    ByVal changedRange As Range, _
+    ByVal rangeName As String) As Boolean
+    
+    On Error Resume Next
+    Dim namedRange As Range
+    Set namedRange = targetSheet.Range(rangeName)
+    
+    If Err.Number <> 0 Then
+        ' Named range doesn't exist
+        IntersectsNamedRange = False
+        Exit Function
+    End If
+    
+    On Error GoTo 0
+    
+    ' Check intersection
+    IntersectsNamedRange = Not Intersect(changedRange, namedRange) Is Nothing
+    
+End Function
+
+' -----------------------------------------------------------------------------------
+' Function  : GetTable
+' Purpose   : Returns the ListObject with the given name from the specified worksheet.
+'
+' Parameters:
+'   ws          [Worksheet] - Worksheet that hosts the table.
+'   tableName   [String]    - Name of the ListObject to return.
+'
+' Returns   : [ListObject] - The matching ListObject; Nothing if not found.
+'
+' Notes     :
+'   - Uses On Error Resume Next to allow a Nothing return when the table
+'     does not exist on the given worksheet.
+' -----------------------------------------------------------------------------------
+Public Function GetTable( _
+    ByVal ws As Worksheet, _
+    ByVal tableName As String) As ListObject
+
+    On Error Resume Next
+    Set GetTable = ws.ListObjects(tableName)
+    On Error GoTo 0
 End Function
 
 ' ===== Private Helpers =============================================================
@@ -166,29 +265,6 @@ Private Function CellMatches( _
                 CellMatches = (InStr(1, CStr(cellValue), CStr(targetValue), cmpMode) > 0)
             End If
     End Select
-End Function
-
-' -----------------------------------------------------------------------------------
-' Function  : GetTable
-' Purpose   : Returns the ListObject with the given name from the specified worksheet.
-'
-' Parameters:
-'   ws          [Worksheet] - Worksheet that hosts the table.
-'   tableName   [String]    - Name of the ListObject to return.
-'
-' Returns   : [ListObject] - The matching ListObject; Nothing if not found.
-'
-' Notes     :
-'   - Uses On Error Resume Next to allow a Nothing return when the table
-'     does not exist on the given worksheet.
-' -----------------------------------------------------------------------------------
-Public Function GetTable( _
-    ByVal ws As Worksheet, _
-    ByVal tableName As String) As ListObject
-
-    On Error Resume Next
-    Set GetTable = ws.ListObjects(tableName)
-    On Error GoTo 0
 End Function
 
 

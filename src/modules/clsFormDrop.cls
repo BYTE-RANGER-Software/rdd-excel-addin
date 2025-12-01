@@ -352,7 +352,7 @@ Public Sub SetListsFromNamedRanges(ByVal catRange As Range, subRanges As Variant
         If r Is Nothing Then
             Err.Raise ERR_OBJ_IS_NOTHING, "clsFormDrop.SetListsFromNamedRanges", "subRanges(" & i & ") is Nothing."
         End If
-        m_subListMap(CStr(i - LBound(subRanges) + 1)) = "'" & r.Worksheet.Name & "'!" & r.Address(False, False)
+        m_subListMap(CStr(i - LBound(subRanges) + 1)) = "'" & r.Worksheet.name & "'!" & r.Address(False, False)
     Next i
     
     m_listMode = FDLM_Ranges
@@ -445,7 +445,7 @@ Public Sub SetListsFromLabelsAndRanges(ByVal catLabels As Variant, ByVal subRang
     For i = LBound(subRanges) To UBound(subRanges)
         Set r = subRanges(i)
         If r Is Nothing Then Err.Raise ERR_OBJ_IS_NOTHING, "clsFormDrop", "subRanges(" & i & ") is Nothing."
-        m_subListMap(CStr(i - LBound(subRanges) + 1)) = "'" & r.Worksheet.Name & "'!" & r.Address(False, False)
+        m_subListMap(CStr(i - LBound(subRanges) + 1)) = "'" & r.Worksheet.name & "'!" & r.Address(False, False)
     Next i
 
     ' Range-based list mode
@@ -655,7 +655,7 @@ Private Function EnsureArrowShape() As Shape
             m_arrowW, m_arrowH)
             
         With shp
-            .Name = m_arrowShapeName
+            .name = m_arrowShapeName
             .Placement = xlMove
             .OnAction = "FormDrop_Arrow_OnClick"   ' router macro
             .Visible = m_arrowEnabled
@@ -666,7 +666,7 @@ Private Function EnsureArrowShape() As Shape
             .TextFrame2.TextRange.ParagraphFormat.Alignment = msoAlignCenter
             .TextFrame2.VerticalAnchor = msoAnchorMiddle
             .TextFrame2.TextRange.Font.Size = 8
-            .TextFrame2.TextRange.Font.Name = "Segoe UI Symbol"
+            .TextFrame2.TextRange.Font.name = "Segoe UI Symbol"
             ' --- COLOR of the triangle ---
             .TextFrame2.TextRange.Font.Fill.Visible = msoTrue
             .TextFrame2.TextRange.Font.Fill.Solid
@@ -927,7 +927,7 @@ Private Function EnsureDropDown(ByVal ctrlName As String) As DropDown
         Set dd = m_hostSheet.DropDowns.Add(Left:=tmpRng.Left, Top:=tmpRng.Top, Width:=1, Height:=m_rowHeight)
         dd.Visible = False
         
-        dd.Name = ctrlName
+        dd.name = ctrlName
         dd.Placement = xlMove     ' move with cells (no auto-resize)
         dd.PrintObject = False
     End If
@@ -969,7 +969,7 @@ Private Sub CleanupControls()
     
     Dim sheet As Worksheet
     On Error Resume Next
-    Set sheet = m_hostWorkbook.Worksheets(m_hostSheet.Name)
+    Set sheet = m_hostWorkbook.Worksheets(m_hostSheet.name)
     On Error GoTo 0
     
     If sheet Is Nothing Then
@@ -1011,7 +1011,7 @@ Private Function CleanSheetArtifacts(ByVal targetSheet As Worksheet, Optional By
 
     ' 1) Form Controls: DropDowns
     For i = targetSheet.DropDowns.Count To 1 Step -1
-        ctrlNm = targetSheet.DropDowns(i).Name
+        ctrlNm = targetSheet.DropDowns(i).name
         If NameHasAllowedPrefix(ctrlNm, prefix) Then
             If ctrlNm Like "*_Cat" Or ctrlNm Like "*_Sub" Then
                 targetSheet.DropDowns(i).Delete
@@ -1022,7 +1022,7 @@ Private Function CleanSheetArtifacts(ByVal targetSheet As Worksheet, Optional By
 
     ' 2) Shapes: our Arrow button (and any leftover shapes with _Arrow)
     For i = targetSheet.Shapes.Count To 1 Step -1
-        ctrlNm = targetSheet.Shapes(i).Name
+        ctrlNm = targetSheet.Shapes(i).name
         If NameHasAllowedPrefix(ctrlNm, prefix) Then
             If ctrlNm Like "*_Arrow" Then
                 targetSheet.Shapes(i).Delete

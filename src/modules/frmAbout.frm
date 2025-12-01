@@ -2,9 +2,9 @@ VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmAbout 
    Caption         =   "About %1"
    ClientHeight    =   3872
-   ClientLeft      =   45
-   ClientTop       =   390
-   ClientWidth     =   5865
+   ClientLeft      =   44
+   ClientTop       =   385
+   ClientWidth     =   5863
    OleObjectBlob   =   "frmAbout.frx":0000
    StartUpPosition =   1  'Fenstermitte
 End
@@ -56,7 +56,7 @@ CleanExit:
     Exit Sub
 ErrHandler:
     modErr.ReportError "UserForm_Initialize", Err.Number, Erl, True, modMain.AppProjectName, , _
-                       "Form=" & Me.Name
+                       "Form=" & Me.name
     Resume CleanExit
 End Sub
 
@@ -70,7 +70,7 @@ CleanExit:
     Exit Sub
 ErrHandler:
     modErr.ReportError "lblLicenseLink_Click", Err.Number, Erl, True, modMain.AppProjectName, , _
-                       "Form=" & Me.Name & ", Control=lblLicenseLink"
+                       "Form=" & Me.name & ", Control=lblLicenseLink"
     Resume CleanExit
 End Sub
 
@@ -84,7 +84,7 @@ CleanExit:
     Exit Sub
 ErrHandler:
     modErr.ReportError "lblWebsiteLink_Click", Err.Number, Erl, True, modMain.AppProjectName, , _
-                       "Form=" & Me.Name & ", Control=lblWebsiteLink"
+                       "Form=" & Me.name & ", Control=lblWebsiteLink"
     Resume CleanExit
 End Sub
 

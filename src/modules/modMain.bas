@@ -65,6 +65,21 @@ Attribute VB_Name = "modMain"
 Option Explicit
 Option Private Module
 
+
+'Enum for the different cell/range change categories
+Private Enum ChangeCategory
+    CC_None = 0
+    CC_Parallax = 1
+    CC_SceneMetadata = 2        ' Scene ID, Game/BG/UI dimensions
+    CC_ActorData = 3
+    CC_SoundData = 4
+    CC_SpecialFXData = 5
+    CC_TouchableObjectsData = 6
+    CC_PickupableObjectsData = 7
+    CC_MultiStateObjectsData = 8
+    CC_FlagsData = 9
+End Enum
+
 ' ===== Private State =================================================================
 ' Module-level private state and WithEvents references used across procedures.
 
@@ -287,16 +302,36 @@ End Sub
 Public Sub HandleSheetChange(ByVal changedSheet As Worksheet, ByVal targetRng As Range)
     Dim srcBook As Workbook: Set srcBook = changedSheet.Parent
 
-    ' Check whether the TargetRng workbook has a sheet with the Tag SHEET_LISTS
-    If modTags.SheetWithTagExists(srcBook, SHEET_DISPATCHER) Then
-        ' Only set the change flag if a room sheet has been changed.
-        If modTags.HasSheetTag(changedSheet, ROOM_SHEET_ID_TAG_NAME) Then
-            clsState.RoomSheetChanged = True
-            If Not Intersect(targetRng, changedSheet.Range(NAME_CELL_PARALLAX)) Is Nothing Then
-                modRooms.ApplyParallaxRangeCover changedSheet
-            End If
-        End If
-    End If
+    ' Check whether the workbook has a sheet with the Tag SHEET_DISPATCHER
+    If Not modTags.SheetWithTagExists(srcBook, SHEET_DISPATCHER) Then Exit Sub
+    
+    ' Only process room sheets
+    If Not modTags.HasSheetTag(changedSheet, ROOM_SHEET_ID_TAG_NAME) Then Exit Sub
+        
+    ' Set the general change flag
+    clsState.RoomSheetChanged = True
+    
+    ' Determine what type of change occurred
+    Dim changeType As ChangeCategory
+    changeType = DetermineChangeCategory(changedSheet, targetRng)
+
+    ' Handle the change based on its category
+    Select Case changeType
+        Case CC_Parallax
+            modRooms.ApplyParallaxRangeCover changedSheet
+            
+        Case CC_SceneMetadata
+            ' When changes are made to scene metadata (scene ID, dimensions)
+            
+        Case CC_ActorData, CC_SoundData, CC_SpecialFXData, _
+             CC_TouchableObjectsData, CC_PickupableObjectsData, _
+             CC_MultiStateObjectsData, CC_FlagsData
+            'When changes are made to table data
+            
+        Case CC_None
+            ' Other changes, no specific action required
+            
+    End Select
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -524,31 +559,79 @@ Public Function AddNewRoom(Optional ByVal shouldGoToNewRoom As Boolean = True) A
     Dim newSheet As Worksheet
     Dim roomIndex As Long
     Dim roomID As String
+    Dim roomNo As Long
     Dim roomName As String
+    Dim sceneID As String
     
     Dim newItemForm As frmObjectEdit: Set newItemForm = New frmObjectEdit
             
     Application.StatusBar = False
     
     With newItemForm
-        .Field1Visible = True
-        .Field2Visible = True
-        .FormCaption = "New Room Sheet"
-        .Label1Text = "Room Name"
-        .Label2Text = "Room ID"
         roomIndex = modRooms.GetNextRoomIndex(currentWorkbook)
         roomID = modRooms.GetFormattedRoomID(roomIndex)
-        .Text1Value = roomID
-        .Text2Value = roomID
-        .Text1RequiresValue = True
-                
-        .Show vbModal
-        If .Cancelled Then
-            Unload newItemForm: Set newItemForm = Nothing
-            Exit Function
-        End If
         
-        roomName = Trim$(.Text1Value)
+        .FormCaption = "New Room Sheet"
+        .Field4Visible = True
+        .Field5Visible = False
+        
+        ' Field 1: Scene ID/Name
+        .Label1Text = "Scene ID/Name"
+        .Text1Locked = False
+        .Text1NumericOnly = False
+        .Text1Value = vbNullString
+        .Text1Tip = "Scene identifier or name for this room (optional), e.g., Temple"
+        .Text1RequiresValue = False
+        
+        ' Field 2: Room Name
+        .Label2Text = "Room Name"
+        .Text2Locked = False
+        .Text2NumericOnly = False
+        .Text2Value = modConst.ROOM_SHEET_DEFAULT_PREFIX & " " & CStr(roomIndex)
+        .Text2Tip = "Descriptive alias for the room, e.g., Temple Entrance"
+        .Text2RequiresValue = True
+                
+        ' Field 3: Room No
+        .Label3Text = "Room No"
+        .Text3Locked = False
+        .Text3NumericOnly = True
+        .Text3Value = CStr(roomIndex)
+        .Text3Tip = "AGS room number e.g., 1 or 20"
+        .Text3RequiresValue = True
+                
+        ' Field 4: Room ID (locked)
+        .Label4Text = "Room ID"
+        .Text4Locked = True
+        .Text4NumericOnly = False
+        .Text4Value = roomID
+        .Text4Tip = "This is the short unique ID for the room"
+        .Text4RequiresValue = False
+                        
+        Do
+            .Show vbModal
+            If .Cancelled Then
+                Unload newItemForm: Set newItemForm = Nothing
+                Exit Function
+            End If
+        
+            sceneID = Trim$(.Text1Value)
+            roomName = Trim$(.Text2Value)
+            roomNo = CLng(Trim$(.Text3Value))
+            
+            If modRooms.IsValidAGSRoomNo(roomNo) Then
+                If modRooms.HasRoomNo(currentWorkbook, roomNo) Then
+                    MsgBox "Room No '" & CStr(roomNo) & "' already exists !" & vbCrLf & _
+                        "Please choose a different room no.", _
+                        vbExclamation, AppProjectName
+                Else 'New room No is unique
+                    Exit Do
+                End If
+            Else
+                MsgBox "Room No '" & CStr(roomNo) & "' is not a valid AGS room no !" & vbCrLf & _
+                    "Please choose a different room no.", _
+                    vbExclamation, AppProjectName
+            End If
+        Loop
         
     End With
     
@@ -558,7 +641,7 @@ Public Function AddNewRoom(Optional ByVal shouldGoToNewRoom As Boolean = True) A
     
     EnsureWorkbookIsTagged currentWorkbook
      
-    Set newSheet = modRooms.AddRoom(currentWorkbook, roomName, roomIndex)
+    Set newSheet = modRooms.AddRoom(currentWorkbook, roomName, roomIndex, roomNo, sceneID)
     If Not newSheet Is Nothing Then
         modUtil.HideOpMode True
         modRooms.ApplyParallaxRangeCover newSheet
@@ -633,7 +716,7 @@ Public Sub RemoveCurrentRoom()
     End If
     
     ' Confirm with the user
-    If MsgBox("Are you sure you want to delete the sheet '" & roomSheet.Name & "'?" & vbCrLf & _
+    If MsgBox("Are you sure you want to delete the sheet '" & roomSheet.name & "'?" & vbCrLf & _
         "This action cannot be undone.", vbYesNo + vbExclamation, "Confirm Sheet Deletion") <> vbYes Then
         Application.StatusBar = "Deletion cancelled."
         Exit Sub
@@ -694,14 +777,19 @@ Public Sub EditRoomIdentity()
     On Error GoTo ErrHandler
     
     Dim targetSheet As Worksheet
+    Dim targetBook As Workbook
     Dim currentRoomID As String
     Dim currentRoomAlias As String
+    Dim currentRoomNo As Long
     Dim newRoomID As String
     Dim newRoomAlias As String
+    Dim newRoomNo As Long
     Dim oldRoomIDCell As Range
     Dim oldRoomAliasCell As Range
+    Dim oldRoomNoCell As Range
     
     Set targetSheet = ActiveSheet
+    Set targetBook = targetSheet.Parent
     
     If Not modRooms.IsRoomSheet(targetSheet, currentRoomID) Then
         MsgBox "The active sheet is not a Room sheet.", vbExclamation, AppProjectName
@@ -711,6 +799,7 @@ Public Sub EditRoomIdentity()
     On Error Resume Next
     Set oldRoomIDCell = targetSheet.Range(NAME_CELL_ROOM_ID)
     Set oldRoomAliasCell = targetSheet.Range(NAME_CELL_ROOM_ALIAS)
+    Set oldRoomNoCell = targetSheet.Range(NAME_CELL_ROOM_NO)
     On Error GoTo ErrHandler
     
     If oldRoomIDCell Is Nothing Then
@@ -725,30 +814,54 @@ Public Sub EditRoomIdentity()
         Exit Sub
     End If
     
+    If oldRoomNoCell Is Nothing Then
+        MsgBox "Named range '" & NAME_CELL_ROOM_NO & "' not found on this sheet.", _
+            vbExclamation, AppProjectName
+        Exit Sub
+    End If
+    
     currentRoomID = oldRoomIDCell.value
     currentRoomAlias = oldRoomAliasCell.value
+    currentRoomNo = CLng(oldRoomNoCell.value)
     
     Dim frmEdit As frmObjectEdit: Set frmEdit = New frmObjectEdit
     
     With frmEdit
-        .Field1Visible = True
-        .Field2Visible = True
-        .Field3Visible = True
-        .Field4Visible = False
+        .FormCaption = "Edit Room Identity"
+        .Field6Visible = True
         
         .Label1Text = "Current Room ID:"
         .Text1Locked = True
         .Text1Value = currentRoomID
+        .Text1RequiresValue = False
         
         .Label2Text = "New Room ID:"
+        .Text2Prefix = modConst.ROOM_SHEET_ID_PREFIX
         .Text2Locked = False
         .Text2Value = currentRoomID
         .Text2RequiresValue = True
         
-        .Label3Text = "Room Alias:"
-        .Text3Locked = False
-        .Text3Value = currentRoomAlias
-        .Text3RequiresValue = True
+        .Label3Text = "Current Room No:"
+        .Text3Locked = True
+        .Text3Value = currentRoomNo
+        .Text3RequiresValue = False
+        
+        .Label4Text = "New Room No:"
+        .Text4Locked = False
+        .Text4Value = currentRoomNo
+        .Text4RequiresValue = True
+        .Text4NumericOnly = True
+        
+        .Label5Text = "Current Room Alias:"
+        .Text5Locked = True
+        .Text5Value = currentRoomAlias
+        .Text5RequiresValue = False
+        
+        .Label6Text = "New Room Alias:"
+        .Text6Prefix = modConst.ROOM_SHEET_ALIAS_PREFIX
+        .Text6Locked = False
+        .Text6Value = currentRoomAlias
+        .Text6RequiresValue = True
     
         Do
             .Show vbModal
@@ -757,17 +870,19 @@ Public Sub EditRoomIdentity()
                 Unload frmEdit: Set frmEdit = Nothing
                 Exit Sub
             End If
+            
             newRoomID = Trim$(.Text2Value)
-            newRoomAlias = Trim$(.Text3Value)
+            newRoomNo = CLng(.Text4Value)
+            newRoomAlias = Trim$(.Text6Value)
             
             'No changes were made.
-            If newRoomID = currentRoomID And newRoomAlias = currentRoomAlias Then
+            If newRoomID = currentRoomID And newRoomAlias = currentRoomAlias And newRoomNo = currentRoomNo Then
                 Unload frmEdit: Set frmEdit = Nothing
                 Exit Sub
             End If
             
             If newRoomID <> currentRoomID Then
-                If modRooms.HasRoomID(targetSheet.Parent, newRoomID) Then
+                If modRooms.HasRoomID(targetBook, newRoomID) Then
                     MsgBox "Room ID '" & newRoomID & "' already exists !" & vbCrLf & _
                         "Please choose a different Room ID.", _
                         vbExclamation, AppProjectName
@@ -777,7 +892,7 @@ Public Sub EditRoomIdentity()
             End If
             If newRoomAlias <> currentRoomAlias Then
                  
-                If modRooms.HasRoomAlias(targetSheet.Parent, newRoomAlias) Then
+                If modRooms.HasRoomAlias(targetBook, newRoomAlias) Then
                     MsgBox "Room Alias '" & newRoomAlias & "' already exists !" & vbCrLf & _
                         "Please choose a different Room Alias.", _
                         vbExclamation, AppProjectName
@@ -785,6 +900,25 @@ Public Sub EditRoomIdentity()
                     Exit Do
                 End If
             End If
+            
+            If newRoomNo <> currentRoomNo Then
+                If Not modRooms.IsValidAGSRoomNo(newRoomNo) Then
+                    MsgBox "Room No '" & CStr(newRoomNo) & "' is not a valid AGS room no !" & vbCrLf & _
+                        "Please choose a different room no.", _
+                        vbExclamation, AppProjectName
+                Else
+                
+                    If modRooms.HasRoomNo(targetBook, newRoomNo) Then
+                        MsgBox "Room No '" & CStr(newRoomNo) & "' already exists !" & vbCrLf & _
+                            "Please choose a different room no.", _
+                            vbExclamation, AppProjectName
+                    Else
+                        Exit Do
+                    End If
+                    
+                End If
+            End If
+            
         Loop
            
     End With
@@ -808,10 +942,12 @@ Public Sub EditRoomIdentity()
     modUtil.HideOpMode False
     
     frmWait.Hide
-    
+
     MsgBox "Room Identity updated successfully." & vbCrLf & vbCrLf & _
         "Old Room ID: " & currentRoomID & vbCrLf & _
         "New Room ID: " & newRoomID & vbCrLf & vbCrLf & _
+        "Old Room No: " & currentRoomNo & vbCrLf & _
+        "New Room No: " & newRoomNo & vbCrLf & vbCrLf & _
         "Old Room Alias: " & currentRoomAlias & vbCrLf & _
         "New Room Alias: " & newRoomAlias, _
         vbInformation, AppProjectName
@@ -888,3 +1024,109 @@ Private Sub SetAppProjectName()
     m_appProjectName = Err.Source
     On Error GoTo 0
 End Sub
+
+
+' -----------------------------------------------------------------------------------
+' Function  : DetermineChangeCategory (Private Helper)
+' Purpose   : Determines which category of monitored range was changed
+'
+' Parameters:
+'   targetSheet  [Worksheet] - The worksheet containing the ranges
+'   changedRange [Range]     - The range that was changed
+'
+' Returns   : [ChangeCategory] - Category of the changed range
+'
+' Notes     :
+'   - Performance-optimized with early exits
+'   - Checks single cells first (faster), then ranges
+'   - Uses helper function for range intersection checks
+' -----------------------------------------------------------------------------------
+Private Function DetermineChangeCategory( _
+    ByVal targetSheet As Worksheet, _
+    ByVal changedRange As Range) As ChangeCategory
+    
+    On Error GoTo ErrorHandler
+    
+    ' === PERFORMANCE OPTIMIZATION: Check single cells first ===
+    ' Single cell changes are most common and fastest to check
+    
+    ' Check Parallax cell (existing functionality)
+    If modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_PARALLAX) Then
+        DetermineChangeCategory = CC_Parallax
+        Exit Function
+    End If
+    
+    ' Check Scene Metadata cells
+    If modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_SCENE_ID) Or _
+       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_GAME_HEIGHT) Or _
+       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_GAME_WIDTH) Or _
+       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_BG_HEIGHT) Or _
+       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_BG_WIDTH) Or _
+       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_UI_HEIGHT) Then
+        DetermineChangeCategory = CC_SceneMetadata
+        Exit Function
+    End If
+    
+    ' === Check Table Ranges ===
+    ' Only check if we haven't found a single cell match
+    ' Group checks by category for better code organization
+    
+    ' Actors
+    If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_ACTORS_ACTOR_NAME) Then
+        DetermineChangeCategory = CC_ActorData
+        Exit Function
+    End If
+    
+    ' Sounds
+    If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_SOUNDS_DESCRIPTION) Or _
+       modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_SOUNDS_SOUND_ID) Then
+        DetermineChangeCategory = CC_SoundData
+        Exit Function
+    End If
+    
+    ' Special FX
+    If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_SPECIAL_FX_DESCRIPTION) Or _
+       modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_SPECIAL_FX_ANIMATION_ID) Then
+        DetermineChangeCategory = CC_SpecialFXData
+        Exit Function
+    End If
+    
+    ' Touchable Objects
+    If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_NAME) Or _
+       modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID) Then
+        DetermineChangeCategory = CC_TouchableObjectsData
+        Exit Function
+    End If
+    
+    ' Pickupable Objects
+    If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_PICKUPABLE_OBJECTS_ITEM_ID) Or _
+       modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_PICKUPABLE_OBJECTS_NAME) Then
+        DetermineChangeCategory = CC_PickupableObjectsData
+        Exit Function
+    End If
+    
+    ' Multi-State Objects
+    If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_MULTI_STATE_OBJECTS_OBJECT_NAME) Or _
+       modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_MULTI_STATE_OBJECTS_STATE_ID) Or _
+       modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_MULTI_STATE_OBJECTS_STATE) Then
+        DetermineChangeCategory = CC_MultiStateObjectsData
+        Exit Function
+    End If
+    
+    ' Flags
+    If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_FLAGS_FLAG_ID) Or _
+       modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_FLAGS_DESCRIPTION) Or _
+       modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_FLAGS_BOOL_TYPE) Then
+        DetermineChangeCategory = CC_FlagsData
+        Exit Function
+    End If
+    
+    ' Default: no specific category
+    DetermineChangeCategory = CC_None
+    Exit Function
+    
+ErrorHandler:
+    ' Bei Fehler: keine spezielle Kategorie zurückgeben
+    DetermineChangeCategory = CC_None
+End Function
+

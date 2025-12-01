@@ -91,7 +91,7 @@ Public Sub InsertPicture_Button()
 
     ' Name, place, and scale while keeping aspect ratio
     With pic
-        .Name = PICTURE_NAME
+        .name = PICTURE_NAME
         .Placement = xlMoveAndSize
         ' First set position near target to avoid jumps during scaling
         .Left = rng.Left

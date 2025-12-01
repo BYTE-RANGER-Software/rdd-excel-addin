@@ -37,8 +37,10 @@ Public Const SHEET_ROOM_TEMPLATE As String = "Room_Template"
 Public Const SHEET_DISPATCHER As String = "Dispatcher" ' contains data for the drop-down lists and macro code for automation
 
 ' Named Cells
-Public Const NAME_CELL_BGHEIGHT As String = "Cell_BGHeight"
-Public Const NAME_CELL_BGWIDTH As String = "Cell_BGWidth"
+Public Const NAME_CELL_GAME_HEIGHT As String = "Cell_GameHeight"
+Public Const NAME_CELL_GAME_WIDTH As String = "Cell_GameWidth"
+Public Const NAME_CELL_BG_HEIGHT As String = "Cell_BGHeight"
+Public Const NAME_CELL_BG_WIDTH As String = "Cell_BGWidth"
 Public Const NAME_CELL_PARALLAX As String = "Cell_Parallax"
 Public Const NAME_CELL_PERSPECTIVE As String = "Cell_Perspective"
 Public Const NAME_CELL_ROOM_ALIAS As String = "Cell_RoomAlias"
@@ -46,7 +48,7 @@ Public Const NAME_CELL_ROOM_ID As String = "Cell_RoomID"
 Public Const NAME_CELL_ROOM_NO As String = "Cell_RoomNo"
 Public Const NAME_CELL_SCENE_ID As String = "Cell_SceneID"
 Public Const NAME_CELL_SCENE_MODE As String = "Cell_SceneMode"
-Public Const NAME_CELL_UIHEIGHT As String = "Cell_UIHeight"
+Public Const NAME_CELL_UI_HEIGHT As String = "Cell_UIHeight"
 Public Const NAME_CELL_VIEWPORT_H As String = "Cell_ViewportH"
 Public Const NAME_CELL_VIEWPORT_W As String = "Cell_ViewportW"
 
@@ -108,9 +110,10 @@ Public Const NAME_RANGE_WHAT_HAPPENS_HERE As String = "Range_WhatHappensHere"
 Public Const NAME_DATA_TABLE As String = "DropDownLists"
 
 ' Room Sheet related Constants
-Public Const ROOM_SHEET_PREFIX As String = "Room"
+Public Const ROOM_SHEET_DEFAULT_PREFIX As String = "Room"
+Public Const ROOM_SHEET_ALIAS_PREFIX As String = "r_"
+Public Const ROOM_SHEET_ID_PREFIX As String = "R"
 Public Const ROOM_SHEET_ID_TAG_NAME As String = "RoomID"
-Public Const ROOM_SHEET_ID_TAG_VAL_PRE As String = "R"
 
 Public Const ROOM_HDR_NM_ADD_PARALLAX_SET As String = "ADDITIONAL PARALLAX SETTINGS"
 Public Const ROOM_ADD_PARALLAX_SET_HIDE_TOKEN As String = "None"

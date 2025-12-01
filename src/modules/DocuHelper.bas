@@ -2,7 +2,7 @@ Attribute VB_Name = "DocuHelper"
 Option Explicit
 
 Sub ExportNamedRangesToCSV()
-    Dim nm As Name
+    Dim nm As name
     Dim wsTemp As Worksheet
     Dim i As Long
     Dim strPath As String
@@ -10,7 +10,7 @@ Sub ExportNamedRangesToCSV()
 
     ' Temporäres Arbeitsblatt erstellen
     Set wsTemp = ThisWorkbook.Worksheets.Add
-    wsTemp.Name = "NamedRangesExport"
+    wsTemp.name = "NamedRangesExport"
 
     ' Überschriften
     wsTemp.Cells(1, 1).value = "Name"
@@ -19,7 +19,7 @@ Sub ExportNamedRangesToCSV()
 
     i = 2
     For Each nm In ThisWorkbook.Names
-        wsTemp.Cells(i, 1).value = nm.Name
+        wsTemp.Cells(i, 1).value = nm.name
         wsTemp.Cells(i, 2).value = "'" & nm.RefersTo
         On Error Resume Next
         wsTemp.Cells(i, 3).value = nm.RefersToRange.value

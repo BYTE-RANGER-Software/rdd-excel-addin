@@ -18,6 +18,8 @@ Attribute VB_Name = "modLists"
 Option Explicit
 Option Private Module
 
+Public Const DICT_VALUE_SEPERATOR  As String = "|"
+
 ' ===== Public API ===================================================================
 
 ' -----------------------------------------------------------------------------------
@@ -112,13 +114,13 @@ End Function
 '   value1ColumnName [String]                - (Optional) Name of the column for dictionary value 1.
 '                                              If omitted, only keys are stored (with empty string values).
 '   value2ColumnName [String]                - (Optional) Name of the column for dictionary value 2.
-'                                              If provided, values are concatenated with "|" delimiter.
+'                                              If provided, values are concatenated with DICT_VALUE_SEPERATOR delimiter.
 '
 ' Behavior:
 '   - Reads values from table columns as arrays (high performance).
 '   - Ignores rows where the key is empty.
 '   - If key already exists, updates the value.
-'   - If value2ColumnName is provided, concatenates value1 and value2 with "|" delimiter.
+'   - If value2ColumnName is provided, concatenates value1 and value2 with DICT_VALUE_SEPERATOR delimiter.
 '   - If only value2ColumnName is provided (value1 empty), uses value2 as the sole value.
 '
 ' Notes:
@@ -222,7 +224,7 @@ Public Sub CollectTableColumnsToDictionary(ByVal sourceTable As ListObject, _
             
             If hasValue2 Then
                 If Len(value) > 0 Then
-                    value = value & "|" & CStr(arrValue2(i, 1))
+                    value = value & DICT_VALUE_SEPERATOR & CStr(arrValue2(i, 1))
                 Else
                     value = CStr(arrValue2(i, 1))
                 End If
@@ -475,9 +477,9 @@ End Sub
 '   - Keys are sorted alphabetically before writing
 '   - If value1ColumnName is provided, writes key-value pairs to key and value1 columns
 '   - If value2ColumnName is provided without value1ColumnName, value2ColumnName is used as value1ColumnName
-'   - If dictionary values contain "|" delimiter and both value columns are specified,
+'   - If dictionary values contain DICT_VALUE_SEPERATOR delimiter and both value columns are specified,
 '     the value is split and written to both value1 and value2 columns
-'   - Dictionary values without "|" delimiter are written entirely to value1Column
+'   - Dictionary values without DICT_VALUE_SEPERATOR delimiter are written entirely to value1Column
 ' -----------------------------------------------------------------------------------
 Public Sub WriteDictionaryToTableColumns(ByVal targetTable As ListObject, _
                                      ByVal keyColumnName As String, _
@@ -503,7 +505,7 @@ Public Sub WriteDictionaryToTableColumns(ByVal targetTable As ListObject, _
         value2ColumnName = ""
     End If
     
-    writeValues = (Len(value1ColumnName) > 0) + (Len(value2ColumnName) > 0)
+    writeValues = Abs(Len(value1ColumnName) > 0) + (Len(value2ColumnName) > 0)
     hasTwoColumns = (writeValues = 2)
     
     ' Copy keys to array and sort
@@ -545,8 +547,8 @@ Public Sub WriteDictionaryToTableColumns(ByVal targetTable As ListObject, _
         If writeValues > 0 Then
             currentValue = valuesDict(sortedKeys(index))
             
-            If hasTwoColumns And InStr(currentValue, "|") > 0 Then
-                splitValues = Split(currentValue, "|", 2, vbTextCompare)
+            If hasTwoColumns And InStr(currentValue, DICT_VALUE_SEPERATOR) > 0 Then
+                splitValues = Split(currentValue, DICT_VALUE_SEPERATOR, 2, vbTextCompare)
                 value1Data(index, 1) = CStr(splitValues(0))
                 value2Data(index, 1) = CStr(splitValues(1))
             Else

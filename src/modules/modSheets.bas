@@ -54,7 +54,7 @@ Public Function EnsureSheet(sheetName As String, Optional targetWorkbook As Work
     On Error GoTo 0
     If EnsureSheet Is Nothing Then
         Set EnsureSheet = targetWorkbook.Worksheets.Add(After:=Sheets(Sheets.Count))
-        EnsureSheet.Name = sheetName
+        EnsureSheet.name = sheetName
     End If
 End Function
 
@@ -114,6 +114,131 @@ Public Function GetSheetByCodeName(sheetCodeName As String, Optional targetWorkb
         End If
     Next foundSheet
     Set GetSheetByCodeName = Nothing
+End Function
+
+' -----------------------------------------------------------------------------------
+' Function  : GetValidUniqueSheetName
+' Purpose   : Converts a string into a valid and unique Excel worksheet name
+'
+' Parameters:
+'   name        - The desired sheet name
+'   targetBook  - (Optional) Workbook to check for uniqueness
+'
+' Returns   : String - A valid and unique Excel sheet name
+'
+' Notes     : If name exists, appends number (e.g., "Room_1", "Room_2", etc.)
+' -----------------------------------------------------------------------------------
+Public Function GetValidUniqueSheetName(ByVal name As String, Optional ByVal targetBook As Workbook = Nothing) As String
+    Dim result As String
+    Dim counter As Long
+    Dim baseName As String
+    Dim sheet As Worksheet
+    Dim nameExists As Boolean
+    
+    ' Get valid base name
+    result = GetValidSheetName(name)
+    baseName = result
+    
+    ' If no workbook specified, just return valid name
+    If targetBook Is Nothing Then
+        GetValidUniqueSheetName = result
+        Exit Function
+    End If
+    
+    ' Check for uniqueness and append number if needed
+    counter = 1
+    Do
+        nameExists = False
+        
+        For Each sheet In targetBook.Worksheets
+            If sheet.name = result Then
+                nameExists = True
+                Exit For
+            End If
+        Next sheet
+        
+        If nameExists Then
+            ' Calculate available space for counter
+            Dim maxBaseLength As Long
+            Dim counterStr As String
+            
+            counterStr = "_" & CStr(counter)
+            maxBaseLength = 31 - Len(counterStr)
+            
+            ' Truncate base name if necessary
+            If Len(baseName) > maxBaseLength Then
+                result = Left(baseName, maxBaseLength) & counterStr
+            Else
+                result = baseName & counterStr
+            End If
+            
+            counter = counter + 1
+        End If
+    Loop While nameExists
+    
+    GetValidUniqueSheetName = result
+End Function
+
+' -----------------------------------------------------------------------------------
+' Function  : GetValidSheetName
+' Purpose   : Converts a string into a valid Excel worksheet name
+'
+' Parameters: name - The desired sheet name
+'
+' Returns   : String - A valid Excel sheet name (max 31 chars, no invalid chars)
+'
+' Notes     : Excel sheet name rules:
+'             - Maximum 31 characters
+'             - Cannot contain: \ / ? * [ ] :
+'             - Cannot be empty
+'             - Cannot start or end with apostrophe (')
+'             - Invalid characters are replaced with underscore (_)
+'             - If result is empty, returns a default name
+' -----------------------------------------------------------------------------------
+Public Function GetValidSheetName(ByVal name As String) As String
+    Dim result As String
+    Dim i As Long
+    Dim char As String
+    Dim invalidChars As String
+    
+    ' Define invalid characters for Excel sheet names
+    invalidChars = "\/?*[]:"
+    
+    ' Trim whitespace
+    result = Trim(name)
+    
+    ' Return default if empty
+    If Len(result) = 0 Then
+        GetValidSheetName = ROOM_SHEET_DEFAULT_PREFIX & "1"
+        Exit Function
+    End If
+    
+    ' Replace invalid characters with underscore
+    For i = 1 To Len(invalidChars)
+        char = Mid(invalidChars, i, 1)
+        result = Replace(result, char, "_")
+    Next i
+    
+    ' Remove leading/trailing apostrophes
+    Do While Left(result, 1) = "'"
+        result = Mid(result, 2)
+    Loop
+    
+    Do While Right(result, 1) = "'"
+        result = Left(result, Len(result) - 1)
+    Loop
+    
+    ' Truncate to 31 characters
+    If Len(result) > 31 Then
+        result = Left(result, 31)
+    End If
+    
+    ' Final check: if empty after cleaning, use default
+    If Len(Trim(result)) = 0 Then
+        result = ROOM_SHEET_DEFAULT_PREFIX & "1"
+    End If
+    
+    GetValidSheetName = result
 End Function
 
 ' -----------------------------------------------------------------------------------

@@ -153,7 +153,7 @@ End Sub
 '             (CCM_Default, CCM_Rooms, ...).
 '
 ' Behavior  :
-'   - If the sheet name starts with ROOM_SHEET_PREFIX and the cell intersects with
+'   - If the sheet is a Room sheet and the cell intersects with
 '     a named range (NAME_RANGE_...),
 '     maps to the respective menu type.
 '   - For Default: ensures cache exists and matches the live menu, then shows all cached items.

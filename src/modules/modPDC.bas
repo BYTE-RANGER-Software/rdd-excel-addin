@@ -55,7 +55,7 @@ Public Sub GeneratePuzzleChart()
     On Error GoTo ErrHandler
 
     Set chartSheet = ActiveWorkbook.Sheets.Add
-    chartSheet.Name = "Chart"
+    chartSheet.name = "Chart"
 
     Set nodesDict = New Scripting.Dictionary
 
@@ -70,7 +70,7 @@ Public Sub GeneratePuzzleChart()
 
         Set nodeShape = chartSheet.Shapes.AddShape(msoShapeRoundedRectangle, posX, posY, 120, 40)
         nodeShape.TextFrame.Characters.text = nodeName
-        nodeShape.Name = nodeId
+        nodeShape.name = nodeId
         nodeShape.Fill.ForeColor.RGB = GetColorByType(nodeType)
 
         nodesDict.Add nodeId, nodeShape
@@ -226,8 +226,8 @@ Public Sub SyncPuzzleChart()
     For Each targetShape In chartSheet.Shapes
         If Not targetShape.Connector Then
             On Error Resume Next
-            If Not nodesDict.Exists(targetShape.Name) Then
-                nodesDict.Add targetShape.Name, targetShape
+            If Not nodesDict.Exists(targetShape.name) Then
+                nodesDict.Add targetShape.name, targetShape
             End If
             On Error GoTo ErrHandler
         End If
@@ -250,7 +250,7 @@ Public Sub SyncPuzzleChart()
         Else
             ' Create new shape
             Set targetShape = chartSheet.Shapes.AddShape(msoShapeRoundedRectangle, posX, posY, 120, 40)
-            targetShape.Name = nodeId
+            targetShape.name = nodeId
             targetShape.TextFrame.Characters.text = nodeName
             targetShape.Fill.ForeColor.RGB = GetColorByType(nodeType)
             targetShape.TextFrame.HorizontalAlignment = xlHAlignCenter
@@ -329,7 +329,7 @@ Public Sub BuildPdcData()
     rowOut = 2
 
     For Each ws In ThisWorkbook.Worksheets
-        If Left$(ws.Name, 4) = "Room" Then
+        If Left$(ws.name, 4) = "Room" Then
             Dim headerCell As Range: Set headerCell = LocatePuzzleTable(ws) ' finds header row by signature
             If Not headerCell Is Nothing Then
                 Dim lastRow As Long: lastRow = ws.Cells(ws.Rows.Count, headerCell.column).End(xlUp).Row
@@ -400,7 +400,7 @@ Public Sub ValidateModel()
     ' Gather IDs
     Dim wsSrc As Worksheet
     For Each ws In ThisWorkbook.Worksheets
-        If Left$(ws.Name, 4) = "Room" Then
+        If Left$(ws.name, 4) = "Room" Then
             Dim headerCell As Range: Set headerCell = LocatePuzzleTable(ws)
             If Not headerCell Is Nothing Then
                 Dim rowIndex As Long, lastRow As Long

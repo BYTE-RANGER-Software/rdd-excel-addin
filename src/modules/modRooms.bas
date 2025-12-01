@@ -8,7 +8,7 @@ Attribute VB_Name = "modRooms"
 '   - IsRoomSheet             : Check whether a sheet is a room sheet (by tag).
 '   - RemoveRoom              : Delete a room sheet after reference checks.
 '   - GetNextRoomIndex        : Compute next numeric room index.
-'   - HasRoomID            : Determine whether a room with specific ID exists.
+'   - HasRoomID               : Determine whether a room with specific ID exists.
 '   - UpdateLists             : Append/merge room/object/scene items into Lists table.
 '   - SyncLists               : Rebuild Lists columns (clear + write).
 '   - GetFormattedRoomID      : Build a formatted room ID from an index.
@@ -37,8 +37,10 @@ End Enum
 '
 ' Parameters:
 '   targetBook            [Workbook] - Target workbook.
-'   newName               [String]   - Name for the new Room sheet (already computed).
+'   roomName              [String]   - Name for the new Room sheet.
 '   roomIdx               [Long]     - Numeric index used for the Room ID formatting.
+'   roomNo                [Long]     - AGS room number
+'   sceneID               [String]   - Scene identifier/name (optional, can be empty)
 '   updateAggregations    [Boolean]  - Optional. If True, UpdateLists is called after creation.
 '
 ' Returns   : [Worksheet] - The newly created Room worksheet.
@@ -47,8 +49,15 @@ End Enum
 '   - Ensures dispatcher and lists sheets by copying them from RDDAddInWkBk if missing.
 '   - Creates a new sheet from SHEET_ROOM_TEMPLATE and tags it with ROOM_SHEET_ID_TAG_NAME.
 '   - Calls SetupRoom to wire controls/values; toggles HideOpMode during operations.
+'   - Scene ID can be shared across multiple rooms (no uniqueness validation)
 ' -----------------------------------------------------------------------------------
-Public Function AddRoom(ByVal targetBook As Workbook, ByRef newName As String, ByRef roomIdx As Long, Optional ByVal updateAggregations As Boolean = True) As Worksheet
+Public Function AddRoom(targetBook As Workbook, _
+                        roomName As String, _
+                        roomIdx As Long, _
+                        roomNo As Long, _
+                        Optional sceneID As String = "", _
+                        Optional ByVal updateAggregations As Boolean = True) As Worksheet
+                        
     On Error GoTo ErrHandler
 
     Dim tmplSheet As Worksheet
@@ -62,10 +71,10 @@ Public Function AddRoom(ByVal targetBook As Workbook, ByRef newName As String, B
         tmplSheet.Visible = xlSheetVisible
         
         tmplSheet.Copy After:=targetBook.Sheets(targetBook.Sheets.Count)
-        Set newRoomSheet = ActiveSheet 'targetBook.Sheets(targetBook.Sheets.Count)
+        Set newRoomSheet = ActiveSheet
         
         newRoomSheet.Visible = xlSheetHidden
-        newRoomSheet.Name = SHEET_DISPATCHER
+        newRoomSheet.name = SHEET_DISPATCHER
         modProps.ClearAllCustomProperties newRoomSheet
         modTags.TagSheet newRoomSheet, SHEET_DISPATCHER
         
@@ -77,14 +86,14 @@ Public Function AddRoom(ByVal targetBook As Workbook, ByRef newName As String, B
     tmplSheet.Visible = xlSheetVisible
     
     tmplSheet.Copy After:=targetBook.Sheets(targetBook.Sheets.Count)
-    Set newRoomSheet = ActiveSheet ' targetBook.Sheets(targetBook.Sheets.Count)
+    Set newRoomSheet = ActiveSheet
     
-    newRoomSheet.Name = newName
+    newRoomSheet.name = modSheets.GetValidUniqueSheetName(roomName, targetBook)
     
     modProps.ClearAllCustomProperties newRoomSheet
     modTags.TagSheet newRoomSheet, ROOM_SHEET_ID_TAG_NAME, GetFormattedRoomID(roomIdx)
     
-    SetupRoom newRoomSheet, roomIdx
+    SetupRoom newRoomSheet, roomName, roomIdx, roomNo, sceneID
     
     Set AddRoom = newRoomSheet
         
@@ -266,7 +275,7 @@ Public Function GetNextRoomIndex(ByVal targetBook As Workbook) As Long
     
     For Each sheet In targetBook.Worksheets
         If modTags.HasSheetTag(sheet, ROOM_SHEET_ID_TAG_NAME, tagValue) Then
-            numIdx = val(Mid$(CStr(tagValue), Len(ROOM_SHEET_ID_TAG_VAL_PRE) + 1))
+            numIdx = val(Mid$(CStr(tagValue), Len(ROOM_SHEET_ID_PREFIX) + 1))
             If numIdx > maxIdx Then maxIdx = numIdx
         End If
     Next sheet
@@ -302,6 +311,9 @@ Public Function HasRoomID(ByVal targetBook As Workbook, ByVal roomID As String, 
     
     On Error GoTo ErrHandler
     
+    isFound = False
+    Set returnSheet = Nothing
+    
     For Each sheet In targetBook.Worksheets
         If modTags.HasSheetTag(sheet, ROOM_SHEET_ID_TAG_NAME, tagValue) Then
             If StrComp(roomID, tagValue, vbBinaryCompare) = 0 Then
@@ -336,11 +348,13 @@ End Function
 ' -----------------------------------------------------------------------------------
 Public Function HasRoomAlias(ByVal targetBook As Workbook, ByVal roomAlias As String, Optional ByRef returnSheet As Worksheet = Nothing) As Boolean
     Dim sheet As Worksheet
-    Dim tagValue As String
     Dim isFound As Boolean
     Dim cell As Range
     
     On Error GoTo ErrHandler
+    
+    isFound = False
+    Set returnSheet = Nothing
     
     For Each sheet In targetBook.Worksheets
         If modTags.HasSheetTag(sheet, ROOM_SHEET_ID_TAG_NAME) Then
@@ -364,6 +378,58 @@ CleanExit:
 
 ErrHandler:
     modErr.ReportError "HasRoomAlias", Err.Number, Erl, caption:=modMain.AppProjectName
+    Resume CleanExit
+End Function
+
+' -----------------------------------------------------------------------------------
+' Function  : HasRoomAlias
+' Purpose   : Determine whether the workbook contains a Room sheet with the given Alias.
+'
+' Parameters:
+'   targetBook       [Workbook]              - Workbook to scan.
+'   roomNo           [Long]                  - Room No to search for (e.g., 100).
+'   returnSheet      [Worksheet]             - (Optional ByRef) Receives the first matching sheet if found.
+'
+' Returns   : Boolean - True if found; otherwise False.
+'
+' Notes     :
+' -----------------------------------------------------------------------------------
+Public Function HasRoomNo(ByVal targetBook As Workbook, ByVal roomNo As Long, Optional ByRef returnSheet As Worksheet = Nothing) As Boolean
+    Dim sheet As Worksheet
+    Dim isFound As Boolean
+    Dim cell As Range
+    Dim cellValue As Variant
+    
+    On Error GoTo ErrHandler
+    
+    isFound = False
+    Set returnSheet = Nothing
+    
+    For Each sheet In targetBook.Worksheets
+        If modTags.HasSheetTag(sheet, ROOM_SHEET_ID_TAG_NAME) Then
+            On Error Resume Next
+            Set cell = sheet.Range(modConst.NAME_CELL_ROOM_NO)
+            On Error GoTo ErrHandler
+            
+            If Not cell Is Nothing Then
+                cellValue = cell.value
+                If IsNumeric(cellValue) Then
+                    If CLng(cellValue) = roomNo Then
+                        Set returnSheet = sheet
+                        isFound = True
+                        GoTo CleanExit
+                    End If
+                End If
+            End If
+        End If
+    Next sheet
+    
+CleanExit:
+    HasRoomNo = isFound
+    Exit Function
+
+ErrHandler:
+    modErr.ReportError "HasRoomNo", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
 End Function
 
@@ -438,12 +504,27 @@ End Sub
 ' Parameters:
 '   roomIdx [Long] - Numeric index.
 '
-' Returns   : String - e.g., R001 (depends on ROOM_SHEET_ID_TAG_VAL_PRE).
+' Returns   : String - e.g., R001 (depends on ROOM_SHEET_ID_PREFIX).
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
 Public Function GetFormattedRoomID(ByVal roomIdx As Long) As String
-    GetFormattedRoomID = ROOM_SHEET_ID_TAG_VAL_PRE & Format(roomIdx, "000")
+    GetFormattedRoomID = ROOM_SHEET_ID_PREFIX & Format(roomIdx, "000")
+End Function
+
+' -----------------------------------------------------------------------------------
+' Function  : IsValidAGSRoomNo
+' Purpose   : Validates whether a given number is a valid AGS room number
+'
+' Parameters: roomNo - The room number to validate
+'
+' Returns   : Boolean - True if valid AGS room number, False otherwise
+'
+' Notes     : AGS room numbers must be in the range 0-999
+'             Adventure Game Studio supports room numbers from 0 to 999
+' -----------------------------------------------------------------------------------
+Public Function IsValidAGSRoomNo(ByVal roomNo As Long) As Boolean
+    IsValidAGSRoomNo = (roomNo >= 0 And roomNo <= 999)
 End Function
 
 ' -----------------------------------------------------------------------------------
@@ -463,47 +544,69 @@ End Sub
 ' ===== Private Helpers =============================================================
 
 ' -----------------------------------------------------------------------------------
-' Function  : SetupRoom
-' Purpose   : Initializes a newly created Room sheet: sets RoomID, removes stale
-'             name links, and wires the "insert room picture" button action.
+' Procedure : SetupRoom
+' Purpose   : Initializes a newly created Room sheet by setting RoomID, RoomAlias,
+'             RoomNo, removing stale template name references, and wiring control
+'             actions (e.g., insert picture button).
 '
 ' Parameters:
-'   targetSheet       [Worksheet]  - Target Room worksheet to initialize.
-'   roomIdx    [Long]       - Numeric index used to format the Room ID cell value.
+'   targetSheet       [Worksheet]  - The newly created Room worksheet to initialize
+'   roomName          [String]     - Human-readable room name (e.g., "Temple Entrance")
+'                                    used to generate the room alias and sheet name
+'   roomIdx           [Long]       - Numeric index used to format the Room ID
+'                                    (e.g., 1 => "R001")
+'   roomNo            [Long]       - AGS room number (0-999)
 '
-' Returns   : none
+' Returns   : (none)
 '
 ' Notes     :
+'   - RoomID format: ROOM_SHEET_ID_PREFIX & roomIdx (e.g., "R001")
+'   - RoomAlias format: ROOM_SHEET_ALIAS_PREFIX & GetCleanRoomAlias(roomName)
+'     (e.g., "Temple Entrance" => "r_TempleEntrance")
+'   - Removes any lingering named range references to the add-in workbook
+'   - Wires the "Insert Room Picture" button to the correct macro
 ' -----------------------------------------------------------------------------------
-Private Sub SetupRoom(targetSheet As Worksheet, ByVal roomIdx As Long)
+Private Sub SetupRoom(targetSheet As Worksheet, roomName As String, roomIdx As Long, roomNo As Long, sceneID As String)
     On Error GoTo ErrHandler
     Dim insertBtnShape As Shape
     Dim dispatcherSheet As Worksheet
     Dim dataRange As Range
+    Dim nm As name
     
-    'Set 'RoomID' named cell on the template
+    targetSheet.Unprotect
+    
+    ' Set Scene ID in Named Range:
+    targetSheet.Range(modConst.NAME_CELL_SCENE_ID).value = sceneID
+    
+    ' Set RoomID named cell (e.g., "R001")
     targetSheet.Range(modConst.NAME_CELL_ROOM_ID).value = GetFormattedRoomID(roomIdx)
-    'Set 'RoomAlias" named Cell on the Template
-    targetSheet.Range(modConst.NAME_CELL_ROOM_ALIAS).value = "r_" & GetCleanRoomAlias(targetSheet.Name)
     
-    ' remove wrong links
-    Dim nm As Name
+    ' Set RoomAlias named cell (e.g., "r_TempleEntrance")
+    targetSheet.Range(modConst.NAME_CELL_ROOM_ALIAS).value = _
+        modConst.ROOM_SHEET_ALIAS_PREFIX & GetCleanRoomAlias(roomName)
+    
+    ' Set RoomNo named cell (e.g., 42)
+    targetSheet.Range(modConst.NAME_CELL_ROOM_NO).value = roomNo
+    
+    ' Remove stale named range references to add-in template workbook
     For Each nm In targetSheet.Parent.Names
-        If InStr(nm.RefersTo, "[" & RDDAddInWkBk.Name & "]") > 0 Then
+        If InStr(nm.RefersTo, "[" & RDDAddInWkBk.name & "]") > 0 Then
             nm.Delete
         End If
-    Next
+    Next nm
     
-    ' update button link
+    ' Wire the "Insert Room Picture" button to the correct macro
     Set dispatcherSheet = modSheets.GetSheetByCodeName(modConst.SHEET_DISPATCHER)
     Set insertBtnShape = targetSheet.Shapes(modConst.BTN_INSERT_ROOM_PICTURE)
     insertBtnShape.OnAction = modConst.MACRO_BTN_INSERT_PICTURE
-        
+         
+CleanExit:
+    targetSheet.Protect
     Exit Sub
     
 ErrHandler:
     modErr.ReportError "modRooms.SetupRoom", Err.Number, Erl, caption:=modMain.AppProjectName
-    
+    Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -557,7 +660,7 @@ Private Function GetAllSheetNamesUsingRoomID(ByVal roomID As String, _
     
     For Each targetSheet In targetBook.Worksheets
         ' Skip the sheet to be deleted/excluded
-        If targetSheet.Name = sheetToExclude.Name Then GoTo NextSheet
+        If targetSheet.name = sheetToExclude.name Then GoTo NextSheet
         
         ' Only check Room sheets
         If Not IsRoomSheet(targetSheet, currentRoomID) Then GoTo NextSheet
@@ -569,7 +672,7 @@ Private Function GetAllSheetNamesUsingRoomID(ByVal roomID As String, _
         
         If Not cell Is Nothing Then
             If modRanges.RangeHasValue(cell, roomID, True, False) Then
-                col.Add targetSheet.Name
+                col.Add targetSheet.name
                 ' Continue checking other sheets for complete list
             End If
         End If
@@ -681,27 +784,31 @@ Private Sub CollectRoomData(ByVal targetBook As Workbook, _
     
     ' Header arrays for lookup
     Dim roomAliasHeaders As Variant
+    Dim roomNoHeader As Variant
     Dim sceneIdHeaders As Variant
     roomAliasHeaders = Array("Room Alias", NAME_CELL_ROOM_ALIAS)
+    roomNoHeader = Array("Room No", NAME_CELL_ROOM_NO)
     sceneIdHeaders = Array("Scene ID", NAME_CELL_SCENE_ID)
     
     ' Go through all room sheets
     Dim targetSheet As Worksheet
     Dim roomID As String
     Dim roomAlias As String
-    Dim sceneId As String
+    Dim roomNo As String
+    Dim sceneID As String
     
     For Each targetSheet In targetBook.Worksheets
         If modRooms.IsRoomSheet(targetSheet, roomID) Then
             If Len(roomID) > 0 Then
                 
-                ' Collect room ID and room alias
+                ' Collect room ID and room no and room alias
+                roomNo = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_NO, roomNoHeader)
                 roomAlias = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_ALIAS, roomAliasHeaders)
-                roomsDict(roomID) = roomAlias
+                roomsDict(roomID) = roomNo & DICT_VALUE_SEPERATOR & roomAlias
                 
                 ' Collect scene IDs
-                sceneId = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_SCENE_ID, sceneIdHeaders)
-                If Len(sceneId) > 0 Then scenesDict(sceneId) = True
+                sceneID = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_SCENE_ID, sceneIdHeaders)
+                If Len(sceneID) > 0 Then scenesDict(sceneID) = True
                 
                 ' Collect object data (only if desired)
                 If collectObjects Then
@@ -763,9 +870,10 @@ Private Sub WriteAppendMode(ByVal dataList As ListObject, _
     ' Always rewrite room/scene columns
     modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_ID
     modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_ALIAS
+    modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_NO
     modLists.ClearTableColumn dataList, LISTS_HEADER_SCENE_ID
     
-    modLists.WriteDictionaryToTableColumns dataList, LISTS_HEADER_ROOM_ID, roomsDict, LISTS_HEADER_ROOM_ALIAS
+    modLists.WriteDictionaryToTableColumns dataList, LISTS_HEADER_ROOM_ID, roomsDict, LISTS_HEADER_ROOM_NO, LISTS_HEADER_ROOM_ALIAS
     modLists.WriteDictionaryToTableColumns dataList, LISTS_HEADER_SCENE_ID, scenesDict
     
     ' Only process object data if desired

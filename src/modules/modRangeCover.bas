@@ -41,6 +41,7 @@ Public Sub EnsureRangeCover( _
     Dim coverShape As Shape
     Set coverShape = TryGetShape(targetSheet, coverName)
     
+    targetSheet.Unprotect
     If coverShape Is Nothing Then
         Set coverShape = targetSheet.Shapes.AddShape( _
             msoShapeRectangle, _
@@ -59,6 +60,7 @@ Public Sub EnsureRangeCover( _
     End If
     
     If bringToFront Then coverShape.ZOrder msoBringToFront
+    targetSheet.Protect
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -238,7 +240,7 @@ Private Sub InitCoverShape( _
     colorRgb = TopLeftDisplayColor(coverRange)
     
     With coverShape
-        .Name = coverName
+        .name = coverName
         .Fill.Visible = msoTrue
         .Fill.Solid
         .Fill.ForeColor.RGB = colorRgb

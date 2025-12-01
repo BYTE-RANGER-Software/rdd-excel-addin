@@ -308,7 +308,7 @@ Public Sub PreFillAnchorCache(ByVal targetSheets As Variant)
         Dim hostSheet As Worksheet
         Set hostSheet = targetSheets(i)
         
-        Dim anchorName As Name
+        Dim anchorName As name
         For Each anchorName In hostSheet.Names
             Dim refCell As Range
             On Error Resume Next
@@ -317,7 +317,7 @@ Public Sub PreFillAnchorCache(ByVal targetSheets As Variant)
             
             If Not refCell Is Nothing Then
                 ' Only process names that match the anchor pattern
-                If anchorName.Name Like FD_ANCHOR_NAME_PATTERN Then
+                If anchorName.name Like FD_ANCHOR_NAME_PATTERN Then
                     Call GetOrCreateAnchorConfig(anchorName)
                 End If
             End If
@@ -428,7 +428,7 @@ End Function
 ' Returns   : [Boolean]      - True if the cell is an anchor cell; otherwise False.
 ' -----------------------------------------------------------------------------------
 Private Function IsAnchorCell(ByVal hostSheet As Worksheet, ByVal cell As Range, Optional ByRef isSlave As Boolean = False) As Boolean
-    Dim nm As Name
+    Dim nm As name
     
     isSlave = False
     
@@ -440,7 +440,7 @@ Private Function IsAnchorCell(ByVal hostSheet As Worksheet, ByVal cell As Range,
     
     IsAnchorCell = True
     
-    If nm.Name Like FD_SLAVE_ANCHOR_NAME_PATTERN Then
+    If nm.name Like FD_SLAVE_ANCHOR_NAME_PATTERN Then
         isSlave = True
     End If
    
@@ -461,8 +461,8 @@ Private Function GetMasterAnchorCell( _
         ByVal hostSheet As Worksheet, _
         ByVal cell As Range) As Range
     
-    Dim nm As Name
-    Dim masterNm As Name
+    Dim nm As name
+    Dim masterNm As name
     Dim fullName As String
     Dim masterName As String
     Dim lastDot As Long
@@ -474,7 +474,7 @@ Private Function GetMasterAnchorCell( _
         Exit Function
     End If
     
-    fullName = nm.Name                     ' e.g. "R001!DD_Anchor_Target.1."
+    fullName = nm.name                     ' e.g. "R001!DD_Anchor_Target.1."
     
     ' Is it a slave anchor (".<index>." at the end)?
     If fullName Like FD_SLAVE_ANCHOR_NAME_PATTERN Then
@@ -496,7 +496,7 @@ Private Function GetMasterAnchorCell( _
     End If
     
     ' If the name did not change, we are already on the master anchor
-    If StrComp(masterName, nm.Name, vbTextCompare) = 0 Then
+    If StrComp(masterName, nm.name, vbTextCompare) = 0 Then
         Set GetMasterAnchorCell = cell
         Exit Function
     End If
@@ -537,7 +537,7 @@ End Function
 '         with optional sheet names (catsheet, subsheet) to specify where
 '         the tables are located (defaults to anchor sheet if not specified)
 ' -----------------------------------------------------------------------------------
-Private Function GetOrCreateAnchorConfig(ByVal anchorName As Name) As Scripting.Dictionary
+Private Function GetOrCreateAnchorConfig(ByVal anchorName As name) As Scripting.Dictionary
     
     On Error GoTo ErrHandler
     
@@ -547,7 +547,7 @@ Private Function GetOrCreateAnchorConfig(ByVal anchorName As Name) As Scripting.
     End If
     
     Dim cacheKey As String
-    cacheKey = anchorName.Name
+    cacheKey = anchorName.name
     
     ' Use cached config when available
     On Error Resume Next
@@ -716,7 +716,7 @@ Private Function ConfigListsFromAnchorMeta( _
     ByVal anchorCell As Range, _
     ByVal formDrop As clsFormDrop) As Boolean
     
-    Dim nm As Name
+    Dim nm As name
     Set nm = modRanges.GetCellNameByPattern(anchorCell, FD_ANCHOR_NAME_PATTERN)
     If nm Is Nothing Then Exit Function
         
