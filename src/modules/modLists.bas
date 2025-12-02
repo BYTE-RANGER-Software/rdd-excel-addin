@@ -7,9 +7,12 @@ Attribute VB_Name = "modLists"
 '          configuration-style data.
 '
 ' Public API:
+'   - AppendMissingDictSetToTableColumns
 '   - GetNamedOrHeaderValue
-'   - CollectTableColumnsToDictionary
-'   - WriteDictionaryToTableColumns
+'   - CollectNamedRangePairsToDict
+'   - CollectNamedRangeValuesToDict
+'   - CollectTableColumnsToDict
+'   - WriteDictToTableColumns
 '   - ClearTableColumn
 '
 ' Notes:
@@ -31,14 +34,14 @@ Public Const DICT_VALUE_SEPERATOR  As String = "|"
 ' Parameters:
 '   sheet          [Worksheet] - The worksheet to search
 '   localName      [String]    - The name of the named range to check first
-'   headerArray    [Variant]   - Array of header names to search for (case-insensitive)
+'   headerArray    [Variant]   - (Optional) Array of header names to search for (case-insensitive)
 '
 ' Returns   : The trimmed string value from the named range or the cell next to
 '             the first matching header found. Returns an empty string if no match.
 '
 ' Behavior  :
 '   - Tries to read from the named range first
-'   - If empty, scans the top 50 rows and 20 columns for a header match
+'   - If empty and headerArray is present, scans the Used Range for a header match
 '   - If a match is found, returns the value in the cell to the right
 '
 ' Notes     :
@@ -46,7 +49,7 @@ Public Const DICT_VALUE_SEPERATOR  As String = "|"
 '   - Assumes headers are in row/column format and values are to the right
 '   - No error raised if named range is missing or header not found
 ' -----------------------------------------------------------------------------------
-Public Function GetNamedOrHeaderValue(ByVal sheet As Worksheet, ByVal localName As String, ByVal headerArray As Variant) As String
+Public Function GetNamedOrHeaderValue(ByVal sheet As Worksheet, ByVal localName As String, Optional ByVal headerArray As Variant) As String
     On Error GoTo ErrHandler
 
     Dim namedValue As Variant
@@ -66,9 +69,13 @@ Public Function GetNamedOrHeaderValue(ByVal sheet As Worksheet, ByVal localName 
         GoTo CleanExit
     End If
 
-    ' Search for headers in A1:T50
-    Set searchRange = sheet.Range(sheet.Cells(1, 1), sheet.Cells(50, 20))
-
+    ' Search for headers in A1:N115
+    Dim lastCell As Range
+    Set lastCell = sheet.Cells.SpecialCells(xlCellTypeLastCell)
+    Set searchRange = sheet.Range(sheet.Cells(1, 1), lastCell)
+    
+    If IsMissing(headerArray) Then GoTo CleanExit
+    
     For headerIndex = LBound(headerArray) To UBound(headerArray)
         Set headerCell = searchRange.Find(What:=headerArray(headerIndex), _
                                           LookIn:=xlValues, _
@@ -90,7 +97,7 @@ Public Function GetNamedOrHeaderValue(ByVal sheet As Worksheet, ByVal localName 
             Loop While Not headerCell Is Nothing And headerCell.Address <> firstAddress
         End If
     Next headerIndex
-
+    
     If Not bestHeaderCell Is Nothing Then
         GetNamedOrHeaderValue = Trim$(CStr(bestHeaderCell.offset(0, 1).value))
     End If
@@ -103,7 +110,7 @@ ErrHandler:
 End Function
 
 ' -----------------------------------------------------------------------------------
-' Procedure : CollectTableColumnsToDictionary
+' Procedure : CollectTableColumnsToDict
 ' Purpose   : Reads values from structured table columns into a dictionary,
 '             with the key column and optional value columns.
 '
@@ -128,7 +135,7 @@ End Function
 '   - Uses array access for optimal performance with large tables.
 '   - Single-row tables are handled separately to avoid array issues.
 ' -----------------------------------------------------------------------------------
-Public Sub CollectTableColumnsToDictionary(ByVal sourceTable As ListObject, _
+Public Sub CollectTableColumnsToDict(ByVal sourceTable As ListObject, _
                                         ByVal keyColumnName As String, _
                                         ByVal valuesDict As Scripting.Dictionary, _
                                         Optional ByVal value1ColumnName As String = "", _
@@ -238,12 +245,12 @@ Public Sub CollectTableColumnsToDictionary(ByVal sourceTable As ListObject, _
 CleanExit:
     Exit Sub
 ErrHandler:
-    modErr.ReportError "CollectTableColumnsToDictionary", Err.Number, Erl, caption:=modMain.AppProjectName
+    modErr.ReportError "CollectTableColumnsToDict", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
-' Procedure : CollectNamedRangePairs
+' Procedure : CollectNamedRangePairsToDict
 ' Purpose   : Collects paired values from two named ranges on a worksheet and stores
 '             them in a dictionary (first range = Key, second range = Value).
 '
@@ -265,7 +272,7 @@ End Sub
 '   - Uses array access for optimal performance with large ranges.
 '   - Single-cell ranges are handled separately to avoid array issues.
 ' -----------------------------------------------------------------------------------
-Public Sub CollectNamedRangePairs(ByVal sheet As Worksheet, _
+Public Sub CollectNamedRangePairsToDict(ByVal sheet As Worksheet, _
                                   ByVal rangeNameKeys As String, _
                                   ByVal rangeNameValues As String, _
                                   ByVal pairsDict As Scripting.Dictionary)
@@ -345,121 +352,61 @@ Public Sub CollectNamedRangePairs(ByVal sheet As Worksheet, _
 CleanExit:
     Exit Sub
 ErrHandler:
-    modErr.ReportError "CollectNamedRangePairs", Err.Number, Erl, caption:=modMain.AppProjectName
+    modErr.ReportError "CollectNamedRangePairsToDict", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
-' Procedure : CollectTableColumnPairs
-' Purpose   : Collects key-value pairs from two columns of a structured table into a dictionary.
+' Procedure : CollectNamedRangeValuesToDict
+' Purpose   : Collects all non-empty values from a named range on a worksheet
+'             and stores them as unique keys in a dictionary.
 '
 ' Parameters:
-'   sourceTable        [ListObject]               - The structured table containing the columns.
-'   keyColumnName      [String]                   - The name of the column containing keys.
-'   itemColumnName     [String]                   - The name of the column containing items/values.
-'   pairsDict          [Scripting.Dictionary]     - Dictionary to store key-value pairs.
+'   sheet          [Worksheet] - The worksheet containing the named range.
+'   rangeName    [String]    - The name of the range to resolve.
+'   valuesDict   [Scripting.Dictionary]    - Dictionary receiving the unique values.
 '
 ' Behavior  :
-'   - Reads values from both columns simultaneously
-'   - Processes up to the minimum row count of both columns
-'   - Skips rows where the key is empty or whitespace
-'   - Stores key as dictionary key and item as dictionary value
-'   - If key already exists, the value is overwritten
+'   - Resolves the named range on the given worksheet.
+'   - Ignores empty cells.
+'   - Adds each value as a key to the dictionary (duplicates ignored).
 '
 ' Notes     :
-'   - Uses array access for optimal performance with large tables
-'   - Trims key values before storing
-'   - Item values can be any type (string, number, date, etc.)
-'   - If either column doesn't exist, the procedure exits silently
-'   - Empty item values are allowed if the key is non-empty
+'   - If the named range is missing or invalid, the procedure exits silently.
 ' -----------------------------------------------------------------------------------
-Public Sub CollectTableColumnPairs( _
-    ByVal sourceTable As ListObject, _
-    ByVal keyColumnName As String, _
-    ByVal itemColumnName As String, _
-    ByVal pairsDict As Scripting.Dictionary)
-    
+Public Sub CollectNamedRangeValuesToDict(ByVal sheet As Worksheet, rangeName As String, ByVal valuesDict As Scripting.Dictionary)
     On Error GoTo ErrHandler
-    
-    Dim keyColumn As Range
-    Dim itemColumn As Range
-    Dim arrKeys As Variant
-    Dim arrItems As Variant
-    Dim i As Long
-    Dim maxCount As Long
-    Dim keyVal As Variant
-    Dim itemVal As Variant
-    Dim keyText As String
-    
-    ' Validate input
-    If sourceTable Is Nothing Then GoTo CleanExit
-    If Len(keyColumnName) = 0 Or Len(itemColumnName) = 0 Then GoTo CleanExit
-    
-    ' Resolve table columns
+
+    Dim rngNamed As Range
+    Dim cell As Range
+
+    If Len(rangeName) = 0 Then GoTo CleanExit
+
     On Error Resume Next
-    Set keyColumn = sourceTable.ListColumns(keyColumnName).DataBodyRange
-    Set itemColumn = sourceTable.ListColumns(itemColumnName).DataBodyRange
+    Set rngNamed = sheet.Range(rangeName)
     On Error GoTo ErrHandler
-    
-    If keyColumn Is Nothing Or itemColumn Is Nothing Then GoTo CleanExit
-    
-    ' Check if table has data rows
-    If sourceTable.ListRows.Count = 0 Then GoTo CleanExit
-    
-    ' Determine the minimum count to process
-    maxCount = Application.WorksheetFunction.Min(keyColumn.Rows.Count, itemColumn.Rows.Count)
-    If maxCount = 0 Then GoTo CleanExit
-    
-    ' Load values into arrays for performance
-    ' Single cell ranges need special handling
-    If keyColumn.Cells.Count = 1 Then
-        ReDim arrKeys(1 To 1, 1 To 1)
-        arrKeys(1, 1) = keyColumn.value
-    Else
-        arrKeys = keyColumn.value
-    End If
-    
-    If itemColumn.Cells.Count = 1 Then
-        ReDim arrItems(1 To 1, 1 To 1)
-        arrItems(1, 1) = itemColumn.value
-    Else
-        arrItems = itemColumn.value
-    End If
-    
-    ' Process pairs
-    For i = 1 To maxCount
-        ' Extract key value (always from first column of the range)
-        If IsArray(arrKeys) Then
-            keyVal = arrKeys(i, 1)
-        Else
-            keyVal = arrKeys
-        End If
-        
-        ' Extract item value (always from first column of the range)
-        If IsArray(arrItems) Then
-            itemVal = arrItems(i, 1)
-        Else
-            itemVal = arrItems
-        End If
-        
-        ' Add or update dictionary entry (skip empty keys)
-        If Not IsEmpty(keyVal) Then
-            keyText = Trim$(CStr(keyVal))
-            If Len(keyText) > 0 Then
-                pairsDict(keyText) = itemVal
+
+    If rngNamed Is Nothing Then GoTo CleanExit
+
+    For Each cell In rngNamed.Cells
+        If Not IsEmpty(cell.value) Then
+            If Not valuesDict.Exists(cell.value) Then
+                valuesDict.Add cell.value, True
+            Else
+                valuesDict(cell.value) = True
             End If
         End If
-    Next i
-    
+    Next cell
+
 CleanExit:
     Exit Sub
 ErrHandler:
-    modErr.ReportError "CollectTableColumnPairs", Err.Number, Erl, caption:=modMain.AppProjectName
+    modErr.ReportError "CollectNamedRangeValuesToDict", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
-' Procedure : WriteDictionaryToTableColumns
+' Procedure : WriteDictToTableColumns
 ' Purpose   : Writes the contents of a dictionary into structured table columns,
 '             sorted alphabetically by keys, and expands the table if needed.
 '
@@ -481,7 +428,7 @@ End Sub
 '     the value is split and written to both value1 and value2 columns
 '   - Dictionary values without DICT_VALUE_SEPERATOR delimiter are written entirely to value1Column
 ' -----------------------------------------------------------------------------------
-Public Sub WriteDictionaryToTableColumns(ByVal targetTable As ListObject, _
+Public Sub WriteDictToTableColumns(ByVal targetTable As ListObject, _
                                      ByVal keyColumnName As String, _
                                      ByVal valuesDict As Scripting.Dictionary, _
                                      Optional ByVal value1ColumnName As String = "", _
@@ -505,7 +452,7 @@ Public Sub WriteDictionaryToTableColumns(ByVal targetTable As ListObject, _
         value2ColumnName = ""
     End If
     
-    writeValues = Abs(Len(value1ColumnName) > 0) + (Len(value2ColumnName) > 0)
+    writeValues = Abs((Len(value1ColumnName) > 0) + (Len(value2ColumnName) > 0))
     hasTwoColumns = (writeValues = 2)
     
     ' Copy keys to array and sort
@@ -572,7 +519,7 @@ Public Sub WriteDictionaryToTableColumns(ByVal targetTable As ListObject, _
 CleanExit:
     Exit Sub
 ErrHandler:
-    modErr.ReportError "WriteDictionaryToTableColumns", Err.Number, Erl, caption:=modMain.AppProjectName
+    modErr.ReportError "WriteDictToTableColumns", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
 End Sub
 
@@ -580,48 +527,87 @@ End Sub
 ' Procedure : AppendMissingDictSetToTableColumns
 ' Purpose   : Appends key-value pairs from newDictSet to structured table columns
 '             if the keys do not already exist in existingDictSet. Expands the table
-'             as needed.
+'             as needed. Supports one or two value columns with DICT_VALUE_SEPERATOR.
 '
 ' Parameters:
 '   targetTable      [ListObject]               - The structured table to write into.
 '   keyColumnName    [String]                   - The name of the column for keys.
 '   existingDictSet  [Scripting.Dictionary]     - Dictionary containing existing keys/values
 '   newDictSet       [Scripting.Dictionary]     - Dictionary containing new keys/values to append.
-'   itemColumnName   [String]                   - (Optional) The name of the column for items.
+'   value1ColumnName [String]                   - (Optional) The name of the column for value 1.
 '                                                  If omitted, only keys are written.
+'   value2ColumnName [String]                   - (Optional) The name of the column for value 2.
+'                                                  If omitted, only keys and value1 are written.
+'
+' Behavior:
+'   - If value1ColumnName is provided, writes key-value pairs to key and value1 columns
+'   - If value2ColumnName is provided without value1ColumnName, value2ColumnName is used as value1ColumnName
+'   - If dictionary values contain DICT_VALUE_SEPERATOR delimiter and both value columns are specified,
+'     the value is split and written to both value1 and value2 columns
+'   - Dictionary values without DICT_VALUE_SEPERATOR delimiter are written entirely to value1Column
+'   - existingDictSet is updated with newly added keys
+'   - Only keys that do NOT exist in existingDictSet are appended
 '
 ' Notes:
-'   - If itemColumnName is provided, both keys and items are written
-'   - existingDictSet is updated with newly added keys
+'   - Compatible with WriteDictToTableColumns and CollectTableColumnsToDict
+'
+' Example Usage:
+'   ' Two-column append (Room ID => Room No | Room Alias)
+'   modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_ROOM_ID, _
+'       existingKeysDict, newRoomsDict, LISTS_HEADER_ROOM_NO, LISTS_HEADER_ROOM_ALIAS
+'
+'   ' Single-column append (Item ID => Item Name)
+'   modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_ITEM_ID, _
+'       existingKeysDict, newItemsDict, LISTS_HEADER_ITEM_NAME
+'
+'   ' Keys only
+'   modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_SCENE_ID, _
+'       existingKeysDict, newScenesDict
 ' -----------------------------------------------------------------------------------
 Public Sub AppendMissingDictSetToTableColumns( _
     ByVal targetTable As ListObject, _
     ByVal keyColumnName As String, _
     ByVal existingDictSet As Scripting.Dictionary, _
     ByVal newDictSet As Scripting.Dictionary, _
-    Optional ByVal itemColumnName As String = "")
+    Optional ByVal value1ColumnName As String = "", _
+    Optional ByVal value2ColumnName As String = "")
     On Error GoTo ErrHandler
     
     Dim currentKey As Variant
     Dim keyText As String
-    Dim itemValue As Variant
+    Dim currentValue As Variant
+    Dim splitValues() As String
     Dim keyColumn As Range
-    Dim itemColumn As Range
+    Dim value1Column As Range
+    Dim value2Column As Range
     Dim nextRowIndex As Long
-    Dim writeItems As Boolean
+    Dim writeValues As Long
+    Dim hasTwoColumns As Boolean
     Dim keyColIndex As Long
-    Dim itemColIndex As Long
+    Dim value1ColIndex As Long
+    Dim value2ColIndex As Long
     
-    ' Determine if we need to write items
-    writeItems = (Len(itemColumnName) > 0)
+    ' Determine if we need to write values
+    If Len(value1ColumnName) = 0 And Len(value2ColumnName) > 0 Then
+        value1ColumnName = value2ColumnName
+        value2ColumnName = ""
+    End If
+    
+    writeValues = Abs((Len(value1ColumnName) > 0) + (Len(value2ColumnName) > 0))
+    hasTwoColumns = (writeValues = 2)
     
     ' Get column references and indices
     Set keyColumn = targetTable.ListColumns(keyColumnName).DataBodyRange
     keyColIndex = targetTable.ListColumns(keyColumnName).index
     
-    If writeItems Then
-        Set itemColumn = targetTable.ListColumns(itemColumnName).DataBodyRange
-        itemColIndex = targetTable.ListColumns(itemColumnName).index
+    If writeValues > 0 Then
+        Set value1Column = targetTable.ListColumns(value1ColumnName).DataBodyRange
+        value1ColIndex = targetTable.ListColumns(value1ColumnName).index
+    End If
+    
+    If hasTwoColumns Then
+        Set value2Column = targetTable.ListColumns(value2ColumnName).DataBodyRange
+        value2ColIndex = targetTable.ListColumns(value2ColumnName).index
     End If
     
     ' Start writing after last row
@@ -639,10 +625,22 @@ Public Sub AppendMissingDictSetToTableColumns( _
                 ' Write key
                 targetTable.DataBodyRange.Cells(nextRowIndex, keyColIndex).value = keyText
                 
-                ' Write item if requested
-                If writeItems Then
-                    itemValue = newDictSet(currentKey)
-                    targetTable.DataBodyRange.Cells(nextRowIndex, itemColIndex).value = itemValue
+                ' Write values if requested
+                If writeValues > 0 Then
+                    currentValue = newDictSet(currentKey)
+                    
+                    If hasTwoColumns And InStr(currentValue, DICT_VALUE_SEPERATOR) > 0 Then
+                        ' Split value into two columns (e.g., "RoomNo|RoomAlias")
+                        splitValues = Split(currentValue, DICT_VALUE_SEPERATOR, 2, vbTextCompare)
+                        targetTable.DataBodyRange.Cells(nextRowIndex, value1ColIndex).value = CStr(splitValues(0))
+                        targetTable.DataBodyRange.Cells(nextRowIndex, value2ColIndex).value = CStr(splitValues(1))
+                    Else
+                        ' Write entire value to value1 column
+                        targetTable.DataBodyRange.Cells(nextRowIndex, value1ColIndex).value = currentValue
+                        If hasTwoColumns Then
+                            targetTable.DataBodyRange.Cells(nextRowIndex, value2ColIndex).value = ""
+                        End If
+                    End If
                 End If
                 
                 ' Update existing keys dictionary
@@ -659,6 +657,7 @@ ErrHandler:
     modErr.ReportError "AppendMissingDictSetToTableColumns", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
 End Sub
+
 
 ' -----------------------------------------------------------------------------------
 ' Function  : ClearTableColumn

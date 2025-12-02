@@ -70,14 +70,16 @@ Option Private Module
 Private Enum ChangeCategory
     CC_None = 0
     CC_Parallax = 1
-    CC_SceneMetadata = 2        ' Scene ID, Game/BG/UI dimensions
-    CC_ActorData = 3
-    CC_SoundData = 4
-    CC_SpecialFXData = 5
-    CC_TouchableObjectsData = 6
-    CC_PickupableObjectsData = 7
-    CC_MultiStateObjectsData = 8
-    CC_FlagsData = 9
+    CC_RoomMetadata = 2        ' Room ID, No, Alias
+    CC_SceneMetadata = 3       ' Scene ID
+    CC_GeneralSettings = 4     ' Game Heigth, Width, BG Heigth, Width, UI Heigth
+    CC_Actors = 5
+    CC_Sounds = 6
+    CC_SpecialFX = 7
+    CC_TouchableObjects = 8 ' Hotspot ID + Name
+    CC_PickupableObjects = 9 ' Item ID + Name
+    CC_MultiStateObjects = 10 ' State Object ID + Name
+    CC_Flags = 11
 End Enum
 
 ' ===== Private State =================================================================
@@ -270,14 +272,13 @@ Public Sub HandleSheetActivate(ByVal activatedSheet As Worksheet)
     
     ' Check whether the target workbook has a sheet with the Tag SHEET_LISTS
     If modTags.SheetWithTagExists(wb, SHEET_DISPATCHER) Then
-        'update only Room Sheets
-        If modRooms.IsRoomSheet(activatedSheet) Then
         
+        If modRooms.IsRoomSheet(activatedSheet) Then
+                    
             If clsState.RoomSheetChanged Then
                 clsState.RoomSheetChanged = False
-                modRooms.UpdateLists wb, LUM_Append
+                ' TODO:
             End If
-            
             modRooms.ApplyParallaxRangeCover activatedSheet
            
         End If
@@ -315,21 +316,43 @@ Public Sub HandleSheetChange(ByVal changedSheet As Worksheet, ByVal targetRng As
     Dim changeType As ChangeCategory
     changeType = DetermineChangeCategory(changedSheet, targetRng)
 
-    ' Handle the change based on its category
+    ' Handle the change with optimal SYNC/APPEND strategy
     Select Case changeType
         Case CC_Parallax
             modRooms.ApplyParallaxRangeCover changedSheet
             
-        Case CC_SceneMetadata
-            ' When changes are made to scene metadata (scene ID, dimensions)
+        Case CC_RoomMetadata
+            modRooms.UpdateRoomsMetadataLists srcBook, changedSheet, LUM_Sync
             
-        Case CC_ActorData, CC_SoundData, CC_SpecialFXData, _
-             CC_TouchableObjectsData, CC_PickupableObjectsData, _
-             CC_MultiStateObjectsData, CC_FlagsData
-            'When changes are made to table data
+        Case CC_SceneMetadata
+            modRooms.UpdateScenesMetadataLists srcBook, changedSheet, LUM_Sync
+            
+        Case CC_GeneralSettings
+            modRooms.UpdateGeneralSettingsLists srcBook, changedSheet, LUM_Sync
+            
+        Case CC_Actors
+            modRooms.UpdateActorsLists srcBook, changedSheet, LUM_Append
+            
+        Case CC_Sounds
+            modRooms.UpdateSoundsLists srcBook, changedSheet, LUM_Append
+            
+        Case CC_SpecialFX
+            modRooms.UpdateSpecialFXLists srcBook, changedSheet, LUM_Append
+            
+        Case CC_Flags
+            modRooms.UpdateFlagsLists srcBook, changedSheet, LUM_Append
+            
+        Case CC_PickupableObjects
+            modRooms.UpdateItemsLists srcBook, changedSheet, LUM_Append
+            
+        Case CC_MultiStateObjects
+            modRooms.UpdateStateObjectsLists srcBook, changedSheet, LUM_Append
+            
+        Case CC_TouchableObjects
+            modRooms.UpdateHotspotsLists srcBook, changedSheet, LUM_Append
             
         Case CC_None
-            ' Other changes, no specific action required
+            ' No list update needed for this change
             
     End Select
 End Sub
@@ -646,7 +669,7 @@ Public Function AddNewRoom(Optional ByVal shouldGoToNewRoom As Boolean = True) A
         modUtil.HideOpMode True
         modRooms.ApplyParallaxRangeCover newSheet
         If shouldGoToNewRoom Then
-            Application.GoTo newSheet.Range("A1"), True
+            Application.Goto newSheet.Range("A1"), True
         Else
             currentSheet.Activate
             If Not currentCell Is Nothing Then currentCell.Select
@@ -722,10 +745,18 @@ Public Sub RemoveCurrentRoom()
         Exit Sub
     End If
 
-    Call modRooms.RemoveRoom(roomSheet)
+    frmWait.ShowDialog
+    modUtil.HideOpMode True
+     
+    modRooms.RemoveRoom roomSheet
+    
+    modUtil.HideOpMode False
+    frmWait.Hide
 
     Exit Sub
 ErrHandler:
+    frmWait.Hide
+    modUtil.HideOpMode False
     modErr.ReportError "RemoveCurrentRoom", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
 
@@ -753,7 +784,7 @@ Public Sub GotoRoomFromCell()
     
     Dim roomSheet As Worksheet
     If modRooms.HasRoomID(currentWorkbook, roomID, roomSheet) Then
-        Application.GoTo roomSheet.Range("A1"), True
+        Application.Goto roomSheet.Range("A1"), True
         Exit Sub
     End If
     
@@ -952,12 +983,42 @@ Public Sub EditRoomIdentity()
         "New Room Alias: " & newRoomAlias, _
         vbInformation, AppProjectName
     
+CleanExit:
     Exit Sub
     
 ErrHandler:
     modUtil.HideOpMode False
+    frmWait.Hide
     modErr.ReportError "modMain.EditRoomIdentity", Err.Number, Erl, caption:=AppProjectName
+    Resume CleanExit
 End Sub
+
+ Public Sub SyncAllLists()
+     On Error GoTo ErrHandler
+
+     Dim wb As Workbook
+     Set wb = ActiveWorkbook
+     
+     frmWait.ShowDialog
+     modUtil.HideOpMode True
+     
+     ' Full SYNC of all categories
+     modRooms.SynchronizeAllLists wb
+
+     modUtil.HideOpMode False
+     frmWait.Hide
+     
+     MsgBox "All lists synchronized successfully!", vbInformation, modMain.AppProjectName
+     
+CleanExit:
+     Exit Sub
+
+ErrHandler:
+     modUtil.HideOpMode False
+     frmWait.Hide
+     MsgBox "Error synchronizing lists: " & Err.Description, vbCritical, modMain.AppProjectName
+     Resume CleanExit
+ End Sub
 
 ' ===== Private Methods ===============================================================
 
@@ -1027,7 +1088,7 @@ End Sub
 
 
 ' -----------------------------------------------------------------------------------
-' Function  : DetermineChangeCategory (Private Helper)
+' Function  : DetermineChangeCategory
 ' Purpose   : Determines which category of monitored range was changed
 '
 ' Parameters:
@@ -1037,9 +1098,7 @@ End Sub
 ' Returns   : [ChangeCategory] - Category of the changed range
 '
 ' Notes     :
-'   - Performance-optimized with early exits
 '   - Checks single cells first (faster), then ranges
-'   - Uses helper function for range intersection checks
 ' -----------------------------------------------------------------------------------
 Private Function DetermineChangeCategory( _
     ByVal targetSheet As Worksheet, _
@@ -1047,61 +1106,71 @@ Private Function DetermineChangeCategory( _
     
     On Error GoTo ErrorHandler
     
-    ' === PERFORMANCE OPTIMIZATION: Check single cells first ===
-    ' Single cell changes are most common and fastest to check
-    
-    ' Check Parallax cell (existing functionality)
+    ' Check Parallax cell
     If modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_PARALLAX) Then
         DetermineChangeCategory = CC_Parallax
         Exit Function
     End If
     
-    ' Check Scene Metadata cells
+    ' Check Room Metadata cells
     If modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_SCENE_ID) Or _
-       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_GAME_HEIGHT) Or _
-       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_GAME_WIDTH) Or _
-       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_BG_HEIGHT) Or _
-       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_BG_WIDTH) Or _
-       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_UI_HEIGHT) Then
+       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_ROOM_ID) Or _
+       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_ROOM_NO) Or _
+       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_ROOM_ALIAS) Then
+        DetermineChangeCategory = CC_RoomMetadata
+        Exit Function
+    End If
+    
+    ' Check Scene Metadata cells
+    If modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_SCENE_ID) Then
         DetermineChangeCategory = CC_SceneMetadata
         Exit Function
     End If
     
+    ' Check General Room Settings cells
+    If modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_GAME_HEIGHT) Or _
+       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_GAME_WIDTH) Or _
+       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_BG_HEIGHT) Or _
+       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_BG_WIDTH) Or _
+       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_UI_HEIGHT) Then
+        DetermineChangeCategory = CC_GeneralSettings
+        Exit Function
+    End If
+    
     ' === Check Table Ranges ===
-    ' Only check if we haven't found a single cell match
-    ' Group checks by category for better code organization
     
     ' Actors
-    If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_ACTORS_ACTOR_NAME) Then
-        DetermineChangeCategory = CC_ActorData
+    If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_ACTORS_ACTOR_NAME) Or _
+       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_RANGE_ACTORS_ACTOR_ID) Then
+        DetermineChangeCategory = CC_Actors
         Exit Function
     End If
     
     ' Sounds
     If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_SOUNDS_DESCRIPTION) Or _
        modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_SOUNDS_SOUND_ID) Then
-        DetermineChangeCategory = CC_SoundData
+        DetermineChangeCategory = CC_Sounds
         Exit Function
     End If
     
     ' Special FX
     If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_SPECIAL_FX_DESCRIPTION) Or _
        modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_SPECIAL_FX_ANIMATION_ID) Then
-        DetermineChangeCategory = CC_SpecialFXData
+        DetermineChangeCategory = CC_SpecialFX
         Exit Function
     End If
     
     ' Touchable Objects
     If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_NAME) Or _
        modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID) Then
-        DetermineChangeCategory = CC_TouchableObjectsData
+        DetermineChangeCategory = CC_TouchableObjects
         Exit Function
     End If
     
     ' Pickupable Objects
     If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_PICKUPABLE_OBJECTS_ITEM_ID) Or _
        modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_PICKUPABLE_OBJECTS_NAME) Then
-        DetermineChangeCategory = CC_PickupableObjectsData
+        DetermineChangeCategory = CC_PickupableObjects
         Exit Function
     End If
     
@@ -1109,7 +1178,7 @@ Private Function DetermineChangeCategory( _
     If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_MULTI_STATE_OBJECTS_OBJECT_NAME) Or _
        modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_MULTI_STATE_OBJECTS_STATE_ID) Or _
        modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_MULTI_STATE_OBJECTS_STATE) Then
-        DetermineChangeCategory = CC_MultiStateObjectsData
+        DetermineChangeCategory = CC_MultiStateObjects
         Exit Function
     End If
     
@@ -1117,7 +1186,7 @@ Private Function DetermineChangeCategory( _
     If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_FLAGS_FLAG_ID) Or _
        modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_FLAGS_DESCRIPTION) Or _
        modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_FLAGS_BOOL_TYPE) Then
-        DetermineChangeCategory = CC_FlagsData
+        DetermineChangeCategory = CC_Flags
         Exit Function
     End If
     

@@ -97,7 +97,7 @@ End Sub
 
 Sub RB75dd2c44_btnSyncLists_OnAction(control As IRibbonControl)
     MsgBox "Sync Lists is not implemented yet.", vbInformation, "Sync Lists"
-    'modRooms.SyncLists ' TODO: Sub still needs to be adjusted, supplemented, and tested.
+    modMain.SyncAllLists
 End Sub
 
 Sub RB75dd2c44_btnSyncLists_getEnabled(control As IRibbonControl, ByRef returnedVal)

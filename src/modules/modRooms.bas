@@ -9,7 +9,17 @@ Attribute VB_Name = "modRooms"
 '   - RemoveRoom              : Delete a room sheet after reference checks.
 '   - GetNextRoomIndex        : Compute next numeric room index.
 '   - HasRoomID               : Determine whether a room with specific ID exists.
-'   - UpdateLists             : Append/merge room/object/scene items into Lists table.
+'   - UpdateRoomdataLists
+'   - UpdateScenesLists
+'   - UpdateItemsLists
+'   - UpdateStateObjectsLists
+'   - UpdateHotspotsLists
+'   - UpdateGeneralSettingsLists
+'   - UpdateActorsLists
+'   - UpdateSoundsLists
+'   - UpdateSpecialFXLists
+'   - UpdateFlagsLists
+'   - UpdateAllLists
 '   - SyncLists               : Rebuild Lists columns (clear + write).
 '   - GetFormattedRoomID      : Build a formatted room ID from an index.
 '   - ApplyParallaxRangeCover : Ensure/show/hide the parallax cover according to a dropdown.
@@ -25,7 +35,6 @@ Option Private Module
 Public Enum ListUpdateMode
     LUM_Append = 0 ' only Add new Datas
     LUM_Sync = 1   ' Rewrite all Datas new
-    LUM_OnlyRoomRelated = 2 ' Rewrite only Room related Data
 End Enum
 
 ' ===== Public API ==================================================================
@@ -52,11 +61,11 @@ End Enum
 '   - Scene ID can be shared across multiple rooms (no uniqueness validation)
 ' -----------------------------------------------------------------------------------
 Public Function AddRoom(targetBook As Workbook, _
-                        roomName As String, _
-                        roomIdx As Long, _
-                        roomNo As Long, _
-                        Optional sceneID As String = "", _
-                        Optional ByVal updateAggregations As Boolean = True) As Worksheet
+    roomName As String, _
+    roomIdx As Long, _
+    roomNo As Long, _
+    Optional sceneID As String = "", _
+    Optional ByVal updateAggregations As Boolean = True) As Worksheet
                         
     On Error GoTo ErrHandler
 
@@ -98,7 +107,8 @@ Public Function AddRoom(targetBook As Workbook, _
     Set AddRoom = newRoomSheet
         
     If updateAggregations Then
-        UpdateLists targetBook, LUM_OnlyRoomRelated
+        UpdateRoomsMetadataLists targetBook, newRoomSheet
+        UpdateScenesMetadataLists targetBook, newRoomSheet
     End If
     
 CleanExit:
@@ -178,7 +188,7 @@ Public Function RemoveRoom(ByVal targetSheet As Worksheet, _
     Set targetSheet = Nothing
     
     If updateAggregations Then
-        UpdateLists targetSheet.Parent, LUM_Sync
+        SynchronizeAllLists parentBook
     End If
     
 CleanExit:
@@ -195,10 +205,10 @@ End Function
 ' Purpose   : Updates all references to a room ID and alias throughout the workbook.
 ' -----------------------------------------------------------------------------------
 Public Function UpdateRoomReferences(ByVal targetBook As Workbook, _
-                                ByVal oldRoomID As String, _
-                                ByVal oldRoomAlias As String, _
-                                ByVal newRoomID As String, _
-                                ByVal newRoomAlias As String) As Long
+    ByVal oldRoomID As String, _
+    ByVal oldRoomAlias As String, _
+    ByVal newRoomID As String, _
+    ByVal newRoomAlias As String) As Long
     On Error GoTo ErrHandler
     
     Dim ws As Worksheet
@@ -242,7 +252,7 @@ Public Function UpdateRoomReferences(ByVal targetBook As Workbook, _
         End If
     Next ws
     
-    Call UpdateDispatcherTable(targetBook, oldRoomID, oldRoomAlias, newRoomID, newRoomAlias)
+    Call UpdateRoomMetadataInDispatcherTable(targetBook, oldRoomID, oldRoomAlias, newRoomID, newRoomAlias)
     
     UpdateRoomReferences = updatedCount
     
@@ -434,58 +444,31 @@ ErrHandler:
 End Function
 
 ' -----------------------------------------------------------------------------------
-' Procedure : UpdateLists
-' Purpose   : Central function for all Room Datalist update operations.
-'             Collects data and writes it differently depending on the mode.
+' Procedure : SynchronizeAllLists
+' Purpose   : synchronize all list (complete rewrite).
 '
 ' Parameters:
 '   targetBook  [Workbook]        - Target Workbook
-'   mode        [ListUpdateMode]  - Update-Modus (Append/Sync/NewRoomOnly)
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
-Public Sub UpdateLists(targetBook As Workbook, ByVal mode As ListUpdateMode)
+Public Sub SynchronizeAllLists(targetBook As Workbook)
     On Error GoTo ErrHandler
     
     ' Enable silent mode
     modUtil.HideOpMode True, affectScreen:=False, affectEvents:=False
     
-    ' Set workbook
-    If targetBook Is Nothing Then Set targetBook = ActiveWorkbook
     
-    ' Determine Lists Sheet and DataTable
-    Dim listsSheet As Worksheet
-    Dim dataList As ListObject
-    If Not GetListsSheetAndTable(targetBook, listsSheet, dataList) Then
-        Exit Sub
-    End If
-    
-    ' Initialize dictionaries
-    Dim roomsDict As Scripting.Dictionary
-    Dim scenesDict As Scripting.Dictionary
-    Dim itemObjectsDict As Scripting.Dictionary
-    Dim stateObjectsDict As Scripting.Dictionary
-    Dim hotspotObjectsDict As Scripting.Dictionary
-    
-    ' Collect data from all room sheets
-    Dim collectObjects As Boolean
-    collectObjects = (mode <> LUM_OnlyRoomRelated)  ' Do not collect property data for NewRoomOnly
-    
-    CollectRoomData targetBook, roomsDict, scenesDict, itemObjectsDict, _
-                    stateObjectsDict, hotspotObjectsDict, collectObjects
-    
-    ' Process differently depending on mode
-    Select Case mode
-        Case LUM_Sync
-            ' SYNC mode: Delete all columns and rewrite them
-            WriteSyncMode dataList, roomsDict, scenesDict, itemObjectsDict, _
-                         stateObjectsDict, hotspotObjectsDict
-                         
-        Case LUM_Append, LUM_OnlyRoomRelated
-            ' APPEND mode: Add only new entries
-            WriteAppendMode dataList, roomsDict, scenesDict, itemObjectsDict, _
-                           stateObjectsDict, hotspotObjectsDict, collectObjects
-    End Select
+    UpdateRoomsMetadataLists targetBook
+    UpdateScenesMetadataLists targetBook
+    UpdateGeneralSettingsLists targetBook
+    UpdateActorsLists targetBook
+    UpdateSoundsLists targetBook
+    UpdateSpecialFXLists targetBook
+    UpdateFlagsLists targetBook
+    UpdateItemsLists targetBook
+    UpdateStateObjectsLists targetBook
+    UpdateHotspotsLists targetBook
 
 CleanExit:
     modUtil.HideOpMode False
@@ -495,6 +478,622 @@ ErrHandler:
     modUtil.HideOpMode False
     modErr.ReportError "ProcessListsUpdate", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : UpdateRoomsMetadataLists
+' Purpose   : Updates Scene ID, Room ID, Room No, and Room Alias lists.
+'
+' Parameters:
+'   targetBook    [Workbook]          - Target workbook
+'   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
+'   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
+'
+' Returns   : (none)
+'
+' Notes     :
+'   - DEFAULT: LUM_Sync (Room metadata are critical, should always be rewrite)
+' -----------------------------------------------------------------------------------
+Public Sub UpdateRoomsMetadataLists(ByVal targetBook As Workbook, _
+    Optional ByVal dataSrcSheet As Worksheet = Nothing, _
+    Optional ByVal mode As ListUpdateMode = LUM_Sync)
+    On Error GoTo ErrHandler
+    
+    modUtil.HideOpMode True, affectScreen:=False, affectEvents:=False
+    
+    Dim listsSheet As Worksheet
+    Dim dataList As ListObject
+    If Not GetListsSheetAndTable(targetBook, listsSheet, dataList) Then Exit Sub
+    
+    Dim roomsDict As Scripting.Dictionary
+    Set roomsDict = New Scripting.Dictionary
+    
+    ' Collect room metadata
+    If dataSrcSheet Is Nothing Then
+        'Collect from ALL sheets
+        CollectRoomMetadata targetBook, roomsDict
+    Else
+        ' Collect only from dataSrcSheet
+        CollectRoomMetadata targetBook, roomsDict, dataSrcSheet
+    End If
+    
+    ' Write to table based on mode
+    If mode = LUM_Sync Then
+        ' SYNC: Clear + Rewrite (full refresh)
+        
+        modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_ID
+        modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_NO
+        modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_ALIAS
+                
+        modLists.WriteDictToTableColumns dataList, LISTS_HEADER_ROOM_ID, roomsDict, _
+            LISTS_HEADER_ROOM_NO, LISTS_HEADER_ROOM_ALIAS
+                
+    Else
+        ' APPEND: Add only new entries (Room IDs are keys, rarely use APPEND for rooms)
+        Dim existingKeysDict As Scripting.Dictionary
+        Set existingKeysDict = New Scripting.Dictionary
+        
+        ' Collect existing room IDs
+        modLists.CollectTableColumnsToDict dataList, LISTS_HEADER_ROOM_ID, existingKeysDict, _
+            LISTS_HEADER_ROOM_NO, LISTS_HEADER_ROOM_ALIAS
+        
+        ' Append missing entries
+        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_ROOM_ID, _
+            existingKeysDict, roomsDict, LISTS_HEADER_ROOM_NO, LISTS_HEADER_ROOM_ALIAS
+
+    End If
+    
+    modUtil.HideOpMode False
+    Exit Sub
+    
+ErrHandler:
+    modUtil.HideOpMode False
+    modErr.ReportError "modRooms.UpdateRoomMetadata", Err.Number, Erl, caption:=modMain.AppProjectName
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : UpdateScenesMetadataLists
+' Purpose   : Updates Scene ID list.
+'
+' Parameters:
+'   targetBook    [Workbook]          - Target workbook
+'   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
+'   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
+'
+' Notes     :
+' -----------------------------------------------------------------------------------
+Public Sub UpdateScenesMetadataLists(ByVal targetBook As Workbook, _
+    Optional ByVal dataSrcSheet As Worksheet = Nothing, _
+    Optional ByVal mode As ListUpdateMode = LUM_Sync)
+    On Error GoTo ErrHandler
+    
+    modUtil.HideOpMode True, affectScreen:=False, affectEvents:=False
+    
+    Dim listsSheet As Worksheet
+    Dim dataList As ListObject
+    If Not GetListsSheetAndTable(targetBook, listsSheet, dataList) Then Exit Sub
+    
+    Dim scenesDict As Scripting.Dictionary
+    Set scenesDict = New Scripting.Dictionary
+    
+    ' Collect scene IDs
+    If dataSrcSheet Is Nothing Then
+        CollectSceneIDs targetBook, scenesDict
+    Else
+        CollectSceneIDs targetBook, scenesDict, dataSrcSheet
+    End If
+    
+    ' Write based on mode
+    If mode = LUM_Sync Then
+        ' SYNC: Clear + Rewrite
+        modLists.ClearTableColumn dataList, LISTS_HEADER_SCENE_ID
+        modLists.WriteDictToTableColumns dataList, LISTS_HEADER_SCENE_ID, scenesDict
+    Else
+        ' APPEND: Add only new entries
+        Dim existingKeysDict As Scripting.Dictionary
+        Set existingKeysDict = New Scripting.Dictionary
+        
+        modLists.CollectTableColumnsToDict dataList, LISTS_HEADER_SCENE_ID, existingKeysDict
+        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_SCENE_ID, _
+            existingKeysDict, scenesDict
+    End If
+    
+    modUtil.HideOpMode False
+    Exit Sub
+    
+ErrHandler:
+    modUtil.HideOpMode False
+    modErr.ReportError "modRooms.UpdateScenesList", Err.Number, Erl, caption:=modMain.AppProjectName
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : UpdateGeneralSettingsLists
+' Purpose   : Updates unique dimension values (Width, Height, UI Height) from rooms.
+'
+' Parameters:
+'   targetBook    [Workbook]          - Target workbook
+'   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
+'   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
+'
+' Notes     :
+' -----------------------------------------------------------------------------------
+Public Sub UpdateGeneralSettingsLists(ByVal targetBook As Workbook, _
+    Optional ByVal dataSrcSheet As Worksheet = Nothing, _
+    Optional ByVal mode As ListUpdateMode = LUM_Sync)
+    On Error GoTo ErrHandler
+    
+    modUtil.HideOpMode True, affectScreen:=False, affectEvents:=False
+    
+    Dim listsSheet As Worksheet
+    Dim dataList As ListObject
+    If Not GetListsSheetAndTable(targetBook, listsSheet, dataList) Then Exit Sub
+    
+    Dim widthDict As Scripting.Dictionary
+    Dim heightDict As Scripting.Dictionary
+    Dim uiHeightDict As Scripting.Dictionary
+    
+    Set widthDict = New Scripting.Dictionary
+    Set heightDict = New Scripting.Dictionary
+    Set uiHeightDict = New Scripting.Dictionary
+    
+    ' Collect General Settings
+    If dataSrcSheet Is Nothing Then
+        CollectGeneralSettings targetBook, widthDict, heightDict, uiHeightDict
+    Else
+        CollectGeneralSettings targetBook, widthDict, heightDict, uiHeightDict, dataSrcSheet
+    End If
+    
+    ' Write based on mode
+    If mode = LUM_Sync Then
+        ' SYNC: Clear + Rewrite
+        
+        modLists.ClearTableColumn dataList, LISTS_HEADER_WIDTH
+        modLists.ClearTableColumn dataList, LISTS_HEADER_HEIGHT
+        modLists.ClearTableColumn dataList, LISTS_HEADER_UI_HEIGHT
+    
+        modLists.WriteDictToTableColumns dataList, LISTS_HEADER_WIDTH, widthDict
+        modLists.WriteDictToTableColumns dataList, LISTS_HEADER_HEIGHT, heightDict
+        modLists.WriteDictToTableColumns dataList, LISTS_HEADER_UI_HEIGHT, uiHeightDict
+    Else
+        ' APPEND: Add only new entries
+        Dim existingWidthKeysDict As Scripting.Dictionary
+        Set existingWidthKeysDict = New Scripting.Dictionary
+        Dim existingHeightKeysDict As Scripting.Dictionary
+        Set existingHeightKeysDict = New Scripting.Dictionary
+        Dim existingUIHeightKeysDict As Scripting.Dictionary
+        Set existingUIHeightKeysDict = New Scripting.Dictionary
+        
+        modLists.CollectTableColumnsToDict dataList, LISTS_HEADER_WIDTH, existingWidthKeysDict
+        modLists.CollectTableColumnsToDict dataList, LISTS_HEADER_HEIGHT, existingHeightKeysDict
+        modLists.CollectTableColumnsToDict dataList, LISTS_HEADER_UI_HEIGHT, existingUIHeightKeysDict
+        
+        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_WIDTH, _
+            existingWidthKeysDict, widthDict
+        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_HEIGHT, _
+            existingHeightKeysDict, heightDict
+        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_UI_HEIGHT, _
+            existingUIHeightKeysDict, uiHeightDict
+    End If
+
+    modUtil.HideOpMode False
+    Exit Sub
+    
+ErrHandler:
+    modUtil.HideOpMode False
+    modErr.ReportError "modRooms.UpdateGeneralSettingsLists", Err.Number, Erl, caption:=modMain.AppProjectName
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : UpdateActorsLists
+' Purpose   : Updates Actor ID + Name lists.
+'
+' Parameters:
+'   targetBook    [Workbook]          - Target workbook
+'   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
+'   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
+'
+' Notes     :
+' -----------------------------------------------------------------------------------
+Public Sub UpdateActorsLists(ByVal targetBook As Workbook, _
+    Optional ByVal dataSrcSheet As Worksheet = Nothing, _
+    Optional ByVal mode As ListUpdateMode = LUM_Sync)
+    On Error GoTo ErrHandler
+    
+    modUtil.HideOpMode True, affectScreen:=False, affectEvents:=False
+    
+    Dim listsSheet As Worksheet
+    Dim dataList As ListObject
+    If Not GetListsSheetAndTable(targetBook, listsSheet, dataList) Then Exit Sub
+    
+    Dim actorsDict As Scripting.Dictionary
+    Set actorsDict = New Scripting.Dictionary
+    
+    ' Collect actors
+    If mode = LUM_Sync Or dataSrcSheet Is Nothing Then
+        CollectActors targetBook, actorsDict
+    Else
+        CollectActors targetBook, actorsDict, dataSrcSheet
+    End If
+    
+    ' Write based on mode
+    If mode = LUM_Sync Then
+        ' SYNC: Clear + Rewrite
+        modLists.ClearTableColumn dataList, LISTS_HEADER_ACTOR_ID
+        modLists.ClearTableColumn dataList, LISTS_HEADER_ACTOR_NAME
+        modLists.WriteDictToTableColumns dataList, LISTS_HEADER_ACTOR_ID, actorsDict, LISTS_HEADER_ACTOR_NAME
+    Else
+        ' APPEND: Add only new entries
+        Dim existingKeysDict As Scripting.Dictionary
+        Set existingKeysDict = New Scripting.Dictionary
+        
+        modLists.CollectTableColumnsToDict dataList, LISTS_HEADER_ACTOR_ID, existingKeysDict, LISTS_HEADER_ACTOR_NAME
+        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_ACTOR_ID, _
+            existingKeysDict, actorsDict, LISTS_HEADER_ACTOR_NAME
+    End If
+    
+    modUtil.HideOpMode False
+    Exit Sub
+    
+ErrHandler:
+    modUtil.HideOpMode False
+    modErr.ReportError "modRooms.UpdateActorsList", Err.Number, Erl, caption:=modMain.AppProjectName
+End Sub
+
+
+' -----------------------------------------------------------------------------------
+' Procedure : UpdateSoundsLists
+' Purpose   : Updates Sound ID + Description + Type lists.
+'
+' Parameters:
+'   targetBook    [Workbook]          - Target workbook
+'   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
+'   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
+'
+' Notes     :
+' -----------------------------------------------------------------------------------
+Public Sub UpdateSoundsLists(ByVal targetBook As Workbook, _
+    Optional ByVal dataSrcSheet As Worksheet = Nothing, _
+    Optional ByVal mode As ListUpdateMode = LUM_Sync)
+    On Error GoTo ErrHandler
+    
+    modUtil.HideOpMode True, affectScreen:=False, affectEvents:=False
+    
+    Dim listsSheet As Worksheet
+    Dim dataList As ListObject
+    If Not GetListsSheetAndTable(targetBook, listsSheet, dataList) Then Exit Sub
+    
+    Dim soundsDict As Scripting.Dictionary
+    Set soundsDict = New Scripting.Dictionary
+    
+    ' Collect sounds
+    If mode = LUM_Sync Or dataSrcSheet Is Nothing Then
+        CollectSounds targetBook, soundsDict
+    Else
+        CollectSounds targetBook, soundsDict, dataSrcSheet
+    End If
+    
+    ' Write based on mode
+    If mode = LUM_Sync Then
+        ' SYNC: Clear + Rewrite
+        modLists.ClearTableColumn dataList, LISTS_HEADER_SOUND_ID
+        modLists.ClearTableColumn dataList, LISTS_HEADER_SOUND_NAME
+        modLists.WriteDictToTableColumns dataList, LISTS_HEADER_SOUND_ID, soundsDict, _
+            LISTS_HEADER_SOUND_NAME
+    Else
+        ' APPEND: Add only new entries
+        Dim existingKeysDict As Scripting.Dictionary
+        Set existingKeysDict = New Scripting.Dictionary
+        
+        modLists.CollectTableColumnsToDict dataList, LISTS_HEADER_SOUND_ID, existingKeysDict, _
+            LISTS_HEADER_SOUND_NAME
+        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_SOUND_ID, _
+            existingKeysDict, soundsDict, LISTS_HEADER_SOUND_NAME
+    End If
+    
+    modUtil.HideOpMode False
+    Exit Sub
+    
+ErrHandler:
+    modUtil.HideOpMode False
+    modErr.ReportError "modRooms.UpdateSoundsList", Err.Number, Erl, caption:=modMain.AppProjectName
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : UpdateSpecialFXLists
+' Purpose   : Updates Special FX (Animation ID + Description + Type) lists.
+'
+' Parameters:
+'   targetBook    [Workbook]          - Target workbook
+'   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
+'   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
+'
+' Notes     :
+' -----------------------------------------------------------------------------------
+Public Sub UpdateSpecialFXLists(ByVal targetBook As Workbook, _
+    Optional ByVal dataSrcSheet As Worksheet = Nothing, _
+    Optional ByVal mode As ListUpdateMode = LUM_Sync)
+    On Error GoTo ErrHandler
+    
+    modUtil.HideOpMode True, affectScreen:=False, affectEvents:=False
+    
+    Dim listsSheet As Worksheet
+    Dim dataList As ListObject
+    If Not GetListsSheetAndTable(targetBook, listsSheet, dataList) Then Exit Sub
+    
+    Dim specialFXDict As Scripting.Dictionary
+    Set specialFXDict = New Scripting.Dictionary
+    
+    ' Collect special FX
+    If mode = LUM_Sync Or dataSrcSheet Is Nothing Then
+        CollectSpecialFX targetBook, specialFXDict
+    Else
+        CollectSpecialFX targetBook, specialFXDict, dataSrcSheet
+    End If
+    
+    ' Write based on mode
+    If mode = LUM_Sync Then
+        ' SYNC: Clear + Rewrite
+        modLists.ClearTableColumn dataList, LISTS_HEADER_ANIMATION_ID
+        modLists.ClearTableColumn dataList, LISTS_HEADER_ANIMATION_NAME
+        modLists.WriteDictToTableColumns dataList, LISTS_HEADER_ANIMATION_ID, specialFXDict, _
+            LISTS_HEADER_ANIMATION_NAME
+    Else
+        ' APPEND: Add only new entries
+        Dim existingKeysDict As Scripting.Dictionary
+        Set existingKeysDict = New Scripting.Dictionary
+        
+        modLists.CollectTableColumnsToDict dataList, LISTS_HEADER_ANIMATION_ID, existingKeysDict, _
+            LISTS_HEADER_ANIMATION_NAME
+        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_ANIMATION_ID, _
+            existingKeysDict, specialFXDict, LISTS_HEADER_ANIMATION_NAME
+    End If
+    
+    modUtil.HideOpMode False
+    Exit Sub
+    
+ErrHandler:
+    modUtil.HideOpMode False
+    modErr.ReportError "modRooms.UpdateSpecialFXList", Err.Number, Erl, caption:=modMain.AppProjectName
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : UpdateFlagsLists
+' Purpose   : Updates Flag ID + Description + Bool Type lists.
+'
+' Parameters:
+'   targetBook    [Workbook]          - Target workbook
+'   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
+'   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
+'
+' Notes     :
+' -----------------------------------------------------------------------------------
+Public Sub UpdateFlagsLists(ByVal targetBook As Workbook, _
+    Optional ByVal dataSrcSheet As Worksheet = Nothing, _
+    Optional ByVal mode As ListUpdateMode = LUM_Sync)
+    On Error GoTo ErrHandler
+    
+    modUtil.HideOpMode True, affectScreen:=False, affectEvents:=False
+    
+    Dim listsSheet As Worksheet
+    Dim dataList As ListObject
+    If Not GetListsSheetAndTable(targetBook, listsSheet, dataList) Then Exit Sub
+    
+    Dim flagsDict As Scripting.Dictionary
+    Set flagsDict = New Scripting.Dictionary
+    Dim flagsTypeDict As Scripting.Dictionary
+    Set flagsTypeDict = New Scripting.Dictionary
+    
+    ' Collect flags
+    If mode = LUM_Sync Or dataSrcSheet Is Nothing Then
+        CollectFlags targetBook, flagsDict, flagsTypeDict
+    Else
+        CollectFlags targetBook, flagsDict, flagsTypeDict, dataSrcSheet
+    End If
+    
+    ' Write based on mode
+    If mode = LUM_Sync Then
+        ' SYNC: Clear + Rewrite
+        modLists.ClearTableColumn dataList, LISTS_HEADER_FLAG_ID
+        modLists.ClearTableColumn dataList, LISTS_HEADER_FLAG_NAME
+        modLists.ClearTableColumn dataList, LISTS_HEADER_FLAG_TYPE
+        modLists.WriteDictToTableColumns dataList, LISTS_HEADER_FLAG_ID, flagsDict, _
+            LISTS_HEADER_FLAG_NAME
+        modLists.WriteDictToTableColumns dataList, LISTS_HEADER_FLAG_TYPE, flagsTypeDict
+    Else
+        ' APPEND: Add only new entries
+        Dim existingFlagsDict As Scripting.Dictionary
+        Set existingFlagsDict = New Scripting.Dictionary
+        Dim existingFlagsTypeDict As Scripting.Dictionary
+        Set existingFlagsTypeDict = New Scripting.Dictionary
+        
+        modLists.CollectTableColumnsToDict dataList, LISTS_HEADER_FLAG_ID, existingFlagsDict, _
+            LISTS_HEADER_FLAG_NAME
+        modLists.CollectTableColumnsToDict dataList, LISTS_HEADER_FLAG_TYPE, existingFlagsTypeDict
+        
+        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_FLAG_ID, _
+            existingFlagsDict, flagsDict, LISTS_HEADER_FLAG_NAME
+        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_FLAG_TYPE, _
+            existingFlagsTypeDict, flagsTypeDict
+    End If
+    
+    modUtil.HideOpMode False
+    Exit Sub
+    
+ErrHandler:
+    modUtil.HideOpMode False
+    modErr.ReportError "modRooms.UpdateFlagsList", Err.Number, Erl, caption:=modMain.AppProjectName
+End Sub
+
+
+' -----------------------------------------------------------------------------------
+' Procedure : UpdateItemsLists
+' Purpose   : Updates Pickupable Objects (Item ID + Name) lists.
+'
+' Parameters:
+'   targetBook    [Workbook]          - Target workbook
+'   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
+'   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
+'
+' Notes     :
+' -----------------------------------------------------------------------------------
+Public Sub UpdateItemsLists(ByVal targetBook As Workbook, _
+    Optional ByVal dataSrcSheet As Worksheet = Nothing, _
+    Optional ByVal mode As ListUpdateMode = LUM_Sync)
+    On Error GoTo ErrHandler
+    
+    modUtil.HideOpMode True, affectScreen:=False, affectEvents:=False
+    
+    Dim listsSheet As Worksheet
+    Dim dataList As ListObject
+    If Not GetListsSheetAndTable(targetBook, listsSheet, dataList) Then Exit Sub
+    
+    Dim itemsDict As Scripting.Dictionary
+    Set itemsDict = New Scripting.Dictionary
+    
+    ' Collect items
+    If mode = LUM_Sync Or dataSrcSheet Is Nothing Then
+        CollectItems targetBook, itemsDict
+    Else
+        CollectItems targetBook, itemsDict, dataSrcSheet
+    End If
+    
+    ' Write based on mode
+    If mode = LUM_Sync Then
+        ' SYNC: Clear + Rewrite (full refresh)
+        modLists.ClearTableColumn dataList, LISTS_HEADER_ITEM_ID
+        modLists.ClearTableColumn dataList, LISTS_HEADER_ITEM_NAME
+        modLists.WriteDictToTableColumns dataList, LISTS_HEADER_ITEM_ID, itemsDict, LISTS_HEADER_ITEM_NAME
+    Else
+        ' APPEND: Add only new entries
+        Dim existingKeysDict As Scripting.Dictionary
+        Set existingKeysDict = New Scripting.Dictionary
+        
+        modLists.CollectTableColumnsToDict dataList, LISTS_HEADER_ITEM_ID, existingKeysDict, LISTS_HEADER_ITEM_NAME
+        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_ITEM_ID, _
+            existingKeysDict, itemsDict, LISTS_HEADER_ITEM_NAME
+    End If
+    
+    modUtil.HideOpMode False
+    Exit Sub
+    
+ErrHandler:
+    modUtil.HideOpMode False
+    modErr.ReportError "modRooms.UpdateItemsList", Err.Number, Erl, caption:=modMain.AppProjectName
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : UpdateStateObjectsLists
+' Purpose   : Updates Multi-State Objects (State ID + Name) lists.
+'
+' Parameters:
+'   targetBook    [Workbook]          - Target workbook
+'   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
+'   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
+'
+' Notes     :
+' -----------------------------------------------------------------------------------
+Public Sub UpdateStateObjectsLists(ByVal targetBook As Workbook, _
+    Optional ByVal dataSrcSheet As Worksheet = Nothing, _
+    Optional ByVal mode As ListUpdateMode = LUM_Sync)
+    On Error GoTo ErrHandler
+    
+    modUtil.HideOpMode True, affectScreen:=False, affectEvents:=False
+    
+    Dim listsSheet As Worksheet
+    Dim dataList As ListObject
+    If Not GetListsSheetAndTable(targetBook, listsSheet, dataList) Then Exit Sub
+    
+    Dim objectsDict As Scripting.Dictionary
+    Set objectsDict = New Scripting.Dictionary
+    Dim objectsStateDict As Scripting.Dictionary
+    Set objectsStateDict = New Scripting.Dictionary
+    
+    If mode = LUM_Sync Or dataSrcSheet Is Nothing Then
+        CollectStateObjects targetBook, objectsDict, objectsStateDict
+    Else
+        CollectStateObjects targetBook, objectsDict, objectsStateDict, dataSrcSheet
+    End If
+    
+    If mode = LUM_Sync Then
+        modLists.ClearTableColumn dataList, LISTS_HEADER_STATE_OBJECT_ID
+        modLists.ClearTableColumn dataList, LISTS_HEADER_STATE_OBJECT_NAME
+        modLists.ClearTableColumn dataList, LISTS_HEADER_STATE_OBJECT_STATE
+        modLists.WriteDictToTableColumns dataList, LISTS_HEADER_STATE_OBJECT_ID, objectsDict, LISTS_HEADER_STATE_OBJECT_NAME
+        modLists.WriteDictToTableColumns dataList, LISTS_HEADER_STATE_OBJECT_STATE, objectsStateDict
+    Else
+        Dim existingObjectKeysDict  As Scripting.Dictionary
+        Set existingObjectKeysDict = New Scripting.Dictionary
+        Dim existingObjectStateKeysDict As Scripting.Dictionary
+        Set existingObjectStateKeysDict = New Scripting.Dictionary
+        
+        modLists.CollectTableColumnsToDict dataList, LISTS_HEADER_STATE_OBJECT_ID, existingObjectKeysDict, LISTS_HEADER_STATE_OBJECT_NAME
+        modLists.CollectTableColumnsToDict dataList, LISTS_HEADER_STATE_OBJECT_STATE, existingObjectStateKeysDict
+        
+        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_STATE_OBJECT_ID, _
+            existingObjectKeysDict, objectsDict, LISTS_HEADER_STATE_OBJECT_NAME
+            
+        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_STATE_OBJECT_STATE, _
+            existingObjectStateKeysDict, objectsStateDict
+    End If
+    
+    modUtil.HideOpMode False
+    Exit Sub
+    
+ErrHandler:
+    modUtil.HideOpMode False
+    modErr.ReportError "modRooms.UpdateStateObjectsList", Err.Number, Erl, caption:=modMain.AppProjectName
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : UpdateHotspotsLists
+' Purpose   : Updates Touchable Objects (Hotspot ID + Name) lists.
+'
+' Parameters:
+'   targetBook    [Workbook]          - Target workbook
+'   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
+'   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
+'
+' Notes     :
+' -----------------------------------------------------------------------------------
+Public Sub UpdateHotspotsLists(ByVal targetBook As Workbook, _
+    Optional ByVal dataSrcSheet As Worksheet = Nothing, _
+    Optional ByVal mode As ListUpdateMode = LUM_Sync)
+    On Error GoTo ErrHandler
+    
+    modUtil.HideOpMode True, affectScreen:=False, affectEvents:=False
+    
+    Dim listsSheet As Worksheet
+    Dim dataList As ListObject
+    If Not GetListsSheetAndTable(targetBook, listsSheet, dataList) Then Exit Sub
+    
+    Dim hotspotsDict As Scripting.Dictionary
+    Set hotspotsDict = New Scripting.Dictionary
+    
+    If mode = LUM_Sync Or dataSrcSheet Is Nothing Then
+        CollectHotspots targetBook, hotspotsDict
+    Else
+        CollectHotspots targetBook, hotspotsDict, dataSrcSheet
+    End If
+    
+    If mode = LUM_Sync Then
+        modLists.ClearTableColumn dataList, LISTS_HEADER_HOTSPOT_ID
+        modLists.ClearTableColumn dataList, LISTS_HEADER_HOTSPOT_NAME
+        modLists.WriteDictToTableColumns dataList, LISTS_HEADER_HOTSPOT_ID, hotspotsDict, LISTS_HEADER_HOTSPOT_NAME
+    Else
+        Dim existingKeysDict As Scripting.Dictionary
+        Set existingKeysDict = New Scripting.Dictionary
+        
+        modLists.CollectTableColumnsToDict dataList, LISTS_HEADER_HOTSPOT_ID, existingKeysDict, LISTS_HEADER_HOTSPOT_NAME
+        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_HOTSPOT_ID, _
+            existingKeysDict, hotspotsDict, LISTS_HEADER_HOTSPOT_NAME
+    End If
+    
+    modUtil.HideOpMode False
+    Exit Sub
+    
+ErrHandler:
+    modUtil.HideOpMode False
+    modErr.ReportError "modRooms.UpdateHotspotsList", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -622,7 +1221,7 @@ End Sub
 ' Returns   : (none)
 ' -----------------------------------------------------------------------------------
 Private Sub ApplyListValidation(ByVal Target As Range, ByVal nameRef As String, _
-                                ByVal title As String, ByVal msg As String)
+    ByVal title As String, ByVal msg As String)
     With Target.Validation
         .Delete
         .Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, Operator:=xlBetween, Formula1:="=" & nameRef
@@ -651,8 +1250,8 @@ End Sub
 ' Notes     :
 ' -----------------------------------------------------------------------------------
 Private Function GetAllSheetNamesUsingRoomID(ByVal roomID As String, _
-                                            ByVal targetBook As Workbook, _
-                                            ByVal sheetToExclude As Worksheet) As Collection
+    ByVal targetBook As Workbook, _
+    ByVal sheetToExclude As Worksheet) As Collection
     Dim col As New Collection
     Dim targetSheet As Worksheet
     Dim currentRoomID As String
@@ -719,8 +1318,8 @@ End Function
 ' Returns   : Boolean - True if successful, False if an error occurs
 ' -----------------------------------------------------------------------------------
 Private Function GetListsSheetAndTable(ByVal targetBook As Workbook, _
-                                      ByRef listsSheet As Worksheet, _
-                                      ByRef dataList As ListObject) As Boolean
+    ByRef listsSheet As Worksheet, _
+    ByRef dataList As ListObject) As Boolean
     On Error GoTo ErrHandler
     
     ' Determine Lists Sheet
@@ -731,7 +1330,7 @@ Private Function GetListsSheetAndTable(ByVal targetBook As Workbook, _
     
     If listsSheet Is Nothing Then
         Err.Raise ERR_MISSING_DISPATCHER, "GetListsSheetAndTable", _
-                  "Lists sheet (Dispatcher) not found in workbook."
+            "Lists sheet (Dispatcher) not found in workbook."
         Exit Function
     End If
     
@@ -742,7 +1341,7 @@ Private Function GetListsSheetAndTable(ByVal targetBook As Workbook, _
     
     If dataList Is Nothing Then
         Err.Raise ERR_MISSING_DATA_TABLE, "GetListsSheetAndTable", _
-                  "Data table '" & NAME_DATA_TABLE & "' not found in Lists sheet."
+            "Data table '" & NAME_DATA_TABLE & "' not found in Lists sheet."
         Exit Function
     End If
     
@@ -755,163 +1354,422 @@ ErrHandler:
 End Function
 
 ' -----------------------------------------------------------------------------------
-' Procedure : CollectRoomData
-' Purpose   : Collect all relevant data from room sheets.
+' Procedure : CollectRoomMetadata
+' Purpose   : Collects Room ID, Room No, and Room Alias from room sheets.
 '
 ' Parameters:
-'   targetBook          [Workbook]              - Workbook to be scanned
-'   roomsDict           [Dictionary]            - Receives room IDs/aliases
-'   scenesDict          [Dictionary]            - Receives scene IDs
-'   itemObjectsDict     [Dictionary]            - Receives item objects
-'   stateObjectsDict    [Dictionary]            - Receives state objects
-'   hotspotObjectsDict  [Dictionary]            - Receives hotspot objects
-'   collectObjects      [Boolean]               - If False, no object data is collected.
+'   targetBook     [Workbook]         - Workbook to scan
+'   roomsDict      [Dictionary]       - Receives: Key=RoomID, Value="RoomNo|RoomAlias"
+'   onlyFromSheet  [Worksheet]        - (Optional) If provided, only collect from this sheet
+'
+' Notes     :
+'   - If onlyFromSheet is Nothing: collect from ALL room sheets
+'   - If onlyFromSheet is provided: collect only from that sheet
 ' -----------------------------------------------------------------------------------
-Private Sub CollectRoomData(ByVal targetBook As Workbook, _
-                           ByRef roomsDict As Scripting.Dictionary, _
-                           ByRef scenesDict As Scripting.Dictionary, _
-                           ByRef itemObjectsDict As Scripting.Dictionary, _
-                           ByRef stateObjectsDict As Scripting.Dictionary, _
-                           ByRef hotspotObjectsDict As Scripting.Dictionary, _
-                           ByVal collectObjects As Boolean)
-    
-    ' Initialize dictionaries
-    Set roomsDict = New Scripting.Dictionary
-    Set scenesDict = New Scripting.Dictionary
-    Set itemObjectsDict = New Scripting.Dictionary
-    Set stateObjectsDict = New Scripting.Dictionary
-    Set hotspotObjectsDict = New Scripting.Dictionary
-    
-    ' Header arrays for lookup
-    Dim roomAliasHeaders As Variant
-    Dim roomNoHeader As Variant
-    Dim sceneIdHeaders As Variant
-    roomAliasHeaders = Array("Room Alias", NAME_CELL_ROOM_ALIAS)
-    roomNoHeader = Array("Room No", NAME_CELL_ROOM_NO)
-    sceneIdHeaders = Array("Scene ID", NAME_CELL_SCENE_ID)
-    
-    ' Go through all room sheets
-    Dim targetSheet As Worksheet
+Private Sub CollectRoomMetadata(ByVal targetBook As Workbook, _
+    ByRef roomsDict As Scripting.Dictionary, _
+    Optional ByVal onlyFromSheet As Worksheet = Nothing)
+        
+    Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
     Dim roomID As String
-    Dim roomAlias As String
     Dim roomNo As String
-    Dim sceneID As String
+    Dim roomAlias As String
     
-    For Each targetSheet In targetBook.Worksheets
-        If modRooms.IsRoomSheet(targetSheet, roomID) Then
-            If Len(roomID) > 0 Then
-                
-                ' Collect room ID and room no and room alias
-                roomNo = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_NO, roomNoHeader)
-                roomAlias = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_ALIAS, roomAliasHeaders)
-                roomsDict(roomID) = roomNo & DICT_VALUE_SEPERATOR & roomAlias
-                
-                ' Collect scene IDs
-                sceneID = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_SCENE_ID, sceneIdHeaders)
-                If Len(sceneID) > 0 Then scenesDict(sceneID) = True
-                
-                ' Collect object data (only if desired)
-                If collectObjects Then
-                    modLists.CollectNamedRangePairs targetSheet, NAME_RANGE_PICKUPABLE_OBJECTS_ITEM_ID, _
-                                                    NAME_RANGE_PICKUPABLE_OBJECTS_NAME, itemObjectsDict
-                    modLists.CollectNamedRangePairs targetSheet, NAME_RANGE_MULTI_STATE_OBJECTS_STATE_ID, _
-                                                    NAME_RANGE_MULTI_STATE_OBJECTS_OBJECT_NAME, stateObjectsDict
-                    modLists.CollectNamedRangePairs targetSheet, NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID, _
-                                                    NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_NAME, hotspotObjectsDict
+    If Not targetSheet Is Nothing Then
+        roomID = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_ID)
+        If Len(roomID) > 0 Then
+            roomNo = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_NO)
+            roomAlias = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_ALIAS)
+            roomsDict(roomID) = roomNo & DICT_VALUE_SEPERATOR & roomAlias
+        End If
+        
+    Else
+        For Each targetSheet In targetBook.Worksheets
+        
+            If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                If Len(roomID) > 0 Then
+                    roomNo = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_NO)
+                    roomAlias = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_ALIAS)
+                    roomsDict(roomID) = roomNo & DICT_VALUE_SEPERATOR & roomAlias
                 End If
             End If
-        End If
-    Next targetSheet
-End Sub
+        
 
-' -----------------------------------------------------------------------------------
-' Procedure : WriteSyncMode
-' Purpose   : SYNC mode: Deletes all columns and rewrites everything.
-' -----------------------------------------------------------------------------------
-Private Sub WriteSyncMode(ByVal dataList As ListObject, _
-                         ByVal roomsDict As Scripting.Dictionary, _
-                         ByVal scenesDict As Scripting.Dictionary, _
-                         ByVal itemObjectsDict As Scripting.Dictionary, _
-                         ByVal stateObjectsDict As Scripting.Dictionary, _
-                         ByVal hotspotObjectsDict As Scripting.Dictionary)
-    
-    ' clear all columns
-    modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_ID
-    modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_ALIAS
-    modLists.ClearTableColumn dataList, LISTS_HEADER_SCENE_ID
-    modLists.ClearTableColumn dataList, LISTS_HEADER_ITEM_ID
-    modLists.ClearTableColumn dataList, LISTS_HEADER_STATE_OBJECT_ID
-    modLists.ClearTableColumn dataList, LISTS_HEADER_HOTSPOT_ID
-    modLists.ClearTableColumn dataList, LISTS_HEADER_ITEM_NAME
-    modLists.ClearTableColumn dataList, LISTS_HEADER_STATE_OBJECT_NAME
-    modLists.ClearTableColumn dataList, LISTS_HEADER_HOTSPOT_NAME
-    
-    ' Rewrite all data
-    modLists.WriteDictionaryToTableColumns dataList, LISTS_HEADER_ROOM_ID, roomsDict, LISTS_HEADER_ROOM_ALIAS
-    modLists.WriteDictionaryToTableColumns dataList, LISTS_HEADER_SCENE_ID, scenesDict
-    modLists.WriteDictionaryToTableColumns dataList, LISTS_HEADER_ITEM_ID, itemObjectsDict, LISTS_HEADER_ITEM_NAME
-    modLists.WriteDictionaryToTableColumns dataList, LISTS_HEADER_STATE_OBJECT_ID, stateObjectsDict, LISTS_HEADER_STATE_OBJECT_NAME
-    modLists.WriteDictionaryToTableColumns dataList, LISTS_HEADER_HOTSPOT_ID, hotspotObjectsDict, LISTS_HEADER_HOTSPOT_NAME
-End Sub
-
-' -----------------------------------------------------------------------------------
-' Procedure : WriteAppendMode
-' Purpose   : APPEND mode: Only deletes and renews Room/Scene columns,
-'             to others columns only adds new objects.
-' -----------------------------------------------------------------------------------
-Private Sub WriteAppendMode(ByVal dataList As ListObject, _
-                           ByVal roomsDict As Scripting.Dictionary, _
-                           ByVal scenesDict As Scripting.Dictionary, _
-                           ByVal itemObjectsDict As Scripting.Dictionary, _
-                           ByVal stateObjectsDict As Scripting.Dictionary, _
-                           ByVal hotspotObjectsDict As Scripting.Dictionary, _
-                           ByVal processObjects As Boolean)
-    
-    ' Always rewrite room/scene columns
-    modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_ID
-    modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_ALIAS
-    modLists.ClearTableColumn dataList, LISTS_HEADER_ROOM_NO
-    modLists.ClearTableColumn dataList, LISTS_HEADER_SCENE_ID
-    
-    modLists.WriteDictionaryToTableColumns dataList, LISTS_HEADER_ROOM_ID, roomsDict, LISTS_HEADER_ROOM_NO, LISTS_HEADER_ROOM_ALIAS
-    modLists.WriteDictionaryToTableColumns dataList, LISTS_HEADER_SCENE_ID, scenesDict
-    
-    ' Only process object data if desired
-    If processObjects Then
-        'Collect existing object pairs from table
-        Dim existingItemPairsDict As Scripting.Dictionary
-        Dim existingStatePairsDict As Scripting.Dictionary
-        Dim existingHotspotPairsDict As Scripting.Dictionary
-        Dim existingKeysDict As Scripting.Dictionary
-        
-        Set existingItemPairsDict = New Scripting.Dictionary
-        Set existingStatePairsDict = New Scripting.Dictionary
-        Set existingHotspotPairsDict = New Scripting.Dictionary
-        Set existingKeysDict = New Scripting.Dictionary
-        
-        modLists.CollectTableColumnPairs dataList, LISTS_HEADER_ITEM_ID, LISTS_HEADER_ITEM_NAME, existingItemPairsDict
-        modLists.CollectTableColumnPairs dataList, LISTS_HEADER_STATE_OBJECT_ID, LISTS_HEADER_STATE_OBJECT_NAME, existingStatePairsDict
-        modLists.CollectTableColumnPairs dataList, LISTS_HEADER_HOTSPOT_ID, LISTS_HEADER_HOTSPOT_NAME, existingHotspotPairsDict
-        
-        ' Add only missing objects
-        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_ITEM_ID, existingKeysDict, _
-                                                    itemObjectsDict, LISTS_HEADER_ITEM_NAME
-        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_STATE_OBJECT_ID, existingKeysDict, _
-                                                    stateObjectsDict, LISTS_HEADER_STATE_OBJECT_NAME
-        modLists.AppendMissingDictSetToTableColumns dataList, LISTS_HEADER_HOTSPOT_ID, existingKeysDict, _
-                                                    hotspotObjectsDict, LISTS_HEADER_HOTSPOT_NAME
+        Next targetSheet
     End If
 End Sub
 
 ' -----------------------------------------------------------------------------------
-' Procedure : UpdateDispatcherTable
+' Procedure : CollectSceneIDs
+' Purpose   : Collects Scene IDs from room sheets.
+'
+' Parameters:
+'   targetBook     [Workbook]         - Workbook to scan
+'   scenesDict     [Dictionary]       - Receives: Key=SceneID, Value=True
+'   onlyFromSheet  [Worksheet]        - (Optional) If provided, only collect from this sheet
+' -----------------------------------------------------------------------------------
+Private Sub CollectSceneIDs(ByVal targetBook As Workbook, _
+    ByRef scenesDict As Scripting.Dictionary, _
+    Optional ByVal onlyFromSheet As Worksheet = Nothing)
+    
+    Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
+    Dim roomID As String
+    Dim sceneID As String
+    
+    If Not targetSheet Is Nothing Then
+        sceneID = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_SCENE_ID)
+        If Len(sceneID) > 0 Then scenesDict(sceneID) = True
+    Else
+    
+        For Each targetSheet In targetBook.Worksheets
+        
+            If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                sceneID = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_SCENE_ID)
+                If Len(sceneID) > 0 Then scenesDict(sceneID) = True
+            End If
+        
+        Next targetSheet
+    End If
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : CollectGeneralSettings
+' Purpose   : Collects unique dimension values (Width, Height, UI Height) from rooms.
+'
+' Parameters:
+'   targetBook     [Workbook]         - Workbook to scan
+'   widthDict      [Dictionary]       - Receives unique width values
+'   heightDict     [Dictionary]       - Receives unique height values
+'   uiHeightDict   [Dictionary]       - Receives unique UI height values
+'
+' Notes     :
+'   - Collects UNIQUE values only (no duplicates)
+'   - Collects from ALL rooms (dimensions are not unique per room)
+'   - Values are stored as keys with True as value
+' -----------------------------------------------------------------------------------
+Private Sub CollectGeneralSettings(ByVal targetBook As Workbook, _
+    ByRef widthDict As Scripting.Dictionary, _
+    ByRef heightDict As Scripting.Dictionary, _
+    ByRef uiHeightDict As Scripting.Dictionary, _
+    Optional ByVal onlyFromSheet As Worksheet = Nothing)
+        
+    Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
+    Dim roomID As String
+    Dim gameWidth As String
+    Dim gameHeight As String
+    Dim bgWidth As String
+    Dim bgHeight As String
+    Dim uiHeight As String
+    
+    If Not targetSheet Is Nothing Then
+        ' Collect Game dimensions
+        gameWidth = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_GAME_WIDTH)
+        If Len(gameWidth) > 0 Then widthDict(gameWidth) = True
+            
+        gameHeight = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_GAME_HEIGHT)
+        If Len(gameHeight) > 0 Then heightDict(gameHeight) = True
+            
+        ' Collect BG dimensions
+        bgWidth = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_BG_WIDTH)
+        If Len(bgWidth) > 0 Then widthDict(bgWidth) = True
+            
+        bgHeight = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_BG_HEIGHT)
+        If Len(bgHeight) > 0 Then heightDict(bgHeight) = True
+            
+        ' Collect UI Height
+        uiHeight = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_UI_HEIGHT)
+        If Len(uiHeight) > 0 Then uiHeightDict(uiHeight) = True
+    
+    Else
+        For Each targetSheet In targetBook.Worksheets
+            If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                ' Collect Game dimensions
+                gameWidth = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_GAME_WIDTH)
+                If Len(gameWidth) > 0 Then widthDict(gameWidth) = True
+            
+                gameHeight = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_GAME_HEIGHT)
+                If Len(gameHeight) > 0 Then heightDict(gameHeight) = True
+            
+                ' Collect BG dimensions
+                bgWidth = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_BG_WIDTH)
+                If Len(bgWidth) > 0 Then widthDict(bgWidth) = True
+            
+                bgHeight = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_BG_HEIGHT)
+                If Len(bgHeight) > 0 Then heightDict(bgHeight) = True
+            
+                ' Collect UI Height
+                uiHeight = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_UI_HEIGHT)
+                If Len(uiHeight) > 0 Then uiHeightDict(uiHeight) = True
+            End If
+        Next targetSheet
+    End If
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : CollectActors
+' Purpose   : Collects Actor ID + Name from room sheets.
+'
+' Parameters:
+'   targetBook     [Workbook]         - Workbook to scan
+'   actorsDict     [Dictionary]       - Receives: Key=ActorID, Value=ActorName
+'   onlyFromSheet  [Worksheet]        - (Optional) If provided, only collect from this sheet
+' -----------------------------------------------------------------------------------
+Private Sub CollectActors(ByVal targetBook As Workbook, _
+    ByRef actorsDict As Scripting.Dictionary, _
+    Optional ByVal onlyFromSheet As Worksheet = Nothing)
+    
+    Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
+    Dim roomID As String
+    
+    If Not targetSheet Is Nothing Then
+        modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_ACTORS_ACTOR_ID, _
+            NAME_RANGE_ACTORS_ACTOR_NAME, actorsDict
+    Else
+        
+        For Each targetSheet In targetBook.Worksheets
+
+        
+            If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_ACTORS_ACTOR_ID, _
+                    NAME_RANGE_ACTORS_ACTOR_NAME, actorsDict
+            End If
+        
+
+        Next targetSheet
+    End If
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : CollectSounds
+' Purpose   : Collects Sound ID + Description + Type from room sheets.
+'
+' Parameters:
+'   targetBook     [Workbook]         - Workbook to scan
+'   soundsDict     [Dictionary]       - Receives: Key=SoundID, Value="Description"
+'   onlyFromSheet  [Worksheet]        - (Optional) If provided, only collect from this sheet
+'
+' Notes     :
+' -----------------------------------------------------------------------------------
+Private Sub CollectSounds(ByVal targetBook As Workbook, _
+    ByRef soundsDict As Scripting.Dictionary, _
+    Optional ByVal onlyFromSheet As Worksheet = Nothing)
+    
+    Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
+    Dim roomID As String
+  
+    If Not targetSheet Is Nothing Then
+    
+        modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_SOUNDS_SOUND_ID, _
+            NAME_RANGE_SOUNDS_DESCRIPTION, soundsDict
+                    
+    Else
+    
+        For Each targetSheet In targetBook.Worksheets
+        
+            If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                ' Collect Sound ID + Description
+                modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_SOUNDS_SOUND_ID, _
+                    NAME_RANGE_SOUNDS_DESCRIPTION, soundsDict
+            End If
+
+        Next targetSheet
+    End If
+    
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : CollectSpecialFX
+' Purpose   : Collects Special FX (Animation ID + Description + Type) from room sheets.
+'
+' Parameters:
+'   targetBook        [Workbook]         - Workbook to scan
+'   specialFXDict     [Dictionary]       - Receives: Key=AnimationID, Value="Description"
+'   onlyFromSheet     [Worksheet]        - (Optional) If provided, only collect from this sheet
+'
+' Notes     :
+' -----------------------------------------------------------------------------------
+Private Sub CollectSpecialFX(ByVal targetBook As Workbook, _
+    ByRef specialFXDict As Scripting.Dictionary, _
+    Optional ByVal onlyFromSheet As Worksheet = Nothing)
+    
+    Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
+    Dim roomID As String
+
+    If Not targetSheet Is Nothing Then
+    
+        modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_SPECIAL_FX_ANIMATION_ID, _
+            NAME_RANGE_SPECIAL_FX_DESCRIPTION, specialFXDict
+                    
+    Else
+    
+        For Each targetSheet In targetBook.Worksheets
+        
+            If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                ' Collect Animation ID + Description
+                modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_SPECIAL_FX_ANIMATION_ID, _
+                    NAME_RANGE_SPECIAL_FX_DESCRIPTION, specialFXDict
+            
+            End If
+
+        Next targetSheet
+    End If
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : CollectFlags
+' Purpose   : Collects Flag ID + Description + Bool Type from room sheets.
+'
+' Parameters:
+'   targetBook     [Workbook]         - Workbook to scan
+'   flagsDict      [Dictionary]       - Receives: Key=FlagID, Value="Description"
+'   flagsTypeDict  [Dictionary]       - Receives: Key=Flag Bool Type
+'   onlyFromSheet  [Worksheet]        - (Optional) If provided, only collect from this sheet
+'
+' Notes     :
+' -----------------------------------------------------------------------------------
+Private Sub CollectFlags(ByVal targetBook As Workbook, _
+    ByRef flagsDict As Scripting.Dictionary, _
+    ByRef flagsTypeDict As Scripting.Dictionary, _
+    Optional ByVal onlyFromSheet As Worksheet = Nothing)
+    
+    Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
+    Dim roomID As String
+    
+    If Not targetSheet Is Nothing Then
+        modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_FLAGS_FLAG_ID, _
+            NAME_RANGE_FLAGS_DESCRIPTION, flagsDict
+                    
+        modLists.CollectNamedRangeValuesToDict targetSheet, NAME_RANGE_FLAGS_BOOL_TYPE, flagsTypeDict
+    
+    Else
+        For Each targetSheet In targetBook.Worksheets
+        
+            If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                ' Collect Flag ID + Description
+                modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_FLAGS_FLAG_ID, _
+                    NAME_RANGE_FLAGS_DESCRIPTION, flagsDict
+                    
+                modLists.CollectNamedRangeValuesToDict targetSheet, NAME_RANGE_FLAGS_BOOL_TYPE, flagsTypeDict
+                    
+            End If
+
+        Next targetSheet
+    
+    End If
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : CollectItems
+' Purpose   : Collects Pickupable Objects (Item ID + Name) from room sheets.
+'
+' Parameters:
+'   targetBook     [Workbook]         - Workbook to scan
+'   itemsDict      [Dictionary]       - Receives: Key=ItemID, Value=ItemName
+'   onlyFromSheet  [Worksheet]        - (Optional) If provided, only collect from this sheet
+' -----------------------------------------------------------------------------------
+Private Sub CollectItems(ByVal targetBook As Workbook, _
+    ByRef itemsDict As Scripting.Dictionary, _
+    Optional ByVal onlyFromSheet As Worksheet = Nothing)
+    
+    Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
+    Dim roomID As String
+    
+    If Not targetSheet Is Nothing Then
+        modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_PICKUPABLE_OBJECTS_ITEM_ID, _
+            NAME_RANGE_PICKUPABLE_OBJECTS_NAME, itemsDict
+    Else
+        For Each targetSheet In targetBook.Worksheets
+        
+            If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_PICKUPABLE_OBJECTS_ITEM_ID, _
+                    NAME_RANGE_PICKUPABLE_OBJECTS_NAME, itemsDict
+            End If
+        
+        Next targetSheet
+    
+    End If
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : CollectStateObjects
+' Purpose   : Collects Multi-State Objects (State ID + Name + State) from room sheets.
+'
+' Parameters:
+'   targetBook        [Workbook]         - Workbook to scan
+'   objectsDict       [Dictionary]       - Receives: Key=StateID, Value=ObjectName
+'   objectsStateDict  [Dictionary]       - Receives: Key=objects State
+'   onlyFromSheet     [Worksheet]        - (Optional) If provided, only collect from this sheet
+' -----------------------------------------------------------------------------------
+Private Sub CollectStateObjects(ByVal targetBook As Workbook, _
+    ByRef objectsDict As Scripting.Dictionary, _
+    ByRef objectsStateDict As Scripting.Dictionary, _
+    Optional ByVal onlyFromSheet As Worksheet = Nothing)
+    
+    Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
+    Dim roomID As String
+    
+    If Not targetSheet Is Nothing Then
+        modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_MULTI_STATE_OBJECTS_STATE_ID, _
+            NAME_RANGE_MULTI_STATE_OBJECTS_OBJECT_NAME, objectsDict
+            
+        modLists.CollectNamedRangeValuesToDict targetSheet, NAME_RANGE_MULTI_STATE_OBJECTS_STATE, objectsStateDict
+    Else
+        For Each targetSheet In targetBook.Worksheets
+        
+            If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_MULTI_STATE_OBJECTS_STATE_ID, _
+                    NAME_RANGE_MULTI_STATE_OBJECTS_OBJECT_NAME, objectsDict
+                    
+                modLists.CollectNamedRangeValuesToDict targetSheet, NAME_RANGE_MULTI_STATE_OBJECTS_STATE, objectsStateDict
+            End If
+        
+        Next targetSheet
+    
+    End If
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : CollectHotspots
+' Purpose   : Collects Touchable Objects (Hotspot ID + Name) from room sheets.
+'
+' Parameters:
+'   targetBook     [Workbook]         - Workbook to scan
+'   hotspotsDict   [Dictionary]       - Receives: Key=HotspotID, Value=HotspotName
+'   onlyFromSheet  [Worksheet]        - (Optional) If provided, only collect from this sheet
+' -----------------------------------------------------------------------------------
+Private Sub CollectHotspots(ByVal targetBook As Workbook, _
+    ByRef hotspotsDict As Scripting.Dictionary, _
+    Optional ByVal onlyFromSheet As Worksheet = Nothing)
+    
+    Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
+    Dim roomID As String
+    
+    If Not targetSheet Is Nothing Then
+        modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID, _
+            NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_NAME, hotspotsDict
+    Else
+        For Each targetSheet In targetBook.Worksheets
+        
+            If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID, _
+                    NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_NAME, hotspotsDict
+            End If
+        
+        Next targetSheet
+    
+    End If
+End Sub
+
+
+' -----------------------------------------------------------------------------------
+' Procedure : UpdateRoomMetadataInDispatcherTable
 ' Purpose   : Updates Room ID and Room Alias in the DropDownLists table.
 ' -----------------------------------------------------------------------------------
-Private Sub UpdateDispatcherTable(ByVal targetBook As Workbook, _
-                                 ByVal oldRoomID As String, _
-                                 ByVal oldRoomAlias As String, _
-                                 ByVal newRoomID As String, _
-                                 ByVal newRoomAlias As String)
+Private Sub UpdateRoomMetadataInDispatcherTable(ByVal targetBook As Workbook, _
+    ByVal oldRoomID As String, _
+    ByVal oldRoomAlias As String, _
+    ByVal newRoomID As String, _
+    ByVal newRoomAlias As String)
     On Error GoTo ErrHandler
     
     Dim dispatcherSheet As Worksheet
@@ -969,6 +1827,7 @@ Private Sub UpdateDispatcherTable(ByVal targetBook As Workbook, _
     Exit Sub
     
 ErrHandler:
-    modErr.ReportError "modMain.UpdateDispatcherTable", Err.Number, Erl, caption:=AppProjectName
+    modErr.ReportError "modMain.UpdateRoomMetadataInDispatcherTable", Err.Number, Erl, caption:=AppProjectName
 End Sub
+
 
