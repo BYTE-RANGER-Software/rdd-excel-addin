@@ -111,14 +111,22 @@ End Sub
 ' -----------------------------------------------------------------------------
 
 Sub RB75dd2c44_btnValidate_OnAction(control As IRibbonControl)
-    MsgBox "Validate Data is not implemented yet.", vbInformation, "Validate"
-    'modPDC.ValidateModel ' TODO: Sub still needs to be adjusted, supplemented, and tested.
+    modRooms.ValidateRoomData
 End Sub
 
 Sub RB75dd2c44_btnValidate_getEnabled(control As IRibbonControl, ByRef returnedVal)
-If modMain.IsRDDWorkbook(ActiveWorkbook) Then
-    ' TODO: I still need to set conditions for displaying.
-End If
+    If Workbooks.Count > 0 Then
+        If modMain.IsRDDWorkbook(ActiveWorkbook) Then
+            ' Check if there's at least one room sheet
+            Dim sheet As Worksheet
+            For Each sheet In ActiveWorkbook.Worksheets
+                If modRooms.IsRoomSheet(sheet) Then
+                    returnedVal = True
+                    Exit Sub
+                End If
+            Next sheet
+        End If
+    End If
 End Sub
 
 ' ============================================================================

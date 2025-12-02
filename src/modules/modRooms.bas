@@ -200,6 +200,50 @@ ErrHandler:
     Resume CleanExit
 End Function
 
+Public Sub ValidateRoomData()
+
+    On Error GoTo ErrHandler
+    
+    ' Verify we have a valid workbook
+    If Workbooks.Count = 0 Then Exit Sub
+    
+    Dim wb As Workbook
+    Set wb = ActiveWorkbook
+    
+    ' Verify this is an RDD workbook
+    If Not modMain.IsRDDWorkbook(wb) Then
+        MsgBox "This is not an RDD workbook.", vbExclamation, modMain.AppProjectName
+        Exit Sub
+    End If
+    
+    ' Check if there are any room sheets to validate
+    Dim hasRoomSheets As Boolean
+    Dim ws As Worksheet
+    
+    hasRoomSheets = False
+    For Each ws In wb.Worksheets
+        If modRooms.IsRoomSheet(ws) Then
+            hasRoomSheets = True
+            Exit For
+        End If
+    Next ws
+    
+    If Not hasRoomSheets Then
+        MsgBox "No room sheets found to validate.", vbInformation, modMain.AppProjectName
+        Exit Sub
+    End If
+    
+    ' Run validation
+    Call modRooms.ValidateRooms(wb)
+    
+    Exit Sub
+    
+ErrHandler:
+    modErr.ReportError "modRooms.ValidateRoomData", Err.Number, Erl, caption:=modMain.AppProjectName
+    
+End Sub
+
+
 ' -----------------------------------------------------------------------------------
 ' Procedure : UpdateRoomReferences
 ' Purpose   : Updates all references to a room ID and alias throughout the workbook.
