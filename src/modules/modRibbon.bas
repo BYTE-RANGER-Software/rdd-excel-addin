@@ -111,7 +111,7 @@ End Sub
 ' -----------------------------------------------------------------------------
 
 Sub RB75dd2c44_btnValidate_OnAction(control As IRibbonControl)
-    modRooms.ValidateRoomData
+    modMain.ValidateRoomData
 End Sub
 
 Sub RB75dd2c44_btnValidate_getEnabled(control As IRibbonControl, ByRef returnedVal)

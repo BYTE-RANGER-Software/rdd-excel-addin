@@ -200,49 +200,6 @@ ErrHandler:
     Resume CleanExit
 End Function
 
-Public Sub ValidateRoomData()
-
-    On Error GoTo ErrHandler
-    
-    ' Verify we have a valid workbook
-    If Workbooks.Count = 0 Then Exit Sub
-    
-    Dim wb As Workbook
-    Set wb = ActiveWorkbook
-    
-    ' Verify this is an RDD workbook
-    If Not modMain.IsRDDWorkbook(wb) Then
-        MsgBox "This is not an RDD workbook.", vbExclamation, modMain.AppProjectName
-        Exit Sub
-    End If
-    
-    ' Check if there are any room sheets to validate
-    Dim hasRoomSheets As Boolean
-    Dim ws As Worksheet
-    
-    hasRoomSheets = False
-    For Each ws In wb.Worksheets
-        If modRooms.IsRoomSheet(ws) Then
-            hasRoomSheets = True
-            Exit For
-        End If
-    Next ws
-    
-    If Not hasRoomSheets Then
-        MsgBox "No room sheets found to validate.", vbInformation, modMain.AppProjectName
-        Exit Sub
-    End If
-    
-    ' Run validation
-    Call modRooms.ValidateRooms(wb)
-    
-    Exit Sub
-    
-ErrHandler:
-    modErr.ReportError "modRooms.ValidateRoomData", Err.Number, Erl, caption:=modMain.AppProjectName
-    
-End Sub
-
 
 ' -----------------------------------------------------------------------------------
 ' Procedure : UpdateRoomReferences
@@ -1141,6 +1098,83 @@ ErrHandler:
 End Sub
 
 ' -----------------------------------------------------------------------------------
+' Procedure : ValidateRooms
+' Purpose   : Validates all room sheets for duplicate IDs, missing references,
+'             and potential cycles in room connections.
+'
+' Parameters:
+'   targetBook  [Workbook]  - Workbook to validate
+'
+' Returns   : (none) - Results are displayed in a new "Validation Results" sheet
+'
+' Notes     :
+'   - Checks for duplicate Room IDs, Room Aliases, and Room Numbers
+'   - Validates that all room references in "Doors To" exist
+'   - Detects circular dependencies between rooms
+'   - Creates or clears existing "Validation Results" sheet
+' -----------------------------------------------------------------------------------
+Public Sub ValidateRooms(ByVal targetBook As Workbook)
+    On Error GoTo ErrHandler
+    
+    Dim validationSheet As Worksheet
+    Dim issueRow As Long
+    Dim ws As Worksheet
+    
+    ' Enable silent mode
+    modUtil.HideOpMode True
+    
+    ' Ensure validation results sheet
+    Set validationSheet = EnsureValidationSheet(targetBook)
+    issueRow = 2 ' Start after header row
+    
+    ' === 1. Check for duplicate Room IDs ===
+    issueRow = CheckDuplicateRoomIDs(targetBook, validationSheet, issueRow)
+    
+    ' === 2. Check for duplicate Room Aliases ===
+    issueRow = CheckDuplicateRoomAliases(targetBook, validationSheet, issueRow)
+    
+    ' === 3. Check for duplicate Room Numbers ===
+    issueRow = CheckDuplicateRoomNumbers(targetBook, validationSheet, issueRow)
+    
+    ' === 4. Check for missing room references ===
+    issueRow = CheckMissingRoomReferences(targetBook, validationSheet, issueRow)
+    
+    ' === 5. Check for circular dependencies ===
+    issueRow = CheckCircularDependencies(targetBook, validationSheet, issueRow)
+    
+    ' Format results
+    FormatValidationSheet validationSheet, issueRow
+    
+    ' Show results
+    validationSheet.Activate
+    If issueRow = 2 Then
+        ' No issues found
+        validationSheet.Cells(issueRow, 1).value = "Success"
+        validationSheet.Cells(issueRow, 2).value = "No validation issues found!"
+        validationSheet.Cells(issueRow, 3).value = ""
+        validationSheet.Cells(issueRow, 1).Font.Color = RGB(0, 128, 0)
+        validationSheet.Cells(issueRow, 2).Font.Color = RGB(0, 128, 0)
+        MsgBox "Validation completed successfully!" & vbCrLf & _
+               "No issues found.", vbInformation, modMain.AppProjectName
+    Else
+        MsgBox "Validation completed." & vbCrLf & _
+               (issueRow - 2) & " issue(s) found." & vbCrLf & vbCrLf & _
+               "Please review the 'Validation Results' sheet.", _
+               vbExclamation, modMain.AppProjectName
+    End If
+    
+CleanExit:
+    modUtil.HideOpMode False
+    Exit Sub
+    
+ErrHandler:
+    modUtil.HideOpMode False
+    modErr.ReportError "ValidateRooms", Err.Number, Erl, caption:=modMain.AppProjectName
+    Resume CleanExit
+End Sub
+
+
+' -----------------------------------------------------------------------------------
 ' Function  : GetFormattedRoomID
 ' Purpose   : Build a formatted Room ID from the numeric index using a prefix.
 '
@@ -1873,5 +1907,497 @@ Private Sub UpdateRoomMetadataInDispatcherTable(ByVal targetBook As Workbook, _
 ErrHandler:
     modErr.ReportError "modMain.UpdateRoomMetadataInDispatcherTable", Err.Number, Erl, caption:=AppProjectName
 End Sub
+
+' -----------------------------------------------------------------------------------
+' Function  : EnsureValidationSheet
+' Purpose   : Creates or clears the "Validation Results" sheet
+'
+' Parameters:
+'   targetBook  [Workbook]  - Workbook to create sheet in
+'
+' Returns   : Worksheet - The validation results sheet
+' -----------------------------------------------------------------------------------
+Private Function EnsureValidationSheet(ByVal targetBook As Workbook) As Worksheet
+    Dim ValidSheet As Worksheet
+    
+    ' Check if sheet exists
+    Set ValidSheet = modSheets.EnsureSheet("Validation Results", targetBook)
+    
+    If Not ValidSheet Is Nothing Then
+        ' Clear existing content
+        ValidSheet.Cells.Clear
+    
+        ' Write headers
+        ValidSheet.Cells(1, 1).value = "Severity"
+        ValidSheet.Cells(1, 2).value = "Issue Type"
+        ValidSheet.Cells(1, 3).value = "Description"
+    
+        ' Format headers
+        With ValidSheet.Range("A1:C1")
+            .Font.Bold = True
+            .Font.Size = 11
+            .Interior.Color = RGB(68, 114, 196)
+            .Font.Color = RGB(255, 255, 255)
+            .HorizontalAlignment = xlCenter
+        End With
+    
+        Set EnsureValidationSheet = ValidSheet
+    End If
+End Function
+
+' -----------------------------------------------------------------------------------
+' Procedure : FormatValidationSheet
+' Purpose   : Formats the validation results sheet
+'
+' Parameters:
+'   sheet     [Worksheet]  - Sheet to format
+'   lastRow   [Long]       - Last row with data
+' -----------------------------------------------------------------------------------
+Private Sub FormatValidationSheet(ByVal sheet As Worksheet, ByVal lastRow As Long)
+    If lastRow > 1 Then
+        ' Auto-fit columns
+        sheet.Columns("A:C").AutoFit
+        
+        ' Adjust column widths with limits
+        If sheet.Columns(1).ColumnWidth < 10 Then sheet.Columns(1).ColumnWidth = 10
+        If sheet.Columns(2).ColumnWidth < 20 Then sheet.Columns(2).ColumnWidth = 20
+        If sheet.Columns(3).ColumnWidth > 80 Then sheet.Columns(3).ColumnWidth = 80
+        
+        ' Add borders
+        With sheet.Range(sheet.Cells(1, 1), sheet.Cells(lastRow - 1, 3))
+            .Borders.LineStyle = xlContinuous
+            .Borders.Weight = xlThin
+            .Borders.Color = RGB(200, 200, 200)
+        End With
+        
+        ' Wrap text in description column
+        sheet.Columns(3).WrapText = True
+    End If
+    
+    ' Freeze header row
+    sheet.Activate
+    sheet.Range("A2").Select
+    ActiveWindow.FreezePanes = True
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Function  : CheckDuplicateRoomIDs
+' Purpose   : Checks for duplicate Room IDs across all room sheets
+'
+' Parameters:
+'   targetBook        [Workbook]   - Workbook to check
+'   validationSheet   [Worksheet]  - Sheet to write results to
+'   startRow          [Long]       - Starting row for writing issues
+'
+' Returns   : Long - Next available row for writing
+' -----------------------------------------------------------------------------------
+Private Function CheckDuplicateRoomIDs(ByVal targetBook As Workbook, _
+                                       ByVal validationSheet As Worksheet, _
+                                       ByVal startRow As Long) As Long
+    Dim roomIDDict As Scripting.Dictionary
+    Dim roomSheet As Worksheet
+    Dim roomID As String
+    Dim sheetName As String
+    Dim currentRow As Long
+    
+    Set roomIDDict = New Scripting.Dictionary
+    currentRow = startRow
+    
+    ' Collect all Room IDs
+    For Each roomSheet In targetBook.Worksheets
+        If IsRoomSheet(roomSheet, roomID) Then
+            sheetName = roomSheet.name
+            
+            If Len(roomID) > 0 Then
+                If roomIDDict.Exists(roomID) Then
+                    ' Duplicate found
+                    validationSheet.Cells(currentRow, 1).value = "Error"
+                    validationSheet.Cells(currentRow, 2).value = "Duplicate Room ID"
+                    validationSheet.Cells(currentRow, 3).value = _
+                        "Room ID '" & roomID & "' is used in sheets: '" & _
+                        roomIDDict(roomID) & "' and '" & sheetName & "'"
+                    validationSheet.Cells(currentRow, 1).Font.Color = RGB(255, 0, 0)
+                    currentRow = currentRow + 1
+                    
+                    ' Update dictionary to track multiple occurrences
+                    roomIDDict(roomID) = roomIDDict(roomID) & ", " & sheetName
+                Else
+                    roomIDDict.Add roomID, sheetName
+                End If
+            End If
+        End If
+    Next roomSheet
+    
+    CheckDuplicateRoomIDs = currentRow
+End Function
+
+' -----------------------------------------------------------------------------------
+' Function  : CheckDuplicateRoomAliases
+' Purpose   : Checks for duplicate Room Aliases across all room sheets
+'
+' Parameters:
+'   targetBook        [Workbook]   - Workbook to check
+'   validationSheet   [Worksheet]  - Sheet to write results to
+'   startRow          [Long]       - Starting row for writing issues
+'
+' Returns   : Long - Next available row for writing
+' -----------------------------------------------------------------------------------
+Private Function CheckDuplicateRoomAliases(ByVal targetBook As Workbook, _
+                                           ByVal validationSheet As Worksheet, _
+                                           ByVal startRow As Long) As Long
+    Dim aliasDict As Scripting.Dictionary
+    Dim roomSheet As Worksheet
+    Dim roomAlias As String
+    Dim cell As Range
+    Dim currentRow As Long
+    
+    Set aliasDict = New Scripting.Dictionary
+    currentRow = startRow
+    
+    ' Collect all Room Aliases
+    For Each roomSheet In targetBook.Worksheets
+        If IsRoomSheet(roomSheet) Then
+            On Error Resume Next
+            Set cell = roomSheet.Range(modConst.NAME_CELL_ROOM_ALIAS)
+            On Error GoTo 0
+            
+            If Not cell Is Nothing Then
+                roomAlias = Trim$(CStr(cell.value))
+                
+                If Len(roomAlias) > 0 Then
+                    If aliasDict.Exists(roomAlias) Then
+                        ' Duplicate found
+                        validationSheet.Cells(currentRow, 1).value = "Error"
+                        validationSheet.Cells(currentRow, 2).value = "Duplicate Room Alias"
+                        validationSheet.Cells(currentRow, 3).value = _
+                            "Room Alias '" & roomAlias & "' is used in sheets: '" & _
+                            aliasDict(roomAlias) & "' and '" & roomSheet.name & "'"
+                        validationSheet.Cells(currentRow, 1).Font.Color = RGB(255, 0, 0)
+                        currentRow = currentRow + 1
+                        
+                        aliasDict(roomAlias) = aliasDict(roomAlias) & ", " & roomSheet.name
+                    Else
+                        aliasDict.Add roomAlias, roomSheet.name
+                    End If
+                End If
+            End If
+        End If
+    Next roomSheet
+    
+    CheckDuplicateRoomAliases = currentRow
+End Function
+
+' -----------------------------------------------------------------------------------
+' Function  : CheckDuplicateRoomNumbers
+' Purpose   : Checks for duplicate Room Numbers across all room sheets
+'
+' Parameters:
+'   targetBook        [Workbook]   - Workbook to check
+'   validationSheet   [Worksheet]  - Sheet to write results to
+'   startRow          [Long]       - Starting row for writing issues
+'
+' Returns   : Long - Next available row for writing
+' -----------------------------------------------------------------------------------
+Private Function CheckDuplicateRoomNumbers(ByVal targetBook As Workbook, _
+                                           ByVal validationSheet As Worksheet, _
+                                           ByVal startRow As Long) As Long
+    Dim roomNoDict As Scripting.Dictionary
+    Dim roomSheet As Worksheet
+    Dim roomNo As Long
+    Dim cell As Range
+    Dim cellValue As Variant
+    Dim currentRow As Long
+    
+    Set roomNoDict = New Scripting.Dictionary
+    currentRow = startRow
+    
+    ' Collect all Room Numbers
+    For Each roomSheet In targetBook.Worksheets
+        If IsRoomSheet(roomSheet) Then
+            On Error Resume Next
+            Set cell = roomSheet.Range(modConst.NAME_CELL_ROOM_NO)
+            On Error GoTo 0
+            
+            If Not cell Is Nothing Then
+                cellValue = cell.value
+                
+                If IsNumeric(cellValue) Then
+                    roomNo = CLng(cellValue)
+                    
+                    If roomNo >= 0 Then ' Only check valid room numbers
+                        Dim roomNoKey As String
+                        roomNoKey = CStr(roomNo)
+                        
+                        If roomNoDict.Exists(roomNoKey) Then
+                            ' Duplicate found
+                            validationSheet.Cells(currentRow, 1).value = "Error"
+                            validationSheet.Cells(currentRow, 2).value = "Duplicate Room Number"
+                            validationSheet.Cells(currentRow, 3).value = _
+                                "Room Number '" & roomNo & "' is used in sheets: '" & _
+                                roomNoDict(roomNoKey) & "' and '" & roomSheet.name & "'"
+                            validationSheet.Cells(currentRow, 1).Font.Color = RGB(255, 0, 0)
+                            currentRow = currentRow + 1
+                            
+                            roomNoDict(roomNoKey) = roomNoDict(roomNoKey) & ", " & roomSheet.name
+                        Else
+                            roomNoDict.Add roomNoKey, roomSheet.name
+                        End If
+                    End If
+                End If
+            End If
+        End If
+    Next roomSheet
+    
+    CheckDuplicateRoomNumbers = currentRow
+End Function
+
+' -----------------------------------------------------------------------------------
+' Function  : CheckMissingRoomReferences
+' Purpose   : Checks if all room references in "Doors To" ranges exist
+'
+' Parameters:
+'   targetBook        [Workbook]   - Workbook to check
+'   validationSheet   [Worksheet]  - Sheet to write results to
+'   startRow          [Long]       - Starting row for writing issues
+'
+' Returns   : Long - Next available row for writing
+' -----------------------------------------------------------------------------------
+Private Function CheckMissingRoomReferences(ByVal targetBook As Workbook, _
+                                            ByVal validationSheet As Worksheet, _
+                                            ByVal startRow As Long) As Long
+    Dim roomSheet As Worksheet
+    Dim refRange As Range
+    Dim cell As Range
+    Dim refRoomID As String
+    Dim refRoomAlias As String
+    Dim currentRow As Long
+    Dim foundSheet As Worksheet
+    
+    currentRow = startRow
+    
+    ' Check each room sheet
+    For Each roomSheet In targetBook.Worksheets
+        If IsRoomSheet(roomSheet) Then
+            ' Check "Doors To Room ID" references
+            On Error Resume Next
+            Set refRange = roomSheet.Range(modConst.NAME_RANGE_DOORS_TO_ROOM_ID)
+            On Error GoTo 0
+            
+            If Not refRange Is Nothing Then
+                For Each cell In refRange.Cells
+                    refRoomID = Trim$(CStr(cell.value))
+                    
+                    If Len(refRoomID) > 0 Then
+                        ' Check if referenced room exists
+                        If Not HasRoomID(targetBook, refRoomID, foundSheet) Then
+                            validationSheet.Cells(currentRow, 1).value = "Warning"
+                            validationSheet.Cells(currentRow, 2).value = "Missing Room Reference"
+                            validationSheet.Cells(currentRow, 3).value = _
+                                "Sheet '" & roomSheet.name & "' references non-existent Room ID: '" & refRoomID & "'"
+                            validationSheet.Cells(currentRow, 1).Font.Color = RGB(255, 165, 0)
+                            currentRow = currentRow + 1
+                        End If
+                    End If
+                Next cell
+            End If
+            
+            ' Check "Doors To Room Alias" references
+            On Error Resume Next
+            Set refRange = roomSheet.Range(modConst.NAME_RANGE_DOORS_TO_ROOM_ALIAS)
+            On Error GoTo 0
+            
+            If Not refRange Is Nothing Then
+                For Each cell In refRange.Cells
+                    refRoomAlias = Trim$(CStr(cell.value))
+                    
+                    If Len(refRoomAlias) > 0 Then
+                        ' Check if referenced room exists
+                        If Not HasRoomAlias(targetBook, refRoomAlias, foundSheet) Then
+                            validationSheet.Cells(currentRow, 1).value = "Warning"
+                            validationSheet.Cells(currentRow, 2).value = "Missing Room Reference"
+                            validationSheet.Cells(currentRow, 3).value = _
+                                "Sheet '" & roomSheet.name & "' references non-existent Room Alias: '" & refRoomAlias & "'"
+                            validationSheet.Cells(currentRow, 1).Font.Color = RGB(255, 165, 0)
+                            currentRow = currentRow + 1
+                        End If
+                    End If
+                Next cell
+            End If
+        End If
+    Next roomSheet
+    
+    CheckMissingRoomReferences = currentRow
+End Function
+
+' -----------------------------------------------------------------------------------
+' Function  : CheckCircularDependencies
+' Purpose   : Detects circular dependencies between rooms (e.g., Room A -> Room B -> Room A)
+'
+' Parameters:
+'   targetBook        [Workbook]   - Workbook to check
+'   validationSheet   [Worksheet]  - Sheet to write results to
+'   startRow          [Long]       - Starting row for writing issues
+'
+' Returns   : Long - Next available row for writing
+'
+' Notes     :
+'   - Uses depth-first search to detect cycles
+'   - Reports the cycle path when found
+' -----------------------------------------------------------------------------------
+Private Function CheckCircularDependencies(ByVal targetBook As Workbook, _
+                                           ByVal validationSheet As Worksheet, _
+                                           ByVal startRow As Long) As Long
+    Dim roomGraph As Scripting.Dictionary
+    Dim roomSheet As Worksheet
+    Dim currentRow As Long
+    Dim roomID As String
+    Dim visitedRooms As Scripting.Dictionary
+    Dim pathStack As Collection
+    Dim cycleFound As Boolean
+    Dim cycleMessage As String
+    
+    currentRow = startRow
+    Set roomGraph = New Scripting.Dictionary
+    
+    ' Build room dependency graph
+    For Each roomSheet In targetBook.Worksheets
+        If IsRoomSheet(roomSheet, roomID) Then
+            If Not roomGraph.Exists(roomID) Then
+                roomGraph.Add roomID, GetRoomDependencies(roomSheet)
+            End If
+        End If
+    Next roomSheet
+    
+    ' Check each room for cycles using DFS
+    Set visitedRooms = New Scripting.Dictionary
+    Dim startRoomID As Variant
+    
+    For Each startRoomID In roomGraph.Keys
+        Set pathStack = New Collection
+        cycleFound = False
+        cycleMessage = ""
+        
+        If DetectCycleDFS(CStr(startRoomID), roomGraph, visitedRooms, pathStack, cycleMessage) Then
+            ' Cycle detected
+            validationSheet.Cells(currentRow, 1).value = "Warning"
+            validationSheet.Cells(currentRow, 2).value = "Circular Dependency"
+            validationSheet.Cells(currentRow, 3).value = cycleMessage
+            validationSheet.Cells(currentRow, 1).Font.Color = RGB(255, 165, 0)
+            currentRow = currentRow + 1
+        End If
+    Next startRoomID
+    
+    CheckCircularDependencies = currentRow
+End Function
+
+' -----------------------------------------------------------------------------------
+' Function  : GetRoomDependencies
+' Purpose   : Retrieves all room references (dependencies) from a room sheet
+'
+' Parameters:
+'   roomSheet  [Worksheet]  - Room sheet to analyze
+'
+' Returns   : Collection - Collection of referenced room IDs
+' -----------------------------------------------------------------------------------
+Private Function GetRoomDependencies(ByVal roomSheet As Worksheet) As Collection
+    Dim dependencies As Collection
+    Dim refRange As Range
+    Dim cell As Range
+    Dim refRoomID As String
+    Dim foundSheet As Worksheet
+    
+    Set dependencies = New Collection
+    
+    ' Get references from "Doors To Room ID" range
+    On Error Resume Next
+    Set refRange = roomSheet.Range(modConst.NAME_RANGE_DOORS_TO_ROOM_ID)
+    On Error GoTo 0
+    
+    If Not refRange Is Nothing Then
+        For Each cell In refRange.Cells
+            refRoomID = Trim$(CStr(cell.value))
+            
+            If Len(refRoomID) > 0 Then
+                ' Verify the reference exists
+                If HasRoomID(roomSheet.Parent, refRoomID, foundSheet) Then
+                    On Error Resume Next
+                    dependencies.Add refRoomID, refRoomID
+                    On Error GoTo 0
+                End If
+            End If
+        Next cell
+    End If
+    
+    Set GetRoomDependencies = dependencies
+End Function
+
+' -----------------------------------------------------------------------------------
+' Function  : DetectCycleDFS
+' Purpose   : Performs depth-first search to detect cycles in room dependencies
+'
+' Parameters:
+'   currentRoomID  [String]                  - Current room being checked
+'   roomGraph      [Dictionary]              - Graph of room dependencies
+'   visitedRooms   [Dictionary]              - Tracks visited rooms (global)
+'   pathStack      [Collection]              - Current path being explored
+'   cycleMessage   [String, ByRef]           - Message describing the cycle
+'
+' Returns   : Boolean - True if cycle detected, False otherwise
+' -----------------------------------------------------------------------------------
+Private Function DetectCycleDFS(ByVal currentRoomID As String, _
+                                ByVal roomGraph As Scripting.Dictionary, _
+                                ByVal visitedRooms As Scripting.Dictionary, _
+                                ByVal pathStack As Collection, _
+                                ByRef cycleMessage As String) As Boolean
+    Dim i As Long
+    Dim pathItem As Variant
+    Dim dependencies As Collection
+    Dim depRoomID As Variant
+    
+    ' Check if current room is already in the current path (cycle detected)
+    For i = 1 To pathStack.Count
+        If pathStack(i) = currentRoomID Then
+            ' Build cycle message
+            cycleMessage = "Cycle detected: "
+            For Each pathItem In pathStack
+                cycleMessage = cycleMessage & pathItem & " -> "
+            Next pathItem
+            cycleMessage = cycleMessage & currentRoomID
+            DetectCycleDFS = True
+            Exit Function
+        End If
+    Next i
+    
+    ' Mark as visited for this session
+    If visitedRooms.Exists(currentRoomID) Then
+        DetectCycleDFS = False
+        Exit Function
+    End If
+    
+    ' Add to current path
+    pathStack.Add currentRoomID
+    
+    ' Get dependencies and explore
+    If roomGraph.Exists(currentRoomID) Then
+        Set dependencies = roomGraph(currentRoomID)
+        
+        For Each depRoomID In dependencies
+            If DetectCycleDFS(CStr(depRoomID), roomGraph, visitedRooms, pathStack, cycleMessage) Then
+                DetectCycleDFS = True
+                Exit Function
+            End If
+        Next depRoomID
+    End If
+    
+    ' Remove from path (backtrack)
+    pathStack.Remove pathStack.Count
+    
+    ' Mark as fully processed
+    If Not visitedRooms.Exists(currentRoomID) Then
+        visitedRooms.Add currentRoomID, True
+    End If
+    
+    DetectCycleDFS = False
+End Function
 
 

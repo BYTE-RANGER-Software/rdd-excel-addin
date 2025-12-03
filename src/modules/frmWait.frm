@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmWait 
-   Caption         =   "UserForm1"
+   Caption         =   "Initializing..."
    ClientHeight    =   990
    ClientLeft      =   121
    ClientTop       =   462
@@ -45,6 +45,7 @@ Public Sub Init()
     
     Debug.Print "Init frmWait"
     Application.ScreenUpdating = False
+    Me.Label1.caption = "Initializing..."
     Me.Show
     Call HideTitleBar
             

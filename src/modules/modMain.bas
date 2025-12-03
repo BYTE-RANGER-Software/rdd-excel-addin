@@ -669,7 +669,7 @@ Public Function AddNewRoom(Optional ByVal shouldGoToNewRoom As Boolean = True) A
         modUtil.HideOpMode True
         modRooms.ApplyParallaxRangeCover newSheet
         If shouldGoToNewRoom Then
-            Application.Goto newSheet.Range("A1"), True
+            Application.GoTo newSheet.Range("A1"), True
         Else
             currentSheet.Activate
             If Not currentCell Is Nothing Then currentCell.Select
@@ -784,7 +784,7 @@ Public Sub GotoRoomFromCell()
     
     Dim roomSheet As Worksheet
     If modRooms.HasRoomID(currentWorkbook, roomID, roomSheet) Then
-        Application.Goto roomSheet.Range("A1"), True
+        Application.GoTo roomSheet.Range("A1"), True
         Exit Sub
     End If
     
@@ -1019,6 +1019,55 @@ ErrHandler:
      MsgBox "Error synchronizing lists: " & Err.Description, vbCritical, modMain.AppProjectName
      Resume CleanExit
  End Sub
+ 
+ Public Sub ValidateRoomData()
+
+    On Error GoTo ErrHandler
+    
+    ' Verify we have a valid workbook
+    If Workbooks.Count = 0 Then Exit Sub
+    
+    Dim wb As Workbook
+    Set wb = ActiveWorkbook
+    
+    ' Verify this is an RDD workbook
+    If Not modMain.IsRDDWorkbook(wb) Then
+        MsgBox "This is not an RDD workbook.", vbExclamation, modMain.AppProjectName
+        Exit Sub
+    End If
+    
+    ' Check if there are any room sheets to validate
+    Dim hasRoomSheets As Boolean
+    Dim ws As Worksheet
+    
+    hasRoomSheets = False
+    For Each ws In wb.Worksheets
+        If modRooms.IsRoomSheet(ws) Then
+            hasRoomSheets = True
+            Exit For
+        End If
+    Next ws
+    
+    If Not hasRoomSheets Then
+        MsgBox "No room sheets found to validate.", vbInformation, modMain.AppProjectName
+        Exit Sub
+    End If
+    
+    frmWait.ShowDialog
+    modUtil.HideOpMode True
+    
+    ' Run validation
+    Call modRooms.ValidateRooms(wb)
+    
+    modUtil.HideOpMode False
+    frmWait.Hide
+    
+    Exit Sub
+    
+ErrHandler:
+    modErr.ReportError "modRooms.ValidateRoomData", Err.Number, Erl, caption:=modMain.AppProjectName
+    
+End Sub
 
 ' ===== Private Methods ===============================================================
 
@@ -1198,4 +1247,5 @@ ErrorHandler:
     ' Bei Fehler: keine spezielle Kategorie zurückgeben
     DetermineChangeCategory = CC_None
 End Function
+
 
