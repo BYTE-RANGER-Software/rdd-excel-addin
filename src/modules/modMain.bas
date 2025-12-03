@@ -311,6 +311,9 @@ Public Sub HandleSheetChange(ByVal changedSheet As Worksheet, ByVal targetRng As
         
     ' Set the general change flag
     clsState.RoomSheetChanged = True
+    clsState.RoomsValidated = False
+    
+    clsState.InvalidateControl "RB75dd2c44_btnBuildData"
     
     ' Determine what type of change occurred
     Dim changeType As ChangeCategory
@@ -661,12 +664,13 @@ Public Function AddNewRoom(Optional ByVal shouldGoToNewRoom As Boolean = True) A
     Unload newItemForm: Set newItemForm = Nothing
     
     frmWait.ShowDialog
-    
-    EnsureWorkbookIsTagged currentWorkbook
-     
+    modUtil.HideOpMode True
+            
     Set newSheet = modRooms.AddRoom(currentWorkbook, roomName, roomIndex, roomNo, sceneID)
     If Not newSheet Is Nothing Then
-        modUtil.HideOpMode True
+    
+        EnsureWorkbookIsTagged currentWorkbook
+        
         modRooms.ApplyParallaxRangeCover newSheet
         If shouldGoToNewRoom Then
             Application.GoTo newSheet.Range("A1"), True
@@ -685,8 +689,9 @@ Public Function AddNewRoom(Optional ByVal shouldGoToNewRoom As Boolean = True) A
     Exit Function
     
 ErrHandler:
-    modErr.ReportError "AddNewRoom", Err.Number, Erl, caption:=modMain.AppProjectName
     modUtil.HideOpMode False
+    frmWait.Hide
+    modErr.ReportError "AddNewRoom", Err.Number, Erl, caption:=modMain.AppProjectName
 End Function
 
 ' -----------------------------------------------------------------------------------
@@ -1030,6 +1035,8 @@ ErrHandler:
     Dim wb As Workbook
     Set wb = ActiveWorkbook
     
+    Dim issues As Long
+    
     ' Verify this is an RDD workbook
     If Not modMain.IsRDDWorkbook(wb) Then
         MsgBox "This is not an RDD workbook.", vbExclamation, modMain.AppProjectName
@@ -1057,8 +1064,17 @@ ErrHandler:
     modUtil.HideOpMode True
     
     ' Run validation
-    Call modRooms.ValidateRooms(wb)
+    issues = modRooms.ValidateRooms(wb)
+    clsState.RoomsValidationIssueCount = issues
     
+    If issues = 0 Then
+    ' Set validation status in state
+        clsState.RoomsValidated = True
+    End If
+    
+    ' Invalidate buttons that depend on validation
+    clsState.InvalidateControl "RB75dd2c44_btnBuildData"
+        
     modUtil.HideOpMode False
     frmWait.Hide
     

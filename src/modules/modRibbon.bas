@@ -115,18 +115,21 @@ Sub RB75dd2c44_btnValidate_OnAction(control As IRibbonControl)
 End Sub
 
 Sub RB75dd2c44_btnValidate_getEnabled(control As IRibbonControl, ByRef returnedVal)
-    If Workbooks.Count > 0 Then
-        If modMain.IsRDDWorkbook(ActiveWorkbook) Then
-            ' Check if there's at least one room sheet
-            Dim sheet As Worksheet
-            For Each sheet In ActiveWorkbook.Worksheets
-                If modRooms.IsRoomSheet(sheet) Then
-                    returnedVal = True
-                    Exit Sub
-                End If
-            Next sheet
+    returnedVal = False
+        
+    If Workbooks.Count = 0 Then Exit Sub
+    
+    If Not modMain.IsRDDWorkbook(ActiveWorkbook) Then Exit Sub
+    ' Check if there's at least one room sheet
+    Dim sheet As Worksheet
+    For Each sheet In ActiveWorkbook.Worksheets
+        If modRooms.IsRoomSheet(sheet) Then
+            returnedVal = True
+            Exit Sub
         End If
-    End If
+    Next sheet
+
+    
 End Sub
 
 ' ============================================================================
@@ -139,8 +142,14 @@ Sub RB75dd2c44_btnBuildData_OnAction(control As IRibbonControl)
 End Sub
 
 Sub RB75dd2c44_btnBuildData_getEnabled(control As IRibbonControl, ByRef returnedVal)
-    If modMain.IsRDDWorkbook(ActiveWorkbook) Then
-        ' TODO: I still need to set conditions for displaying.
+    returnedVal = False
+    
+    If Workbooks.Count = 0 Then Exit Sub
+    If Not modMain.IsRDDWorkbook(ActiveWorkbook) Then Exit Sub
+    
+    ' Only enable if validated and no critical errors
+    If clsState.RoomsValidated And clsState.RoomsValidationIssueCount = 0 Then
+        returnedVal = True
     End If
 End Sub
 

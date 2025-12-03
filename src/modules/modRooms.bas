@@ -1105,7 +1105,7 @@ End Sub
 ' Parameters:
 '   targetBook  [Workbook]  - Workbook to validate
 '
-' Returns   : (none) - Results are displayed in a new "Validation Results" sheet
+' Returns   : (Long) - returns number of found issues
 '
 ' Notes     :
 '   - Checks for duplicate Room IDs, Room Aliases, and Room Numbers
@@ -1113,12 +1113,11 @@ End Sub
 '   - Detects circular dependencies between rooms
 '   - Creates or clears existing "Validation Results" sheet
 ' -----------------------------------------------------------------------------------
-Public Sub ValidateRooms(ByVal targetBook As Workbook)
+Public Function ValidateRooms(ByVal targetBook As Workbook) As Long
     On Error GoTo ErrHandler
     
     Dim validationSheet As Worksheet
     Dim issueRow As Long
-    Dim ws As Worksheet
     
     ' Enable silent mode
     modUtil.HideOpMode True
@@ -1147,6 +1146,9 @@ Public Sub ValidateRooms(ByVal targetBook As Workbook)
     
     ' Show results
     validationSheet.Activate
+    
+    ValidateRooms = (issueRow - 2)
+    
     If issueRow = 2 Then
         ' No issues found
         validationSheet.Cells(issueRow, 1).value = "Success"
@@ -1165,13 +1167,13 @@ Public Sub ValidateRooms(ByVal targetBook As Workbook)
     
 CleanExit:
     modUtil.HideOpMode False
-    Exit Sub
+    Exit Function
     
 ErrHandler:
     modUtil.HideOpMode False
     modErr.ReportError "ValidateRooms", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
-End Sub
+End Function
 
 
 ' -----------------------------------------------------------------------------------

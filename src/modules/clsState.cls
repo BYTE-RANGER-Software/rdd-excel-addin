@@ -57,63 +57,65 @@ Attribute VB_Exposed = False
 Option Explicit
 
 ' Module-scope fields
-Private m_blnRoomSheetChanged As Boolean       ' Tracks whether Room sheet changed
-Private m_blnCellCtxMnuNeedsPrepare As Boolean ' Tracks context menu prepare need. True to (re)prepare the ctx menu on next call when Excel changed the "Cell" CommandBar
-Private m_intCellCtxMenuType As Integer        ' Stores context menu type. Resolved context menu type according to CellCtxMnu
-Private m_blnCellCtxMnuHideDefault As Boolean  ' Hides default context entries. If True, built-in entries will be hidden during the next prepare pass
-Private m_objRibbonUI As IRibbonUI             ' Ribbon reference
+Private m_roomSheetChanged As Boolean       ' Tracks whether Room sheet changed
+Private m_roomsValidated As Boolean         '
+Private m_roomsValidationIssueCount As Long '
+Private m_cellCtxMnuNeedsPrepare As Boolean ' Tracks context menu prepare need. True to (re)prepare the ctx menu on next call when Excel changed the "Cell" CommandBar
+Private m_cellCtxMenuType As Integer        ' Stores context menu type. Resolved context menu type according to CellCtxMnu
+Private m_cellCtxMnuHideDefault As Boolean  ' Hides default context entries. If True, built-in entries will be hidden during the next prepare pass
+Private m_ribbonUI As IRibbonUI             ' Ribbon reference
 
 ' --- Properties ---
 Public Property Get RoomSheetChanged() As Boolean
-    RoomSheetChanged = m_blnRoomSheetChanged
+    RoomSheetChanged = m_roomSheetChanged
 End Property
 
 Public Property Let RoomSheetChanged(ByVal blnValue As Boolean)
-    m_blnRoomSheetChanged = blnValue
+    m_roomSheetChanged = blnValue
 End Property
 
 Public Property Get CellCtxMnuNeedsPrepare() As Boolean
-    CellCtxMnuNeedsPrepare = m_blnCellCtxMnuNeedsPrepare
+    CellCtxMnuNeedsPrepare = m_cellCtxMnuNeedsPrepare
 End Property
 
 Public Property Let CellCtxMnuNeedsPrepare(ByVal blnValue As Boolean)
-    m_blnCellCtxMnuNeedsPrepare = blnValue
+    m_cellCtxMnuNeedsPrepare = blnValue
 End Property
 
 Public Property Get CellCtxMenuType() As Integer
-    CellCtxMenuType = m_intCellCtxMenuType
+    CellCtxMenuType = m_cellCtxMenuType
 End Property
 
 Public Property Let CellCtxMenuType(ByVal intValue As Integer)
-    m_intCellCtxMenuType = intValue
+    m_cellCtxMenuType = intValue
 End Property
 
 Public Property Get CellCtxMnuHideDefault() As Boolean
-    CellCtxMnuHideDefault = m_blnCellCtxMnuHideDefault
+    CellCtxMnuHideDefault = m_cellCtxMnuHideDefault
 End Property
 
 Public Property Let CellCtxMnuHideDefault(ByVal blnValue As Boolean)
-    m_blnCellCtxMnuHideDefault = blnValue
+    m_cellCtxMnuHideDefault = blnValue
 End Property
 
 Public Property Get RibbonUI() As IRibbonUI
-    Set RibbonUI = m_objRibbonUI
+    Set RibbonUI = m_ribbonUI
 End Property
 
 Public Property Set RibbonUI(ByVal obj As IRibbonUI)
-    Set m_objRibbonUI = obj
+    Set m_ribbonUI = obj
 End Property
 
 ' --- Helpers ---
 Public Sub InvalidateRibbon()
     On Error Resume Next
-    If Not m_objRibbonUI Is Nothing Then m_objRibbonUI.Invalidate
+    If Not m_ribbonUI Is Nothing Then m_ribbonUI.Invalidate
     On Error GoTo 0
 End Sub
 
 Public Sub InvalidateControl(ByVal controlId As String)
     On Error Resume Next
-    m_objRibbonUI.InvalidateControl controlId
+    m_ribbonUI.InvalidateControl controlId
     On Error GoTo 0
 End Sub
 
@@ -123,10 +125,33 @@ End Sub
 
 Public Sub Cleanup()
     ' Release object refs, reset flags
-    Set m_objRibbonUI = Nothing
-    m_blnRoomSheetChanged = False
-    m_blnCellCtxMnuNeedsPrepare = False
-    m_intCellCtxMenuType = 0
-    m_blnCellCtxMnuHideDefault = False
+    Set m_ribbonUI = Nothing
+    m_roomSheetChanged = False
+    m_cellCtxMnuNeedsPrepare = False
+    m_cellCtxMenuType = 0
+    m_cellCtxMnuHideDefault = False
 End Sub
 
+Public Property Get RoomsValidated() As Boolean
+
+    RoomsValidated = m_roomsValidated
+
+End Property
+
+Public Property Let RoomsValidated(ByVal NewValue As Boolean)
+
+    m_roomsValidated = NewValue
+
+End Property
+
+Public Property Get RoomsValidationIssueCount() As Long
+
+    RoomsValidationIssueCount = m_roomsValidationIssueCount
+
+End Property
+
+Public Property Let RoomsValidationIssueCount(ByVal NewValue As Long)
+
+    m_roomsValidationIssueCount = NewValue
+
+End Property
