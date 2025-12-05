@@ -101,12 +101,59 @@ Sub RB75dd2c44_btnSyncLists_OnAction(control As IRibbonControl)
 End Sub
 
 Sub RB75dd2c44_btnSyncLists_getEnabled(control As IRibbonControl, ByRef returnedVal)
+    returnedVal = False
     If Workbooks.Count > 0 Then
         If modMain.IsRDDWorkbook(ActiveWorkbook) Then
             returnedVal = True
         End If
     End If
 End Sub
+
+
+Sub RB75dd2c44_btnSyncLists_getVisible(control As IRibbonControl, ByRef returnedVal)
+    returnedVal = False
+
+    If Not clsState.RoomSheetChanged Then
+        returnedVal = True  ' Synchronized = green
+    End If
+
+
+End Sub
+
+Sub RB75dd2c44_btnSyncLists_getSupertip(control As IRibbonControl, ByRef returnedVal)
+    Dim baseText As String
+    Dim statusText As String
+    
+    ' Base functionality description
+    baseText = "Rebuild dropdown lists from rooms and remove outdated entries."
+    'set Default , if error occurs
+    statusText = "Status: No data available for synchronization"
+    
+    ' Dynamic status based on RoomSheetChanged
+    If Workbooks.Count = 0 Then
+        statusText = "Status: No data available for synchronization"
+    ElseIf Not modMain.IsRDDWorkbook(ActiveWorkbook) Then
+        statusText = "Status: No data available for synchronization"
+    ElseIf clsState.RoomSheetChanged Then
+        statusText = "Status: Changes detected - sync recommended"
+    Else
+        statusText = "Status: Data are synchronized"
+    End If
+    
+    ' Combine with line breaks (Chr(13) = vbCr)
+    returnedVal = baseText & vbCr & vbCr & statusText
+End Sub
+
+Sub RB75dd2c44_btnNeedSyncLists_getVisible(control As IRibbonControl, ByRef returnedVal)
+    returnedVal = False
+
+    If clsState.RoomSheetChanged Then
+        returnedVal = True  ' Changed = orange
+    End If
+
+End Sub
+
+
 
 ' -----------------------------------------------------------------------------
 

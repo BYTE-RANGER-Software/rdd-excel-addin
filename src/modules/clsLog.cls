@@ -441,16 +441,16 @@ End Sub
 '   - Reads from the current log file (m_logFileFullName).
 '   - Ensures DEFAULT_LOG_EXT on the target file.
 ' -----------------------------------------------------------------------------------
-Private Sub ILog_SaveLogAs(ByVal fileName As String, Optional ByVal overwrite As Boolean = False)
+Private Sub ILog_SaveLogAs(ByVal fileNAme As String, Optional ByVal overwrite As Boolean = False)
     On Error Resume Next
     Dim Message    As String
-    fileName = m_logFilePath & fileName
-    If Not fileName Like "*" & DEFAULT_LOG_EXT Then fileName = fileName & DEFAULT_LOG_EXT
+    fileNAme = m_logFilePath & fileNAme
+    If Not fileNAme Like "*" & DEFAULT_LOG_EXT Then fileNAme = fileNAme & DEFAULT_LOG_EXT
     Message = ReadTXTfile(m_logFileFullName)
     If overwrite Then
-        SaveTXTfile fileName, Message
+        SaveTXTfile fileNAme, Message
     Else
-        AddIntoTXTfile fileName, Message
+        AddIntoTXTfile fileNAme, Message
     End If
 End Sub
 
@@ -540,11 +540,11 @@ End Function
 ' Notes     :
 '   - Creates a late-bound Scripting.FileSystemObject and TextStream.
 ' -----------------------------------------------------------------------------------
-Private Function ReadTXTfile(ByVal filepath As String) As String
+Private Function ReadTXTfile(ByVal filePath As String) As String
     Dim fso    As Object
     Dim textStream     As Object
     Set fso = CreateObject("scripting.filesystemobject")
-    Set textStream = fso.OpenTextFile(filepath, 1, True): ReadTXTfile = textStream.ReadAll: textStream.Close
+    Set textStream = fso.OpenTextFile(filePath, 1, True): ReadTXTfile = textStream.ReadAll: textStream.Close
     Set textStream = Nothing: Set fso = Nothing
 End Function
 
@@ -561,12 +561,12 @@ End Function
 ' Notes     :
 '   - Creates or overwrites the file.
 ' -----------------------------------------------------------------------------------
-Private Function SaveTXTfile(ByVal fileName As String, ByVal Message As String) As Boolean
+Private Function SaveTXTfile(ByVal fileNAme As String, ByVal Message As String) As Boolean
     Dim fso    As Object
     Dim textStream     As Object
     On Error Resume Next: Err.Clear
     Set fso = CreateObject("scripting.filesystemobject")
-    Set textStream = fso.CreateTextFile(fileName, True)
+    Set textStream = fso.CreateTextFile(fileNAme, True)
     textStream.Write Message: textStream.Close
     SaveTXTfile = Err = 0
     Set textStream = Nothing: Set fso = Nothing
@@ -585,12 +585,12 @@ End Function
 ' Notes     :
 '   - Opens the file with ForAppending mode (8).
 ' -----------------------------------------------------------------------------------
-Private Function AddIntoTXTfile(ByVal fileName As String, ByVal Message As String) As Boolean
+Private Function AddIntoTXTfile(ByVal fileNAme As String, ByVal Message As String) As Boolean
     Dim fso    As Object
     Dim textStream     As Object
     On Error Resume Next: Err.Clear
     Set fso = CreateObject("scripting.filesystemobject")
-    Set textStream = fso.OpenTextFile(fileName, 8, True)
+    Set textStream = fso.OpenTextFile(fileNAme, 8, True)
     textStream.Write Message: textStream.Close
     Set textStream = Nothing: Set fso = Nothing
     AddIntoTXTfile = Err = 0

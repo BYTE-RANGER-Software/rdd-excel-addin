@@ -48,7 +48,7 @@ Public Sub InsertPicture_Button()
     Const PICTURE_NAME As String = "Scene image"
 
     Dim fd As FileDialog
-    Dim filepath As String
+    Dim filePath As String
     Dim ws As Worksheet
     Dim rng As Range
     Dim pic As Picture
@@ -75,7 +75,7 @@ Public Sub InsertPicture_Button()
         .Filters.Clear
         .Filters.Add "image files", "*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff"
         If .Show <> -1 Then Exit Sub
-        filepath = .SelectedItems(1)
+        filePath = .SelectedItems(1)
     End With
 
     Application.ScreenUpdating = False
@@ -87,7 +87,7 @@ Public Sub InsertPicture_Button()
     On Error GoTo 0
 
     ' Insert picture at default size
-    Set pic = ws.Pictures.Insert(filepath)
+    Set pic = ws.Pictures.Insert(filePath)
 
     ' Name, place, and scale while keeping aspect ratio
     With pic

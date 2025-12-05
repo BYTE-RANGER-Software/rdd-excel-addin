@@ -275,10 +275,6 @@ Public Sub HandleSheetActivate(ByVal activatedSheet As Worksheet)
         
         If modRooms.IsRoomSheet(activatedSheet) Then
                     
-            If clsState.RoomSheetChanged Then
-                clsState.RoomSheetChanged = False
-                ' TODO:
-            End If
             modRooms.ApplyParallaxRangeCover activatedSheet
            
         End If
@@ -314,6 +310,8 @@ Public Sub HandleSheetChange(ByVal changedSheet As Worksheet, ByVal targetRng As
     clsState.RoomsValidated = False
     
     clsState.InvalidateControl "RB75dd2c44_btnBuildData"
+    clsState.InvalidateControl "RB75dd2c44_btnSyncLists"
+    clsState.InvalidateControl "RB75dd2c44_btnNeedSyncLists"
     
     ' Determine what type of change occurred
     Dim changeType As ChangeCategory
@@ -1009,7 +1007,11 @@ End Sub
      
      ' Full SYNC of all categories
      modRooms.SynchronizeAllLists wb
-
+          
+     clsState.RoomSheetChanged = False
+     clsState.InvalidateControl "RB75dd2c44_btnSyncLists"
+     clsState.InvalidateControl "RB75dd2c44_btnNeedSyncLists"
+     
      modUtil.HideOpMode False
      frmWait.Hide
      

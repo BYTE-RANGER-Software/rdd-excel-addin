@@ -15,11 +15,13 @@ Attribute VB_Exposed = False
 '
 ' Public API:
 '   === Properties (Get/Let) ===
-'   - RoomSheetChanged         : Tracks whether Room sheet data has changed
-'   - CellCtxMnuNeedsPrepare   : Indicates if context menu needs rebuilding
-'   - CellCtxMenuType          : Stores resolved context menu type
-'   - CellCtxMnuHideDefault    : Controls visibility of built-in context menu items
-'   - RibbonUI                 : Reference to Excel Ribbon UI interface
+'   - RoomSheetChanged            : Tracks whether Room sheet data has changed
+'   - RoomsValidated              : Tracks whether room data validation has passed
+'   - RoomsValidationIssueCount   : Number of validation issues found (0 = success)
+'   - CellCtxMnuNeedsPrepare      : Indicates if context menu needs rebuilding
+'   - CellCtxMenuType             : Stores resolved context menu type
+'   - CellCtxMnuHideDefault       : Controls visibility of built-in context menu items
+'   - RibbonUI                    : Reference to Excel Ribbon UI interface
 '
 '   === Methods ===
 '   - InvalidateRibbon()       : Forces entire Ribbon UI to refresh
@@ -58,8 +60,8 @@ Option Explicit
 
 ' Module-scope fields
 Private m_roomSheetChanged As Boolean       ' Tracks whether Room sheet changed
-Private m_roomsValidated As Boolean         '
-Private m_roomsValidationIssueCount As Long '
+Private m_roomsValidated As Boolean         ' Tracks whether room data validation has passed
+Private m_roomsValidationIssueCount As Long ' Number of validation issues found (0 = success)
 Private m_cellCtxMnuNeedsPrepare As Boolean ' Tracks context menu prepare need. True to (re)prepare the ctx menu on next call when Excel changed the "Cell" CommandBar
 Private m_cellCtxMenuType As Integer        ' Stores context menu type. Resolved context menu type according to CellCtxMnu
 Private m_cellCtxMnuHideDefault As Boolean  ' Hides default context entries. If True, built-in entries will be hidden during the next prepare pass
@@ -130,6 +132,8 @@ Public Sub Cleanup()
     m_cellCtxMnuNeedsPrepare = False
     m_cellCtxMenuType = 0
     m_cellCtxMnuHideDefault = False
+    m_roomsValidated = False
+    m_roomsValidationIssueCount = 0
 End Sub
 
 Public Property Get RoomsValidated() As Boolean
