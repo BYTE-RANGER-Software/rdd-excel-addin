@@ -237,10 +237,10 @@ End Sub
 '
 ' Returns   : (none)
 '
-' Notes     : Uses SetDocumentProperty.
+' Notes     : Uses SetDocumentPropertyValue.
 ' -----------------------------------------------------------------------------------
 Public Sub TagWorkbook(ByVal wb As Workbook, ByVal strTagText As String, Optional ByVal strValue As String = vbNullString)
-    modProps.SetDocumentProperty wb, TagPropName(strTagText), strValue
+    modProps.SetDocumentPropertyValue wb, TagPropName(strTagText), strValue
 End Sub
 
 ' -----------------------------------------------------------------------------------

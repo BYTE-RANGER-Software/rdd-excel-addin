@@ -9,6 +9,7 @@ Attribute VB_Name = "modCellCtxMnu"
 '   - InitCellCtxMenu()
 '   - EnsureCellCtxMenuReady()
 '   - EvaluateCellCtxMenu(wks As Worksheet, Target As Range) As Integer
+'   - ResetToDefaultCtxMenu()
 '   - ShowCellCtxByCachedCaption(part As String)
 '   - ShowAllCachedCellCtx()
 '
@@ -219,6 +220,42 @@ ErrHandler:
     modErr.ReportError "EvaluateCellCtxMenu", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
 End Function
+
+' -----------------------------------------------------------------------------------
+' Procedure : ResetToDefaultCtxMenu
+' Purpose   : Short-circuit method to restore default context menu state
+' Parameters: (none)
+' Returns   : (none)
+' Notes     : Only resets if current menu type is not already default
+' -----------------------------------------------------------------------------------
+Public Sub ResetToDefaultCtxMenu()
+    On Error GoTo ErrHandler
+    If clsState.CellCtxMenuType = CCM_Default Then Exit Sub
+    
+        ' Reset any custom context menu modifications
+            If Not m_isCtxCacheInitialized Then BuildCellCtxMenuCache
+    
+    If Application.CommandBars("Cell").Controls.Count <> m_controlCountSignature Then
+        m_isCtxCacheInitialized = False
+        BuildCellCtxMenuCache
+        m_controlCountSignature = Application.CommandBars("Cell").Controls.Count
+    End If
+    
+    ShowAllCachedCellCtx
+    
+        ' Reset menu type
+        clsState.CellCtxMenuType = CCM_Default
+        clsState.CellCtxMnuNeedsPrepare = False
+        clsState.CellCtxMnuHideDefault = False
+        
+        ' Clear dynamic button states
+        clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu1"
+        clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu2"
+            
+        Exit Sub
+ErrHandler:
+    modErr.ReportError "ResetToDefaultCtxMenu", Err.Number, Erl
+End Sub
 
 ' ================================
 ' Public API – Cache-based show helpers

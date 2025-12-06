@@ -307,7 +307,7 @@ Public Function GetDocumentProperty(ByVal sourceWorkbook As Workbook, ByVal prop
 End Function
 
 ' -----------------------------------------------------------------------------------
-' Procedure : SetDocumentProperty
+' Procedure : SetDocumentPropertyValue
 ' Purpose   : Create or update a workbook-level CustomDocumentProperty with the
 '             correct MsoDocProperties type inferred from the Variant value.
 '
@@ -321,7 +321,7 @@ End Function
 ' Notes     : If the property exists, its value is updated; otherwise the property
 '             is created using the inferred type.
 ' -----------------------------------------------------------------------------------
-Public Sub SetDocumentProperty(ByVal targetWorkbook As Workbook, ByVal propertyName As String, ByVal propertyValue As Variant)
+Public Sub SetDocumentPropertyValue(ByVal targetWorkbook As Workbook, ByVal propertyName As String, ByVal propertyValue As Variant)
     Dim dp As DocumentProperty
     Dim propertyType As MsoDocProperties
 

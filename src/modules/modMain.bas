@@ -12,16 +12,17 @@ Attribute VB_Name = "modMain"
 '   - AppTempPath                 : Gets/sets temp/log path
 '   - AppVersion                  : Returns add-in version
 '
-'   === Lifecycle ===
-'   - HandleWorkbookAddinInstall  : First-time installation initialization
-'   - HandleWorkbookOpen          : Startup tasks (logging, events, state)
-'   - HandleWorkbookBeforeClose   : Shutdown tasks (cleanup, save settings)
+'   === Lifecycle (Add-In) ===
+'   - HandleAddInWorkbookInstall  : First-time installation initialization
+'   - HandleAddInWorkbookOpen          : Startup tasks (logging, events, state)
+'   - HandleAddInWorkbookBeforeClose   : Shutdown tasks (cleanup, save settings)
 '
-'   === Event Business Logic ===
+'   === Event Business Logic (RDD Workbooks) ===
 '   - HandleSheetActivate         : Sheet activation logic
 '   - HandleSheetChange           : Sheet change logic
 '   - HandleSheetBeforeRightClick : Right-click menu preparation
 '   - HandleWorkbookBeforeSave    : Pre-save operations
+'   - HandleWorkbookOpen
 '
 '   === FormDrop Callbacks ===
 '   - OnFormDropCatSelected       : Category dropdown selection logic
@@ -143,7 +144,7 @@ Public Property Get AppVersion() As String
 End Property
 
 ' -----------------------------------------------------------------------------------
-' Procedure : HandleWorkbookAddinInstall
+' Procedure : HandleAddInWorkbookInstall
 ' Purpose   : Initializes application-specific settings and resources during first-time add-in installation.
 '             Sets default properties, creating required named ranges,
 '             registering document tags, or preparing the workbook for use with the add-in.
@@ -152,7 +153,7 @@ End Property
 ' Returns   : (none)
 ' Notes     : Must be called from Workbook_AddinInstall()
 ' -----------------------------------------------------------------------------------
-Public Sub HandleWorkbookAddinInstall()
+Public Sub HandleAddInWorkbookInstall()
     'If the add-in is activated when a workbook is opened,
     'save the reference to this workbook for Workbook_Open,
     'since the add-in is set as the active workbook in Workbook_Open.
@@ -160,15 +161,15 @@ Public Sub HandleWorkbookAddinInstall()
 End Sub
 
 ' -----------------------------------------------------------------------------------
-' Function  : HandleWorkbookOpen
+' Function  : HandleAddInWorkbookOpen
 ' Purpose   : Application startup: init logging, wire App events, init state, refresh UI,
 '             validating workbook structure.
 '
 ' Parameters: (none)
 ' Returns   : (none)
-' Notes     : must called from Workbook_open(). Requires clsAppEvents and clsState
+' Notes     : must called from Workbook_open(). Requires clsState
 ' -----------------------------------------------------------------------------------
-Public Sub HandleWorkbookOpen()
+Public Sub HandleAddInWorkbookOpen()
     
     ' Ensure temp path exists before logging
     m_appTempPath = modUtil.GetTempFolder & "\BYTE RANGER"
@@ -184,7 +185,7 @@ Public Sub HandleWorkbookOpen()
     
     ' load options
     modOptions.ReadGeneralOptions
-
+    
     If m_formDropMgr Is Nothing Then Set m_formDropMgr = New clsFormDropManager
     m_formDropMgr.Init _
         onCatCallback:="modFormDropCallbacks.OnFormDropCatSelected", _
@@ -204,14 +205,14 @@ Public Sub HandleWorkbookOpen()
 End Sub
 
 ' -----------------------------------------------------------------------------------
-' Function  : HandleWorkbookBeforeClose
+' Function  : HandleAddInWorkbookBeforeClose
 ' Purpose   : Application shutdown: saving settings, releasing resources,
 '             unhook events, cleanup state, close log.
 ' Parameters: (none)
 ' Returns   : (none)
 ' Notes     : must called from Workbook_BeforeClose(). Safe to call multiple times.
 ' -----------------------------------------------------------------------------------
-Public Sub HandleWorkbookBeforeClose()
+Public Sub HandleAddInWorkbookBeforeClose(Cancel As Boolean)
 
     Call SaveGeneralOptions
     
@@ -229,20 +230,50 @@ Public Sub HandleWorkbookBeforeClose()
 End Sub
 
 ' -----------------------------------------------------------------------------------
-' Procedure : HandleSheetActivate
-' Purpose   : Handles business logic when a worksheet is activated.
-'             Updates application state, refreshes UI elements, and manages
-'             context-sensitive features based on the activated sheet.
-' Parameters: sh  [Worksheet] - Worksheet that was activated
+' Function  : HandleWorkbookOpen
+' Purpose   : handles opening of non RDD-AddIn workbooks
+'
+' Parameters: (none)
 ' Returns   : (none)
-' Notes     : Called by clsAppEvents.App_SheetActivate event handler.
+' Notes     : must called from clsAppEvent App_WorkbookOpen(). Requires clsAppEvents
 ' -----------------------------------------------------------------------------------
-Public Sub HandleSheetDeactivate(ByVal Sh As Worksheet)
-        m_formDropMgr.HandleSheetDeactivate Sh
+Public Sub HandleWorkbookOpen(ByVal targetBook As Workbook)
+    On Error GoTo ErrHandler
+    ' only on RDD Workbooks
+    If Not IsRDDWorkbook(targetBook) Then Exit Sub
+    modOptions.ReadWorkbookOptions targetBook
+
+ErrHandler:
+    modErr.ReportError "HandleWorkbookOpen", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
 
 ' -----------------------------------------------------------------------------------
-' Procedure : HandleSheetChange
+' Procedure : HandleSheetDeactivate
+' Purpose   : Handles business logic when a worksheet is deactivated.
+'             Updates application state, refreshes UI elements, and manages
+'             context-sensitive features based on the deactivated sheet.
+' Parameters: sh  [Worksheet] - Worksheet that was deactivated
+' Returns   : (none)
+' Notes     : Called by clsAppEvents.App_SheetDeactivate event handler.
+' -----------------------------------------------------------------------------------
+Public Sub HandleSheetDeactivate(ByVal sh As Worksheet)
+    On Error GoTo ErrHandler
+    
+    ' Code that must run on all Sheets
+    ' ...
+    
+    
+    'only on RoomSheets
+    If Not IsRoomSheet(sh) Then Exit Sub
+    ' Code That runs only on Room sheets
+    m_formDropMgr.HandleSheetDeactivate sh
+    
+ErrHandler:
+    modErr.ReportError "HandleSheetDeactivate", Err.Number, Erl, caption:=modMain.AppProjectName
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : HandleSheetSelectionChange
 ' Purpose   : Handles business logic when worksheet cells are changed.
 '             Implements data validation, cascading updates, or other change-triggered
 '             workflows based on changed ranges.
@@ -251,8 +282,14 @@ End Sub
 ' Returns   : (none)
 ' Notes     : Called by clsAppEvents.App_SheetChange event handler.
 ' -----------------------------------------------------------------------------------
-Public Sub HandleSheetSelectionChange(ByVal Sh As Worksheet, ByVal Target As Range)
-        m_formDropMgr.HandleSelectionChange Sh, Target
+Public Sub HandleSheetSelectionChange(ByVal sh As Worksheet, ByVal Target As Range)
+    On Error GoTo ErrHandler
+    'only on RoomSheets
+    If Not IsRoomSheet(sh) Then Exit Sub
+    
+    m_formDropMgr.HandleSelectionChange sh, Target
+ErrHandler:
+    modErr.ReportError "HandleSheetSelectionChange", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -268,19 +305,15 @@ End Sub
 '   - Only acts when SHEET_DISPATCHER is present in the target workbook.
 ' -----------------------------------------------------------------------------------
 Public Sub HandleSheetActivate(ByVal activatedSheet As Worksheet)
-    Dim wb As Workbook: Set wb = activatedSheet.Parent
-    
-    ' Check whether the target workbook has a sheet with the Tag SHEET_LISTS
-    If modTags.SheetWithTagExists(wb, SHEET_DISPATCHER) Then
-        
-        If modRooms.IsRoomSheet(activatedSheet) Then
-                    
-            modRooms.ApplyParallaxRangeCover activatedSheet
-           
-        End If
-    End If
-    
+    ' Code that must run on all Sheets
     clsState.InvalidateRibbon
+        
+    'only on RDD Workbooks and on RoomSheets
+    If Not IsRDDWorkbook(activatedSheet.Parent) Then Exit Sub
+    If Not modRooms.IsRoomSheet(activatedSheet) Then Exit Sub
+                        
+    modRooms.ApplyParallaxRangeCover activatedSheet
+    
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -298,13 +331,11 @@ End Sub
 ' -----------------------------------------------------------------------------------
 Public Sub HandleSheetChange(ByVal changedSheet As Worksheet, ByVal targetRng As Range)
     Dim srcBook As Workbook: Set srcBook = changedSheet.Parent
-
-    ' Check whether the workbook has a sheet with the Tag SHEET_DISPATCHER
-    If Not modTags.SheetWithTagExists(srcBook, SHEET_DISPATCHER) Then Exit Sub
     
-    ' Only process room sheets
-    If Not modTags.HasSheetTag(changedSheet, ROOM_SHEET_ID_TAG_NAME) Then Exit Sub
-        
+    ' Only process on RDD Workbooks and on room sheets
+    If Not IsRDDWorkbook(srcBook) Then Exit Sub
+    If Not modRooms.IsRoomSheet(changedSheet) Then Exit Sub
+            
     ' Set the general change flag
     clsState.RoomSheetChanged = True
     clsState.RoomsValidated = False
@@ -375,12 +406,18 @@ End Sub
 '   - Does not modify shouldCancel in the current implementation.
 ' -----------------------------------------------------------------------------------
 Public Sub HandleSheetBeforeRightClick(ByVal clickedOnSheet As Worksheet, ByVal targetRng As Range, ByRef shouldCancel As Boolean)
-    clsState.CellCtxMnuNeedsPrepare = True
+    
+    If modRooms.IsRoomSheet(clickedOnSheet) Then
+        clsState.CellCtxMnuNeedsPrepare = True
 
-    modCellCtxMnu.EvaluateCellCtxMenu clickedOnSheet, targetRng
+        modCellCtxMnu.EvaluateCellCtxMenu clickedOnSheet, targetRng
   
-    clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu1"
-    clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu2"
+        clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu1"
+        clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu2"
+    Else
+        modCellCtxMnu.ResetToDefaultCtxMenu
+    End If
+    
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -399,7 +436,8 @@ End Sub
 '   - Currently only persists workbook options, does not alter shouldCancel.
 ' -----------------------------------------------------------------------------------
 Public Sub HandleWorkbookBeforeSave(ByVal targetBook As Workbook, ByVal showSaveAsUi As Boolean, ByRef shouldCancel As Boolean)
-    Call modOptions.SaveWorkbookOptions(targetBook)
+    If Not IsRDDWorkbook(targetBook) Then Exit Sub
+    modOptions.SaveWorkbookOptions targetBook
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -412,7 +450,7 @@ End Sub
 ' -----------------------------------------------------------------------------------
 Public Sub EnsureWorkbookIsTagged(ByVal wb As Workbook)
     If Not modProps.DocumentPropertyExists(wb, APP_DOC_TAG_KEY) Then
-        modProps.SetDocumentProperty wb, APP_DOC_TAG_KEY, APP_DOC_TAG_VAL
+        modProps.SetDocumentPropertyValue wb, APP_DOC_TAG_KEY, APP_DOC_TAG_VAL
     End If
 End Sub
 
@@ -471,7 +509,7 @@ Public Sub ShowManual()
     On Error GoTo ErrHandler
     
     Dim manualPath As String
-    manualPath = ReplaceWildcards(modOptions.Opt_ManualPath) & "\"  ' TODO: Add options Formular
+    manualPath = ReplaceWildcards(modOptions.Opt_ManualPath) & "\"
 
 
     If Dir(manualPath & FILENAME_MANUAL) <> "" Then
@@ -500,43 +538,47 @@ End Sub
 Public Sub ShowOptions()
 
     On Error GoTo ErrHandler
+            
+    Dim currentWorkbook As Workbook: Set currentWorkbook = ActiveWorkbook
+
+    If Not modMain.IsRDDWorkbook(currentWorkbook) Then Exit Sub
     
     Dim currentOptions As tOptions
-    currentOptions = modOptions.GetAllOptions
-        
-    Dim currentWorkbook As Workbook: Set currentWorkbook = ActiveWorkbook
-    
     Dim optionsForm As frmOptions
+    Dim newOptions As tOptions
+    Dim validationError As String
+        
+    currentOptions = modOptions.GetAllOptions
+
     Set optionsForm = New frmOptions: optionsForm.Init AppProjectName, currentOptions
         
-    optionsForm.Show
+    With optionsForm
+        optionsForm.Show
         
+        If .Confirmed Then
 
-    If optionsForm.Confirmed Then
-        Dim newOptions As tOptions
-        newOptions = optionsForm.ResultOptions
+            newOptions = .ResultOptions
 
-        Dim validationError As String
-        validationError = modOptions.ValidateOptions(newOptions)
-        If LenB(validationError) > 0 Then
-            MsgBox validationError, vbExclamation, AppProjectName
-            Set optionsForm = Nothing
-            Exit Sub
+            validationError = modOptions.ValidateOptions(newOptions)
+            If LenB(validationError) > 0 Then
+                MsgBox validationError, vbExclamation, AppProjectName
+                GoTo CleanExit
+            End If
+
+            modOptions.SetAllOptions newOptions
+            modOptions.SaveGeneralOptions
+            modOptions.SaveWorkbookOptions currentWorkbook
         End If
-
-        modOptions.SetAllOptions newOptions
-        modOptions.SaveGeneralOptions
-        modOptions.SaveWorkbookOptions currentWorkbook
-    End If
     
-    Set optionsForm = Nothing
+    End With
     
-    On Error GoTo 0
+CleanExit:
+    Unload optionsForm: Set optionsForm = Nothing
     Exit Sub
 
 ErrHandler:
     modErr.ReportError "ShowOptions", Err.Number, Erl, caption:=modMain.AppProjectName
-
+    Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -671,7 +713,7 @@ Public Function AddNewRoom(Optional ByVal shouldGoToNewRoom As Boolean = True) A
         
         modRooms.ApplyParallaxRangeCover newSheet
         If shouldGoToNewRoom Then
-            Application.GoTo newSheet.Range("A1"), True
+            Application.Goto newSheet.Range("A1"), True
         Else
             currentSheet.Activate
             If Not currentCell Is Nothing Then currentCell.Select
@@ -714,7 +756,7 @@ Public Sub AddNewRoomFromCellCtxMnu()
         If Not targetCell Is Nothing Then targetCell.value = roomID
     End If
     
-    
+    Exit Sub
 ErrHandler:
     modErr.ReportError "AddNewRoomFromCellCtxMnu", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
@@ -787,7 +829,7 @@ Public Sub GotoRoomFromCell()
     
     Dim roomSheet As Worksheet
     If modRooms.HasRoomID(currentWorkbook, roomID, roomSheet) Then
-        Application.GoTo roomSheet.Range("A1"), True
+        Application.Goto roomSheet.Range("A1"), True
         Exit Sub
     End If
     
@@ -925,7 +967,6 @@ Public Sub EditRoomIdentity()
                 End If
             End If
             If newRoomAlias <> currentRoomAlias Then
-                 
                 If modRooms.HasRoomAlias(targetBook, newRoomAlias) Then
                     MsgBox "Room Alias '" & newRoomAlias & "' already exists !" & vbCrLf & _
                         "Please choose a different Room Alias.", _
@@ -965,6 +1006,7 @@ Public Sub EditRoomIdentity()
     
     oldRoomIDCell.value = newRoomID
     oldRoomAliasCell.value = newRoomAlias
+    oldRoomNoCell.value = newRoomNo
     
     If newRoomID <> currentRoomID Then
         modTags.TagSheet targetSheet, ROOM_SHEET_ID_TAG_NAME, newRoomID
@@ -996,38 +1038,38 @@ ErrHandler:
     Resume CleanExit
 End Sub
 
- Public Sub SyncAllLists()
-     On Error GoTo ErrHandler
+Public Sub SyncAllLists()
+    On Error GoTo ErrHandler
 
-     Dim wb As Workbook
-     Set wb = ActiveWorkbook
+    Dim wb As Workbook
+    Set wb = ActiveWorkbook
      
-     frmWait.ShowDialog
-     modUtil.HideOpMode True
+    frmWait.ShowDialog
+    modUtil.HideOpMode True
      
-     ' Full SYNC of all categories
-     modRooms.SynchronizeAllLists wb
+    ' Full SYNC of all categories
+    modRooms.SynchronizeAllLists wb
           
-     clsState.RoomSheetChanged = False
-     clsState.InvalidateControl "RB75dd2c44_btnSyncLists"
-     clsState.InvalidateControl "RB75dd2c44_btnNeedSyncLists"
+    clsState.RoomSheetChanged = False
+    clsState.InvalidateControl "RB75dd2c44_btnSyncLists"
+    clsState.InvalidateControl "RB75dd2c44_btnNeedSyncLists"
      
-     modUtil.HideOpMode False
-     frmWait.Hide
+    modUtil.HideOpMode False
+    frmWait.Hide
      
-     MsgBox "All lists synchronized successfully!", vbInformation, modMain.AppProjectName
+    MsgBox "All lists synchronized successfully!", vbInformation, modMain.AppProjectName
      
 CleanExit:
-     Exit Sub
+    Exit Sub
 
 ErrHandler:
-     modUtil.HideOpMode False
-     frmWait.Hide
-     MsgBox "Error synchronizing lists: " & Err.Description, vbCritical, modMain.AppProjectName
-     Resume CleanExit
- End Sub
+    modUtil.HideOpMode False
+    frmWait.Hide
+    MsgBox "Error synchronizing lists: " & Err.Description, vbCritical, modMain.AppProjectName
+    Resume CleanExit
+End Sub
  
- Public Sub ValidateRoomData()
+Public Sub ValidateRoomData()
 
     On Error GoTo ErrHandler
     
@@ -1070,7 +1112,7 @@ ErrHandler:
     clsState.RoomsValidationIssueCount = issues
     
     If issues = 0 Then
-    ' Set validation status in state
+        ' Set validation status in state
         clsState.RoomsValidated = True
     End If
     
@@ -1171,7 +1213,7 @@ Private Function DetermineChangeCategory( _
     ByVal targetSheet As Worksheet, _
     ByVal changedRange As Range) As ChangeCategory
     
-    On Error GoTo ErrorHandler
+    On Error GoTo ErrHandler
     
     ' Check Parallax cell
     If modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_PARALLAX) Then
@@ -1180,10 +1222,9 @@ Private Function DetermineChangeCategory( _
     End If
     
     ' Check Room Metadata cells
-    If modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_SCENE_ID) Or _
-       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_ROOM_ID) Or _
-       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_ROOM_NO) Or _
-       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_ROOM_ALIAS) Then
+    If modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_ROOM_ID) Or _
+        modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_ROOM_NO) Or _
+        modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_ROOM_ALIAS) Then
         DetermineChangeCategory = CC_RoomMetadata
         Exit Function
     End If
@@ -1196,10 +1237,10 @@ Private Function DetermineChangeCategory( _
     
     ' Check General Room Settings cells
     If modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_GAME_HEIGHT) Or _
-       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_GAME_WIDTH) Or _
-       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_BG_HEIGHT) Or _
-       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_BG_WIDTH) Or _
-       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_UI_HEIGHT) Then
+        modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_GAME_WIDTH) Or _
+        modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_BG_HEIGHT) Or _
+        modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_BG_WIDTH) Or _
+        modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_CELL_UI_HEIGHT) Then
         DetermineChangeCategory = CC_GeneralSettings
         Exit Function
     End If
@@ -1208,51 +1249,51 @@ Private Function DetermineChangeCategory( _
     
     ' Actors
     If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_ACTORS_ACTOR_NAME) Or _
-       modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_RANGE_ACTORS_ACTOR_ID) Then
+        modRanges.IntersectsNamedCell(targetSheet, changedRange, NAME_RANGE_ACTORS_ACTOR_ID) Then
         DetermineChangeCategory = CC_Actors
         Exit Function
     End If
     
     ' Sounds
     If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_SOUNDS_DESCRIPTION) Or _
-       modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_SOUNDS_SOUND_ID) Then
+        modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_SOUNDS_SOUND_ID) Then
         DetermineChangeCategory = CC_Sounds
         Exit Function
     End If
     
     ' Special FX
     If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_SPECIAL_FX_DESCRIPTION) Or _
-       modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_SPECIAL_FX_ANIMATION_ID) Then
+        modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_SPECIAL_FX_ANIMATION_ID) Then
         DetermineChangeCategory = CC_SpecialFX
         Exit Function
     End If
     
     ' Touchable Objects
     If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_NAME) Or _
-       modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID) Then
+        modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID) Then
         DetermineChangeCategory = CC_TouchableObjects
         Exit Function
     End If
     
     ' Pickupable Objects
     If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_PICKUPABLE_OBJECTS_ITEM_ID) Or _
-       modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_PICKUPABLE_OBJECTS_NAME) Then
+        modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_PICKUPABLE_OBJECTS_NAME) Then
         DetermineChangeCategory = CC_PickupableObjects
         Exit Function
     End If
     
     ' Multi-State Objects
     If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_MULTI_STATE_OBJECTS_OBJECT_NAME) Or _
-       modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_MULTI_STATE_OBJECTS_STATE_ID) Or _
-       modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_MULTI_STATE_OBJECTS_STATE) Then
+        modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_MULTI_STATE_OBJECTS_STATE_ID) Or _
+        modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_MULTI_STATE_OBJECTS_STATE) Then
         DetermineChangeCategory = CC_MultiStateObjects
         Exit Function
     End If
     
     ' Flags
     If modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_FLAGS_FLAG_ID) Or _
-       modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_FLAGS_DESCRIPTION) Or _
-       modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_FLAGS_BOOL_TYPE) Then
+        modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_FLAGS_DESCRIPTION) Or _
+        modRanges.IntersectsNamedRange(targetSheet, changedRange, NAME_RANGE_FLAGS_BOOL_TYPE) Then
         DetermineChangeCategory = CC_Flags
         Exit Function
     End If
@@ -1261,9 +1302,10 @@ Private Function DetermineChangeCategory( _
     DetermineChangeCategory = CC_None
     Exit Function
     
-ErrorHandler:
-    ' Bei Fehler: keine spezielle Kategorie zurückgeben
+ErrHandler:
+    ' On error: return no specific category
     DetermineChangeCategory = CC_None
 End Function
+
 
 

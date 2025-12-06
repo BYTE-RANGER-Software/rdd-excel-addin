@@ -184,8 +184,7 @@ End Sub
 ' ============================================================================
 
 Sub RB75dd2c44_btnBuildData_OnAction(control As IRibbonControl)
-    MsgBox "Build PDC Data is not implemented yet.", vbInformation, "Build Data"
-    'modPDC.BuildPdcData 'TODO: Sub still needs to be adjusted, supplemented, and tested.
+    'modMain.BuildPDCDataFromRooms -> 'modPDC.BuildPdcData 'TODO: Sub still needs to be adjusted, supplemented, and tested.
 End Sub
 
 Sub RB75dd2c44_btnBuildData_getEnabled(control As IRibbonControl, ByRef returnedVal)
@@ -238,8 +237,8 @@ End Sub
 
 
 Sub RB75dd2c44_btnExportPdf_getEnabled(control As IRibbonControl, ByRef returnedVal)
-If modMain.IsRDDWorkbook(ActiveWorkbook) Then
-End If
+    returnedVal = False
+    If Not modMain.IsRDDWorkbook(ActiveWorkbook) Then Exit Sub
 End Sub
 
 Sub RB75dd2c44_btnExportCsv_OnAction(control As IRibbonControl)
@@ -249,8 +248,8 @@ Sub RB75dd2c44_btnExportCsv_OnAction(control As IRibbonControl)
 End Sub
 
 Sub RB75dd2c44_btnExportCsv_getEnabled(control As IRibbonControl, ByRef returnedVal)
-If modMain.IsRDDWorkbook(ActiveWorkbook) Then
-End If
+    If modMain.IsRDDWorkbook(ActiveWorkbook) Then
+    End If
 End Sub
 
 ' ============================================================================
@@ -258,6 +257,7 @@ End Sub
 ' ============================================================================
 
 Sub RB75dd2c44_btnShowOptions_OnAction(control As IRibbonControl)
+    If Not modMain.IsRDDWorkbook(ActiveWorkbook) Then Exit Sub
     Call modMain.ShowOptions
 End Sub
 
@@ -292,8 +292,8 @@ End Sub
 
 Sub RB75dd2c44_btnDynCtxMnu1_getVisible(control As IRibbonControl, ByRef returnedVal)
     If clsState.CellCtxMenuType <> 0 Then
-    Call EnsureCellCtxMenuReady
-    returnedVal = True
+        Call EnsureCellCtxMenuReady
+        returnedVal = True
     End If
 End Sub
 

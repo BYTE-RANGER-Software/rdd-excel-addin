@@ -286,7 +286,7 @@ Public Function GetNextRoomIndex(ByVal targetBook As Workbook) As Long
     
     For Each sheet In targetBook.Worksheets
         If modTags.HasSheetTag(sheet, ROOM_SHEET_ID_TAG_NAME, tagValue) Then
-            numIdx = val(Mid$(CStr(tagValue), Len(ROOM_SHEET_ID_PREFIX) + 1))
+            numIdx = Val(Mid$(CStr(tagValue), Len(ROOM_SHEET_ID_PREFIX) + 1))
             If numIdx > maxIdx Then maxIdx = numIdx
         End If
     Next sheet

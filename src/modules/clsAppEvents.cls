@@ -19,6 +19,7 @@ Attribute VB_Exposed = False
 '
 ' Notes     :
 '   - This class should not contain business logic; it only forwards events.
+'   - delegates only non Add-In Workbook / Worksheet
 ' -----------------------------------------------------------------------------------
 
 Option Explicit
@@ -39,13 +40,11 @@ Attribute App.VB_VarHelpID = -1
 ' Notes     :
 '   - Only reacts if the sheet is not in the add-in workbook.
 ' -----------------------------------------------------------------------------------
-Private Sub App_SheetActivate(ByVal Sh As Object)
+Private Sub App_SheetActivate(ByVal sh As Object)
    
-    If IsSheetFromNonAddIn(Sh) Then
+    If Not IsSheetFromNonAddIn(sh) Then Exit Sub
         
-        modMain.HandleSheetActivate Sh
-
-    End If
+    modMain.HandleSheetActivate sh
     
 End Sub
 
@@ -63,11 +62,10 @@ End Sub
 ' Notes     :
 '   - Only reacts if the sheet is not in the add-in workbook.
 ' -----------------------------------------------------------------------------------
-Private Sub App_SheetChange(ByVal Sh As Object, ByVal Target As Range)
+Private Sub App_SheetChange(ByVal sh As Object, ByVal Target As Range)
 
-    If IsSheetFromNonAddIn(Sh) Then
-        modMain.HandleSheetChange Sh, Target
-    End If
+    If Not IsSheetFromNonAddIn(sh) Then Exit Sub
+    modMain.HandleSheetChange sh, Target
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -85,23 +83,21 @@ End Sub
 ' Notes     :
 '   - Only reacts if the sheet is not in the add-in workbook.
 ' -----------------------------------------------------------------------------------
-Private Sub App_SheetBeforeRightClick(ByVal Sh As Object, ByVal Target As Range, Cancel As Boolean)
-    If IsSheetFromNonAddIn(Sh) Then
-        modMain.HandleSheetBeforeRightClick Sh, Target, Cancel
-    End If
+Private Sub App_SheetBeforeRightClick(ByVal sh As Object, ByVal Target As Range, Cancel As Boolean)
+    If Not IsSheetFromNonAddIn(sh) Then Exit Sub
+    modMain.HandleSheetBeforeRightClick sh, Target, Cancel
 End Sub
 
-Private Sub App_SheetDeactivate(ByVal Sh As Object)
-    If IsSheetFromNonAddIn(Sh) Then
+Private Sub App_SheetDeactivate(ByVal sh As Object)
+    If Not IsSheetFromNonAddIn(sh) Then Exit Sub
     
-        modMain.HandleSheetDeactivate Sh
-    End If
+    modMain.HandleSheetDeactivate sh
 End Sub
 
-Private Sub App_SheetSelectionChange(ByVal Sh As Object, ByVal Target As Range)
-    If IsSheetFromNonAddIn(Sh) Then
-        modMain.HandleSheetSelectionChange Sh, Target
-    End If
+Private Sub App_SheetSelectionChange(ByVal sh As Object, ByVal Target As Range)
+    If Not IsSheetFromNonAddIn(sh) Then Exit Sub
+    modMain.HandleSheetSelectionChange sh, Target
+
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -120,11 +116,15 @@ End Sub
 '   - Does not handle the add-in workbook itself.
 ' -----------------------------------------------------------------------------------
 Private Sub App_WorkbookBeforeSave(ByVal wb As Workbook, ByVal SaveAsUI As Boolean, Cancel As Boolean)
-    If IsNonAddInWorkbook(wb) Then
+    If Not IsNonAddInWorkbook(wb) Then Exit Sub
 
-        modMain.HandleWorkbookBeforeSave wb, SaveAsUI, Cancel
+    modMain.HandleWorkbookBeforeSave wb, SaveAsUI, Cancel
 
-    End If
+End Sub
+
+Private Sub App_WorkbookOpen(ByVal wb As Workbook)
+    If Not IsNonAddInWorkbook(wb) Then Exit Sub
+    modMain.HandleWorkbookOpen wb
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -138,11 +138,10 @@ End Sub
 '
 ' Returns   : Boolean - True if business logic may be applied; raises error otherwise.
 ' -----------------------------------------------------------------------------------
-Private Function IsSheetFromNonAddIn(ByVal Sh As Worksheet, Optional ByRef returnSrcBook As Workbook) As Boolean
+Private Function IsSheetFromNonAddIn(ByVal sh As Worksheet, Optional ByRef returnSrcBook As Workbook) As Boolean
 
-    Set returnSrcBook = Sh.Parent
+    Set returnSrcBook = sh.Parent
     
-
     IsSheetFromNonAddIn = (Not (returnSrcBook Is RDDAddInWkBk) And Not returnSrcBook.IsAddin)
 
 End Function
@@ -158,7 +157,8 @@ End Function
 ' -----------------------------------------------------------------------------------
 Private Function IsNonAddInWorkbook(ByVal wb As Workbook) As Boolean
     
-
     IsNonAddInWorkbook = (Not (wb Is RDDAddInWkBk) And Not wb.IsAddin)
 
 End Function
+
+

@@ -18,7 +18,6 @@ Attribute VB_Exposed = True
 '     * Workbook_AddinInstall
 '     * Workbook_Open
 '     * Workbook_BeforeClose
-'     * Workbook_SheetBeforeRightClick (testing only)
 '
 ' Dependencies:
 '   - modMain : All event handling logic is delegated to modMain
@@ -32,24 +31,19 @@ Attribute VB_Exposed = True
 ' ====================================================================================
 Option Explicit
 
-
 Private Sub Workbook_AddinInstall()
     Debug.Print "Workbook_AddinInstall()"
-    Call modMain.HandleWorkbookAddinInstall
+    Call modMain.HandleAddInWorkbookInstall
 End Sub
 
 Private Sub Workbook_Open()
     Debug.Print "Workbook_Open()"
-    modMain.HandleWorkbookOpen
+    modMain.HandleAddInWorkbookOpen
 End Sub
 
 
 Private Sub Workbook_BeforeClose(Cancel As Boolean)
     Debug.Print "Workbook_BeforeClose()"
-    modMain.HandleWorkbookBeforeClose
+    modMain.HandleAddInWorkbookBeforeClose Cancel
 End Sub
 
-' For testing purposes only, covered by App_SheetBeforeRightClick in add-in mode.
-Private Sub Workbook_SheetBeforeRightClick(ByVal Sh As Object, ByVal Target As Range, Cancel As Boolean)
-    modMain.HandleSheetBeforeRightClick Sh, Target, Cancel
-End Sub
