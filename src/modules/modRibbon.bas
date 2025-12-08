@@ -48,7 +48,9 @@ Option Private Module
 ' ==== Ribbon onLoad ====
 Sub RB75dd2c44_Ribbon_OnLoad(ribbon As IRibbonUI)
     Set clsState.RibbonUI = ribbon
-    Call InitCellCtxMenu
+    If RDDAddInWkBk.IsAddin Then
+        Call InitCellCtxMenu
+    End If
 End Sub
 
 ' ============================================================================
@@ -61,7 +63,7 @@ End Sub
 
 
 Sub RB75dd2c44_btnAddRoom_getEnabled(control As IRibbonControl, ByRef returnedVal)
-    returnedVal = (Workbooks.Count > 0)
+    returnedVal = (Workbooks.count > 0)
 End Sub
 
 ' -----------------------------------------------------------------------------
@@ -72,7 +74,7 @@ End Sub
 
 
 Sub RB75dd2c44_btnEditRoomIdentity_getEnabled(control As IRibbonControl, ByRef returnedVal)
-    If Workbooks.Count > 0 Then
+    If Workbooks.count > 0 Then
         If modMain.IsRDDWorkbook(ActiveWorkbook) And modRooms.IsRoomSheet(ActiveSheet) Then
             returnedVal = True
         End If
@@ -86,7 +88,7 @@ Sub RB75dd2c44_BtnRemoveRoom_OnAction(control As IRibbonControl)
 End Sub
 
 Sub RB75dd2c44_btnRemoveRoom_getEnabled(control As IRibbonControl, ByRef returnedVal)
-    If Workbooks.Count > 0 Then
+    If Workbooks.count > 0 Then
         If modMain.IsRDDWorkbook(ActiveWorkbook) And modRooms.IsRoomSheet(ActiveSheet) Then
             returnedVal = True
         End If
@@ -102,7 +104,7 @@ End Sub
 
 Sub RB75dd2c44_btnSyncLists_getEnabled(control As IRibbonControl, ByRef returnedVal)
     returnedVal = False
-    If Workbooks.Count > 0 Then
+    If Workbooks.count > 0 Then
         If modMain.IsRDDWorkbook(ActiveWorkbook) Then
             returnedVal = True
         End If
@@ -130,7 +132,7 @@ Sub RB75dd2c44_btnSyncLists_getSupertip(control As IRibbonControl, ByRef returne
     statusText = "Status: No data available for synchronization"
     
     ' Dynamic status based on RoomSheetChanged
-    If Workbooks.Count = 0 Then
+    If Workbooks.count = 0 Then
         statusText = "Status: No data available for synchronization"
     ElseIf Not modMain.IsRDDWorkbook(ActiveWorkbook) Then
         statusText = "Status: No data available for synchronization"
@@ -164,7 +166,7 @@ End Sub
 Sub RB75dd2c44_btnValidate_getEnabled(control As IRibbonControl, ByRef returnedVal)
     returnedVal = False
         
-    If Workbooks.Count = 0 Then Exit Sub
+    If Workbooks.count = 0 Then Exit Sub
     
     If Not modMain.IsRDDWorkbook(ActiveWorkbook) Then Exit Sub
     ' Check if there's at least one room sheet
@@ -190,7 +192,7 @@ End Sub
 Sub RB75dd2c44_btnBuildData_getEnabled(control As IRibbonControl, ByRef returnedVal)
     returnedVal = False
     
-    If Workbooks.Count = 0 Then Exit Sub
+    If Workbooks.count = 0 Then Exit Sub
     If Not modMain.IsRDDWorkbook(ActiveWorkbook) Then Exit Sub
     
     ' Only enable if validated and no critical errors
@@ -257,7 +259,6 @@ End Sub
 ' ============================================================================
 
 Sub RB75dd2c44_btnShowOptions_OnAction(control As IRibbonControl)
-    If Not modMain.IsRDDWorkbook(ActiveWorkbook) Then Exit Sub
     Call modMain.ShowOptions
 End Sub
 

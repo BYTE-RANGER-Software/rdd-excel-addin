@@ -53,7 +53,7 @@ Public Function EnsureSheet(sheetName As String, Optional targetWorkbook As Work
     Set EnsureSheet = targetWorkbook.Worksheets(sheetName)
     On Error GoTo 0
     If EnsureSheet Is Nothing Then
-        Set EnsureSheet = targetWorkbook.Worksheets.Add(After:=Sheets(Sheets.Count))
+        Set EnsureSheet = targetWorkbook.Worksheets.Add(After:=Sheets(Sheets.count))
         EnsureSheet.name = sheetName
     End If
 End Function

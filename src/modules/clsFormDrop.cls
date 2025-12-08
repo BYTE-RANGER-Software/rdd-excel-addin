@@ -183,9 +183,9 @@ Public Function Init(ByRef hostWorkbook As Workbook, ByRef formDropRegistry As S
         If formDropRegistry Is Nothing Then Set formDropRegistry = New Scripting.Dictionary
         
         If formDropRegistry.Exists(CStr(m_instId)) Then
-    Err.Raise ERR_INSTANCE_EXISTS, "clsFormDrop.Init", _
-        "Instance ID already registered: " & m_instId
-End If
+            Err.Raise ERR_INSTANCE_EXISTS, "clsFormDrop.Init", _
+                "Instance ID already registered: " & m_instId
+        End If
 
         Set formDropRegistry(CStr(m_instId)) = Me
         
@@ -251,7 +251,7 @@ End Sub
 '   - methods (macros) must be located in a public module
 ' -----------------------------------------------------------------------------------
 Public Sub SetCallbacks(Optional ByVal catCallbackAddress As String = vbNullString, _
-                        Optional ByVal subCallbackAddress As String = vbNullString)
+    Optional ByVal subCallbackAddress As String = vbNullString)
                         
     If Not EnsureInitialized Then Exit Sub
     If Not EnsureNotDefaultInstance Then Exit Sub
@@ -496,7 +496,7 @@ Public Sub ShowAt(ByVal hostSheet As Worksheet, ByVal targetRange As Range)
     ddCat.Width = m_targetCell.Width
     If IsArray(m_catItems) Then
         If UBound(m_catItems) >= LBound(m_catItems) Then
-            ddCat.List = m_catItems
+            ddCat.list = m_catItems
         End If
     End If
     ddCat.Visible = False
@@ -592,7 +592,7 @@ Friend Sub HandleOnAction(ByVal callerCtrlName As String)
                     subArr = m_subItems(LBound(m_subItems) + catIdx - 1)
 
                     ddSub.ListFillRange = ""
-                    ddSub.List = subArr
+                    ddSub.list = subArr
                     ddSub.Visible = True
                     ddSub.Left = ddCat.Left
                     ddSub.Top = ddCat.Top + ddCat.Height + 2
@@ -613,17 +613,17 @@ Friend Sub HandleOnAction(ByVal callerCtrlName As String)
         Exit Sub
     End If
 
-     If StrComp(callerCtrlName, m_subDropDownName, vbBinaryCompare) = 0 Then
-         ' Sub-Callback
-         If Len(m_callbackSubAddress) Then
-             Dim dd As DropDown: Set dd = m_hostSheet.DropDowns(callerCtrlName)
-             On Error Resume Next
-             Application.Run m_callbackSubAddress, dd, m_targetCell
-             On Error GoTo 0
-             HideDropDowns
-         End If
-         Exit Sub
-     End If
+    If StrComp(callerCtrlName, m_subDropDownName, vbBinaryCompare) = 0 Then
+        ' Sub-Callback
+        If Len(m_callbackSubAddress) Then
+            Dim dd As DropDown: Set dd = m_hostSheet.DropDowns(callerCtrlName)
+            On Error Resume Next
+            Application.Run m_callbackSubAddress, dd, m_targetCell
+            On Error GoTo 0
+            HideDropDowns
+        End If
+        Exit Sub
+    End If
 
 End Sub
 
@@ -733,7 +733,7 @@ Private Sub ShowCatOnly()
     ddCat.Width = m_targetCell.Width
     
     If IsArray(m_catItems) Then
-        ddCat.List = m_catItems
+        ddCat.list = m_catItems
     End If
     
     ddCat.Visible = True
@@ -1010,7 +1010,7 @@ Private Function CleanSheetArtifacts(ByVal targetSheet As Worksheet, Optional By
     On Error Resume Next
 
     ' 1) Form Controls: DropDowns
-    For i = targetSheet.DropDowns.Count To 1 Step -1
+    For i = targetSheet.DropDowns.count To 1 Step -1
         ctrlNm = targetSheet.DropDowns(i).name
         If NameHasAllowedPrefix(ctrlNm, prefix) Then
             If ctrlNm Like "*_Cat" Or ctrlNm Like "*_Sub" Then
@@ -1021,7 +1021,7 @@ Private Function CleanSheetArtifacts(ByVal targetSheet As Worksheet, Optional By
     Next i
 
     ' 2) Shapes: our Arrow button (and any leftover shapes with _Arrow)
-    For i = targetSheet.Shapes.Count To 1 Step -1
+    For i = targetSheet.Shapes.count To 1 Step -1
         ctrlNm = targetSheet.Shapes(i).name
         If NameHasAllowedPrefix(ctrlNm, prefix) Then
             If ctrlNm Like "*_Arrow" Then
@@ -1184,9 +1184,9 @@ Private Function GenerateInstanceId() As String
     
     ' Combine to form the full instance ID (24 characters max for the instance ID)
     instanceId = timestamp & _
-                 Format$(random1, "0000") & _
-                 Format$(random2, "0000") & _
-                 Format$(random3, "0000")
+        Format$(random1, "0000") & _
+        Format$(random2, "0000") & _
+        Format$(random3, "0000")
     
     ' Ensure the instance ID is 24 characters or less (leave space for "fd_" and "_Cat" or "_Sub")
     If Len(instanceId) > 24 Then
@@ -1195,5 +1195,6 @@ Private Function GenerateInstanceId() As String
     
     GenerateInstanceId = instanceId
 End Function
+
 
 

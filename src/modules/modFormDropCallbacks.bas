@@ -43,7 +43,7 @@ Public Sub OnFormDropCatSelected(ByVal ddCat As DropDown, cell As Range)
     
     'TODO:
     
-    Debug.Print "FormDrop Category selected: " & ddCat.List(ddCat.value)
+    Debug.Print "FormDrop Category selected: " & ddCat.list(ddCat.value)
     
 CleanExit:
     On Error GoTo 0
@@ -88,7 +88,7 @@ Public Sub OnFormDropSubSelected(ByVal ddSub As DropDown, cell As Range)
     ' Wenn nichts ausgewählt wurde, abbrechen
     If selectedIndex = 0 Then Exit Sub
 
-    selectedValue = ddSub.List(selectedIndex)
+    selectedValue = ddSub.list(selectedIndex)
 
     ' Vorhandene Werte aufteilen
     If cell.value <> "" Then

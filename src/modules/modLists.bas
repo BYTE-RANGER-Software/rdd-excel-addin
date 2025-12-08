@@ -157,7 +157,7 @@ Public Sub CollectTableColumnsToDict(ByVal sourceTable As ListObject, _
     If Len(keyColumnName) = 0 Then GoTo CleanExit
     
     ' Check if table has data
-    rowCount = sourceTable.ListRows.Count
+    rowCount = sourceTable.ListRows.count
     If rowCount = 0 Then GoTo CleanExit
     
     ' Determine which value columns to read
@@ -299,19 +299,19 @@ Public Sub CollectNamedRangePairsToDict(ByVal sheet As Worksheet, _
     If rngKeys Is Nothing Or rngValues Is Nothing Then GoTo CleanExit
     
     ' Determine the minimum count to process
-    maxCount = Application.WorksheetFunction.Min(rngKeys.Cells.Count, rngValues.Cells.Count)
+    maxCount = Application.WorksheetFunction.Min(rngKeys.Cells.count, rngValues.Cells.count)
     If maxCount = 0 Then GoTo CleanExit
     
     ' Load values into arrays for performance
     ' Single cell ranges need special handling
-    If rngKeys.Cells.Count = 1 Then
+    If rngKeys.Cells.count = 1 Then
         ReDim arrKeys(1 To 1, 1 To 1)
         arrKeys(1, 1) = rngKeys.value
     Else
         arrKeys = rngKeys.value
     End If
     
-    If rngValues.Cells.Count = 1 Then
+    If rngValues.Cells.count = 1 Then
         ReDim arrItems(1 To 1, 1 To 1)
         arrItems(1, 1) = rngValues.value
     Else
@@ -436,7 +436,7 @@ Public Sub WriteDictToTableColumns(ByVal targetTable As ListObject, _
     On Error GoTo ErrHandler
     
     ' Exit if dict is empty
-    If valuesDict.Count = 0 Then Exit Sub
+    If valuesDict.count = 0 Then Exit Sub
     
     Dim sortedKeys As Collection
     Dim keyArray() As String
@@ -456,7 +456,7 @@ Public Sub WriteDictToTableColumns(ByVal targetTable As ListObject, _
     hasTwoColumns = (writeValues = 2)
     
     ' Copy keys to array and sort
-    ReDim keyArray(0 To valuesDict.Count - 1)
+    ReDim keyArray(0 To valuesDict.count - 1)
     index = 0
     For Each currentKey In valuesDict.Keys
         keyArray(index) = CStr(currentKey)
@@ -472,7 +472,7 @@ Public Sub WriteDictToTableColumns(ByVal targetTable As ListObject, _
     Next index
     
     ' Ensure table has enough rows
-    Do While targetTable.ListRows.Count < sortedKeys.Count
+    Do While targetTable.ListRows.count < sortedKeys.count
         targetTable.ListRows.Add
     Loop
     
@@ -483,12 +483,12 @@ Public Sub WriteDictToTableColumns(ByVal targetTable As ListObject, _
     Dim splitValues() As String
     Dim currentValue As Variant
     
-    ReDim keyData(1 To sortedKeys.Count, 1 To 1)
-    If writeValues > 0 Then ReDim value1Data(1 To sortedKeys.Count, 1 To 1)
-    If hasTwoColumns Then ReDim value2Data(1 To sortedKeys.Count, 1 To 1)
+    ReDim keyData(1 To sortedKeys.count, 1 To 1)
+    If writeValues > 0 Then ReDim value1Data(1 To sortedKeys.count, 1 To 1)
+    If hasTwoColumns Then ReDim value2Data(1 To sortedKeys.count, 1 To 1)
     
     ' Fill arrays
-    For index = 1 To sortedKeys.Count
+    For index = 1 To sortedKeys.count
         keyData(index, 1) = sortedKeys(index)
         
         If writeValues > 0 Then
@@ -506,14 +506,14 @@ Public Sub WriteDictToTableColumns(ByVal targetTable As ListObject, _
     Next index
     
     ' Write arrays to table
-    targetTable.ListColumns(keyColumnName).DataBodyRange.Resize(sortedKeys.Count, 1).value = keyData
+    targetTable.ListColumns(keyColumnName).DataBodyRange.Resize(sortedKeys.count, 1).value = keyData
     
     If writeValues > 0 Then
-        targetTable.ListColumns(value1ColumnName).DataBodyRange.Resize(sortedKeys.Count, 1).value = value1Data
+        targetTable.ListColumns(value1ColumnName).DataBodyRange.Resize(sortedKeys.count, 1).value = value1Data
     End If
     
     If hasTwoColumns Then
-        targetTable.ListColumns(value2ColumnName).DataBodyRange.Resize(sortedKeys.Count, 1).value = value2Data
+        targetTable.ListColumns(value2ColumnName).DataBodyRange.Resize(sortedKeys.count, 1).value = value2Data
     End If
     
 CleanExit:
@@ -611,7 +611,7 @@ Public Sub AppendMissingDictSetToTableColumns( _
     End If
     
     ' Start writing after last row
-    nextRowIndex = keyColumn.Rows.Count + 1
+    nextRowIndex = keyColumn.Rows.count + 1
     
     ' Iterate through new pairs
     For Each currentKey In newDictSet.Keys
@@ -681,5 +681,70 @@ Public Function ClearTableColumn(ByVal targetTable As ListObject, ByVal columnNa
     ClearTableColumn = True
 End Function
 
+' -----------------------------------------------------------------------------------
+' Function: CollectTableColumnValuesToArray
+' Purpose: Extracts the non-empty values of a ListObject column into an array.
+'
+' Parameters:
+'   lo          [ListObject] - The ListObject
+'   columnName  [String]     - The column header
+'
+' Returns: Variant array with the values (or empty array)
+' -----------------------------------------------------------------------------------
+Public Function CollectTableColumnValuesToArray(ByVal lo As ListObject, _
+    ByVal columnName As String, Optional breakOnEmptyLine As Boolean = False) As Variant
+    
+    On Error Resume Next
+    
+    Dim col As ListColumn
+    Dim cell As Range
+    Dim result() As String
+    Dim count As Long
+    Dim cellValue As String
+    
+    ' Find column
+    Set col = lo.ListColumns(columnName)
+    If col Is Nothing Then
+        CollectTableColumnValuesToArray = Array()
+        Exit Function
+    End If
+    
+    If col.DataBodyRange Is Nothing Then
+        CollectTableColumnValuesToArray = Array()
+        Exit Function
+    End If
+    
+    ' Count non-empty values
+    count = 0
+    For Each cell In col.DataBodyRange
+        cellValue = Trim$(CStr(cell.value))
+        If LenB(cellValue) > 0 Then
+            count = count + 1
+        ElseIf breakOnEmptyLine Then
+            Exit For
+        End If
+    Next cell
+    
+    If count = 0 Then
+        CollectTableColumnValuesToArray = Array()
+        Exit Function
+    End If
+    
+    ' Fill array
+    ReDim result(0 To count - 1)
+    count = 0
+    For Each cell In col.DataBodyRange
+        cellValue = Trim$(CStr(cell.value))
+        result(count) = cellValue
+        count = count + 1
+    Next cell
+    
+    CollectTableColumnValuesToArray = result
+    On Error GoTo 0
+End Function
+
+
 ' ===== Private Helpers =============================================================
+
+
 

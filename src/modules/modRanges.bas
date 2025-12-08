@@ -83,6 +83,23 @@ ErrHandler:
 End Function
 
 ' -----------------------------------------------------------------------------------
+' Function  : GetRangeValue
+' Purpose   : Safely retrieves a value from a range at a specific row index.
+' -----------------------------------------------------------------------------------
+Public Function GetRangeValue( _
+    ByVal rng As Range, _
+    ByVal rowIndex As Long) As String
+    
+    On Error Resume Next
+    If Not rng Is Nothing Then
+        If rowIndex <= rng.Rows.count Then
+            GetRangeValue = Trim$(CStr(rng.Cells(rowIndex, 1).value))
+        End If
+    End If
+    On Error GoTo 0
+End Function
+
+' -----------------------------------------------------------------------------------
 ' Function  : GetCellNameByPattern
 ' Purpose   : Returns the Name object of a cell if it has a defined name whose
 '             Name property matches the given pattern.

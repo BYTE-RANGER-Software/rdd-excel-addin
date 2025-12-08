@@ -62,7 +62,6 @@ Private Const DEF_UI_HEIGHT             As Long = 40
 Private Const DEF_PERSPECTIVE           As String = ""
 Private Const DEF_PARALLAX              As String = "None"
 Private Const DEF_SCENE_MODE            As String = ""
-Private Const DEF_LOG_LEVEL             As Long = 2         ' LL_Normal
 Private Const DEF_LOG_RETENTION_DAYS    As Long = 30
 Private Const DEF_AUTO_SYNC_LISTS       As Boolean = True
 Private Const DEF_SHOW_VALIDATION_WARN  As Boolean = True
@@ -319,8 +318,8 @@ Public Sub SetAllOptions(ByRef optionsDto As tOptions)
 End Sub
 
 ' -----------------------------------------------------------------------------------
-' Function  : GetDefaultOptions
-' Purpose   : Liefert ein DTO mit allen Standard-Werten.
+' Function: GetDefaultOptions
+' Purpose: Returns a DTO with all default values.
 ' Returns   : tOptions
 ' -----------------------------------------------------------------------------------
 Public Function GetDefaultOptions() As tOptions

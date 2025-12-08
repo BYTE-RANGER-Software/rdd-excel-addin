@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmOptions 
    Caption         =   "Settings - %1"
-   ClientHeight    =   10860
-   ClientLeft      =   120
-   ClientTop       =   465
-   ClientWidth     =   10200
+   ClientHeight    =   10868
+   ClientLeft      =   121
+   ClientTop       =   462
+   ClientWidth     =   10197
    OleObjectBlob   =   "frmOptions.frx":0000
    StartUpPosition =   1  'Fenstermitte
 End
@@ -17,7 +17,8 @@ Option Explicit
 Private m_blnInit As Boolean
 Private m_blnConfirmed As Boolean
 Private m_options As tOptions
-Private m_hasRDDWorkbook As Boolean     ' True if an RDD workbook is active
+Private m_hasRDDWorkbook As Boolean                    ' True if an RDD workbook is active
+Private m_cboDataDict As Scripting.Dictionary          ' Dictionary with cbo lists (key=field name, value=array)
 
 ' ===== Constants ====================================================================
 Private Const PAGE_GENERAL       As Long = 0
@@ -29,9 +30,12 @@ Private Const PAGE_BEHAVIOR      As Long = 2
 '             Loads options DTO into form controls.
 '
 ' Parameters:
-'   strProjectName [String]   - Project name for caption templating
-'   optionsDto     [tOptions] - Current options data transfer object (ByRef)
-'   hasRDDWorkbook [Boolean]  - True if an RDD workbook is active
+'   strProjectName [String]     - Project name for caption templating
+'   optionsDto     [tOptions]   - Current options data transfer object (ByRef)
+'   hasRDDWorkbook [Boolean]    - True if an RDD workbook is active
+'   dataLists      [Dictionary] - Optional: dataLists for all ComboBoxes
+'                                   Keys: Field names
+'                                   Values: Array/collection of String
 '
 ' Returns   : (none)
 '
@@ -44,19 +48,22 @@ Private Const PAGE_BEHAVIOR      As Long = 2
 '   - Sets m_blnConfirmed = False (assumes cancel by default)
 ' -----------------------------------------------------------------------------------
 Friend Sub Init(ByVal strProjectName As String, ByRef optionsDto As tOptions, _
-    Optional ByVal hasRDDWorkbook As Boolean = False)
+    Optional ByVal hasRDDWorkbook As Boolean = False, _
+    Optional dataLists As Scripting.Dictionary)
     
     If m_blnInit Then Exit Sub
     
     ' Store state
     m_options = optionsDto
     m_hasRDDWorkbook = hasRDDWorkbook
+    Set m_cboDataDict = dataLists
     
     'adjust Form
     CenterToExcelWindow
     Me.caption = Replace$(Me.caption, "%1", strProjectName)
         
     ' Load DTO into controls
+    LoadDataIntoComboBoxes
     LoadGeneralOptions
     LoadWorkbookOptions
           
@@ -87,20 +94,20 @@ Private Sub LoadGeneralOptions()
     ' --- Paths ---
     Me.txtManualPath.text = m_options.General.manualPath
         
-    'Me.txtLogRetentionDays.text = CStr(m_options.General.logRetentionDays)
+    Me.txtLogRetentionDays.text = CStr(m_options.General.logRetentionDays)
 End Sub
 
 Private Sub LoadWorkbookOptions()
     ' --- Room Defaults ---
-    'Me.txtGameWidth.text = CStr(m_options.Workbook.defaultGameWidth)
-    'Me.txtGameHeight.text = CStr(m_options.Workbook.defaultGameHeight)
-    'Me.txtBGWidth.text = CStr(m_options.Workbook.defaultBGWidth)
-    'Me.txtBGHeight.text = CStr(m_options.Workbook.defaultBGHeight)
-    'Me.txtUIHeight.text = CStr(m_options.Workbook.defaultUIHeight)
+    Me.txtGameWidth.text = CStr(m_options.Workbook.defaultGameWidth)
+    Me.txtGameHeight.text = CStr(m_options.Workbook.defaultGameHeight)
+    Me.txtBGWidth.text = CStr(m_options.Workbook.defaultBGWidth)
+    Me.txtBGHeight.text = CStr(m_options.Workbook.defaultBGHeight)
+    Me.txtUIHeight.text = CStr(m_options.Workbook.defaultUIHeight)
     
-    'Me.txtPerspective.text = m_options.Workbook.defaultPerspective
-    'Me.txtParallax.text = m_options.Workbook.defaultParallax
-    'Me.txtSceneMode.text = m_options.Workbook.defaultSceneMode
+    SetComboValue Me.cboPerspective, m_options.Workbook.defaultPerspective
+    SetComboValue Me.cboParallax, m_options.Workbook.defaultParallax
+    SetComboValue Me.cboSceneMode, m_options.Workbook.defaultSceneMode
     
     ' --- Behavior ---
     'Me.chkAutoSyncLists.value = m_options.Workbook.autoSyncLists
@@ -108,24 +115,111 @@ Private Sub LoadWorkbookOptions()
     'Me.chkProtectRoomSheets.value = m_options.Workbook.protectRoomSheets
 End Sub
 
+' -----------------------------------------------------------------------------------
+' Procedure : LoadDataIntoComboBoxes
+' Purpose   : Fills the combo boxes from the transferred dictionary.
+' -----------------------------------------------------------------------------------
+Private Sub LoadDataIntoComboBoxes()
+    If m_cboDataDict Is Nothing Then Exit Sub
+    
+    ' Fill combo boxes from dictionary
+    If m_cboDataDict.Exists(modConst.LISTS_HEADER_PERSPECTIVE) Then
+        FillComboFromList Me.cboPerspective, m_cboDataDict(modConst.LISTS_HEADER_PERSPECTIVE)
+    End If
+    
+    If m_cboDataDict.Exists(modConst.LISTS_HEADER_PARALLAX) Then
+        FillComboFromList Me.cboParallax, m_cboDataDict(modConst.LISTS_HEADER_PARALLAX)
+    End If
+    
+    If m_cboDataDict.Exists(modConst.LISTS_HEADER_SCENE_ID) Then
+        FillComboFromList Me.cboSceneMode, m_cboDataDict(modConst.LISTS_HEADER_SCENE_ID)
+    End If
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure: FillComboFromList
+' Purpose: Fills a combo box with the values of an array.
+'
+' Parameters:
+'   cbo     [ComboBox] - The combo box to be filled
+'   list     [Variant]  - Array or collection with values
+' ------------------- ----------------------------------------------------------------
+Private Sub FillComboFromList(ByRef cbo As MSForms.ComboBox, ByVal list As Variant)
+    On Error Resume Next
+    
+    Dim i As Long
+    Dim item As Variant
+    
+    cbo.Clear
+    
+    ' Check whether array or collection
+    If IsArray(list) Then
+        For i = LBound(list) To UBound(list)
+            If LenB(Trim$(CStr(list(i)))) > 0 Then
+                cbo.AddItem Trim$(CStr(list(i)))
+            End If
+        Next i
+    Else
+        ' Collection or other iterable structure
+        For Each item In list
+            If LenB(Trim$(CStr(item))) > 0 Then
+                cbo.AddItem Trim$(CStr(item))
+            End If
+        Next item
+    End If
+    
+    On Error GoTo 0
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure: SetComboValue
+' Purpose: Sets the value of a combo box (searches in list or adds).
+'
+' Parameters:
+'   cbo     [ComboBox] - The combo box
+'   value   [String]   - The value to be set
+' ---------------------- -------------------------------------------------------------
+Private Sub SetComboValue(ByRef cbo As MSForms.ComboBox, ByVal value As String)
+    Dim i As Long
+    
+    If LenB(value) = 0 Then
+        cbo.ListIndex = -1
+        Exit Sub
+    End If
+    
+    ' Search value in list
+    For i = 0 To cbo.ListCount - 1
+        If cbo.list(i) = value Then
+            cbo.ListIndex = i
+            Exit Sub
+        End If
+    Next i
+    
+    ' Not found - set as text (if style permits)
+    If cbo.Style = fmStyleDropDownCombo Then
+        cbo.text = value
+    End If
+End Sub
+
+
 ' ===== Private Methods: Save ========================================================
 
 Private Function SaveSettings() As Boolean
     ' Save General Options
     m_options.General.manualPath = Trim$(Me.txtManualPath.text)
     
-    'm_options.General.logRetentionDays = CLng(Val(Me.txtLogRetentionDays.text))
+    m_options.General.logRetentionDays = CLng(Val(Me.txtLogRetentionDays.text))
     
     ' Save Workbook Options (nur wenn RDD-Workbook aktiv)
     If m_hasRDDWorkbook Then
-        'm_options.Workbook.defaultGameWidth = CLng(Val(Me.txtGameWidth.text))
-        'm_options.Workbook.defaultGameHeight = CLng(Val(Me.txtGameHeight.text))
-        'm_options.Workbook.defaultBGWidth = CLng(Val(Me.txtBGWidth.text))
-        'm_options.Workbook.defaultBGHeight = CLng(Val(Me.txtBGHeight.text))
-        'm_options.Workbook.defaultUIHeight = CLng(Val(Me.txtUIHeight.text))
-        'm_options.Workbook.defaultPerspective = Trim$(Me.txtPerspective.text)
-        'm_options.Workbook.defaultParallax = Trim$(Me.txtParallax.text)
-        'm_options.Workbook.defaultSceneMode = Trim$(Me.txtSceneMode.text)
+        m_options.Workbook.defaultGameWidth = CLng(Val(Me.txtGameWidth.text))
+        m_options.Workbook.defaultGameHeight = CLng(Val(Me.txtGameHeight.text))
+        m_options.Workbook.defaultBGWidth = CLng(Val(Me.txtBGWidth.text))
+        m_options.Workbook.defaultBGHeight = CLng(Val(Me.txtBGHeight.text))
+        m_options.Workbook.defaultUIHeight = CLng(Val(Me.txtUIHeight.text))
+        m_options.Workbook.defaultPerspective = Trim$(Me.cboPerspective.text)
+        m_options.Workbook.defaultParallax = Trim$(Me.cboParallax.text)
+        m_options.Workbook.defaultSceneMode = Trim$(Me.cboSceneMode.text)
         
         'm_options.Workbook.autoSyncLists = Me.chkAutoSyncLists.value
         'm_options.Workbook.showValidationWarnings = Me.chkShowValidationWarnings.value
@@ -165,14 +259,14 @@ Private Sub EnableWorkbookTabs(ByVal enable As Boolean)
     clr = IIf(enable, &H80000005, &H8000000F)   ' WindowBackground oder GrayText
     
     ' Room Defaults Tab Controls
-    'Me.txtGameWidth.enabled = enable
-    'Me.txtGameHeight.enabled = enable
-    'Me.txtBGWidth.enabled = enable
-    'Me.txtBGHeight.enabled = enable
-    'Me.txtUIHeight.enabled = enable
-    'Me.txtPerspective.enabled = enable
-    'Me.txtParallax.enabled = enable
-    'Me.txtSceneMode.enabled = enable
+    Me.txtGameWidth.enabled = enable
+    Me.txtGameHeight.enabled = enable
+    Me.txtBGWidth.enabled = enable
+    Me.txtBGHeight.enabled = enable
+    Me.txtUIHeight.enabled = enable
+    Me.cboPerspective.enabled = enable
+    Me.cboParallax.enabled = enable
+    Me.cboSceneMode.enabled = enable
     
     ' Behavior Tab Controls
     'Me.chkAutoSyncLists.enabled = enable
@@ -204,20 +298,20 @@ End Function
 
 Private Sub cmdCancel_Click()
     m_blnConfirmed = False
-    Unload Me
+    Me.Hide
 End Sub
 
 Private Sub cmdConfirm_Click()
     If SaveSettings() Then
     m_blnConfirmed = True
-    Unload Me
+    Me.Hide
     End If
 End Sub
 
 Private Sub cmdResetDefaults_Click()
     Dim result As VbMsgBoxResult
-    result = MsgBox("Alle Einstellungen auf Standardwerte zurücksetzen?", _
-        vbQuestion + vbYesNo, "Standardwerte")
+    result = MsgBox("Reset all settings to default values?", _
+        vbQuestion + vbYesNo, "default values")
     
     If result = vbYes Then
         m_options = modOptions.GetDefaultOptions()
@@ -265,37 +359,38 @@ Private Sub UserForm_Layout()
     Me.Move Application.Left + Application.Width / 2 - Me.Width / 2, Application.Top + Application.Height / 2 - Me.Height / 2
 End Sub
 
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    'Prevents the UserForm from closing correctly or UserForm_Terminate from being executed.
+    If CloseMode = vbFormControlMenu Then
+        Cancel = True
+        Call cmdCancel_Click
+    End If
+End Sub
+
 ' ===== Validation Helpers (TextBox Change Events) ===================================
 
 Private Sub txtLogRetentionDays_Change()
-    ' Nur Zahlen erlauben
-'    Dim txt As String
-'    txt = Me.txtLogRetentionDays.text
-'    If Len(txt) > 0 Then
-'        If Not IsNumeric(txt) Or InStr(txt, ".") > 0 Or InStr(txt, ",") > 0 Then
-'            Me.txtLogRetentionDays.text = CStr(m_options.General.logRetentionDays)
-'        End If
-'    End If
+    ValidateNumericTextBox Me.txtLogRetentionDays, m_options.General.logRetentionDays
 End Sub
 
 Private Sub txtGameWidth_Change()
-    'ValidateNumericTextBox Me.txtGameWidth, m_options.Workbook.defaultGameWidth
+    ValidateNumericTextBox Me.txtGameWidth, m_options.Workbook.defaultGameWidth
 End Sub
 
 Private Sub txtGameHeight_Change()
-    'ValidateNumericTextBox Me.txtGameHeight, m_options.Workbook.defaultGameHeight
+    ValidateNumericTextBox Me.txtGameHeight, m_options.Workbook.defaultGameHeight
 End Sub
 
 Private Sub txtBGWidth_Change()
-    'ValidateNumericTextBox Me.txtBGWidth, m_options.Workbook.defaultBGWidth
+    ValidateNumericTextBox Me.txtBGWidth, m_options.Workbook.defaultBGWidth
 End Sub
 
 Private Sub txtBGHeight_Change()
-    'ValidateNumericTextBox Me.txtBGHeight, m_options.Workbook.defaultBGHeight
+    ValidateNumericTextBox Me.txtBGHeight, m_options.Workbook.defaultBGHeight
 End Sub
 
 Private Sub txtUIHeight_Change()
-    'ValidateNumericTextBox Me.txtUIHeight, m_options.Workbook.defaultUIHeight
+    ValidateNumericTextBox Me.txtUIHeight, m_options.Workbook.defaultUIHeight
 End Sub
 
 Private Sub ValidateNumericTextBox(ByRef tb As MSForms.TextBox, ByVal defaultVal As Long)
@@ -308,6 +403,6 @@ Private Sub ValidateNumericTextBox(ByRef tb As MSForms.TextBox, ByVal defaultVal
     End If
 End Sub
 
-
-
-
+Private Sub UserForm_Terminate()
+    Set m_cboDataDict = Nothing
+End Sub

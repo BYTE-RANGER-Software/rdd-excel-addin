@@ -27,6 +27,11 @@ Attribute VB_Name = "modConst"
 Option Explicit
 Option Private Module
 
+' Ribbon
+Public Const RIBBON_BTN_BUILD_DATA As String = "RB75dd2c44_btnBuildData"
+Public Const RIBBON_BTN_SYNC_LISTS As String = "RB75dd2c44_btnSyncLists"
+Public Const RIBBON_BTN_NEED_SYNC_LISTS As String = "RB75dd2c44_btnNeedSyncLists"
+    
 Public Const FILENAME_MANUAL As String = "RDD-AddIn Manual.pdf"
 
 Public Const WILDCARD_APP_PATH As String = "%AppPath%"
@@ -188,6 +193,7 @@ Public Const ERR_ROOMS_BASE                 As Long = ERR_BASE + 200
 Public Const ERR_ARG_NULL_TARGETSHEET       As Long = ERR_ROOMS_BASE + 1    ' "Argument 'targetSheet' must not be Nothing."
 Public Const ERR_NOT_A_ROOM_SHEET           As Long = ERR_ROOMS_BASE + 2    ' "The provided sheet is not a Room sheet."
 Public Const ERR_ROOM_SHEET_REFERENCED      As Long = ERR_ROOMS_BASE + 3    ' "Room sheet cannot be deleted because it is referenced..."
+Public Const ERR_INVALID_ROOM_NAME          As Long = ERR_ROOMS_BASE + 4
 
 Public Const FD_ANCHOR_NAME_PATTERN As String = "*!DD_Anchor_*"
 Public Const FD_SLAVE_ANCHOR_NAME_PATTERN As String = FD_ANCHOR_NAME_PATTERN & ".[0-9]*."

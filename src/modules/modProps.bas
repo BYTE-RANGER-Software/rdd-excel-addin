@@ -79,7 +79,7 @@ Public Function GetAllSheetsNamesByCustomProperty( _
     
     On Error GoTo ErrHandler
 
-    ReDim returnSheetNamesArray(sourceWorkb.Worksheets.Count - 1)
+    ReDim returnSheetNamesArray(sourceWorkb.Worksheets.count - 1)
     matchCount = -1
 
     For Each sheet In sourceWorkb.Worksheets
@@ -185,7 +185,7 @@ End Sub
 Public Sub ClearAllCustomProperties(ByVal targetSheet As Worksheet)
 
     On Error Resume Next
-    Do While targetSheet.CustomProperties.Count > 0
+    Do While targetSheet.CustomProperties.count > 0
         targetSheet.CustomProperties(1).Delete
     Loop
 End Sub

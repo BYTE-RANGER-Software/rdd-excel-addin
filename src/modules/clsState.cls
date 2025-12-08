@@ -72,32 +72,32 @@ Public Property Get RoomSheetChanged() As Boolean
     RoomSheetChanged = m_roomSheetChanged
 End Property
 
-Public Property Let RoomSheetChanged(ByVal blnValue As Boolean)
-    m_roomSheetChanged = blnValue
+Public Property Let RoomSheetChanged(ByVal value As Boolean)
+    m_roomSheetChanged = value
 End Property
 
 Public Property Get CellCtxMnuNeedsPrepare() As Boolean
     CellCtxMnuNeedsPrepare = m_cellCtxMnuNeedsPrepare
 End Property
 
-Public Property Let CellCtxMnuNeedsPrepare(ByVal blnValue As Boolean)
-    m_cellCtxMnuNeedsPrepare = blnValue
+Public Property Let CellCtxMnuNeedsPrepare(ByVal value As Boolean)
+    m_cellCtxMnuNeedsPrepare = value
 End Property
 
 Public Property Get CellCtxMenuType() As Integer
     CellCtxMenuType = m_cellCtxMenuType
 End Property
 
-Public Property Let CellCtxMenuType(ByVal intValue As Integer)
-    m_cellCtxMenuType = intValue
+Public Property Let CellCtxMenuType(ByVal value As Integer)
+    m_cellCtxMenuType = value
 End Property
 
 Public Property Get CellCtxMnuHideDefault() As Boolean
     CellCtxMnuHideDefault = m_cellCtxMnuHideDefault
 End Property
 
-Public Property Let CellCtxMnuHideDefault(ByVal blnValue As Boolean)
-    m_cellCtxMnuHideDefault = blnValue
+Public Property Let CellCtxMnuHideDefault(ByVal value As Boolean)
+    m_cellCtxMnuHideDefault = value
 End Property
 
 Public Property Get RibbonUI() As IRibbonUI
@@ -137,25 +137,17 @@ Public Sub Cleanup()
 End Sub
 
 Public Property Get RoomsValidated() As Boolean
-
     RoomsValidated = m_roomsValidated
-
 End Property
 
-Public Property Let RoomsValidated(ByVal NewValue As Boolean)
-
-    m_roomsValidated = NewValue
-
+Public Property Let RoomsValidated(ByVal value As Boolean)
+    m_roomsValidated = value
 End Property
 
 Public Property Get RoomsValidationIssueCount() As Long
-
     RoomsValidationIssueCount = m_roomsValidationIssueCount
-
 End Property
 
-Public Property Let RoomsValidationIssueCount(ByVal NewValue As Long)
-
-    m_roomsValidationIssueCount = NewValue
-
+Public Property Let RoomsValidationIssueCount(ByVal value As Long)
+    m_roomsValidationIssueCount = value
 End Property

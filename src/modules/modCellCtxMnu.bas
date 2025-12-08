@@ -69,6 +69,8 @@ Public Sub InitCellCtxMenu()
     
     Dim itemCaption As Variant
     
+    CommandBars("Cell").Reset
+    
     BuildCellCtxMenuCache
     HideAllBuiltInCellCtxMenuEntries
 
@@ -78,7 +80,7 @@ Public Sub InitCellCtxMenu()
         ShowCellCtxByCachedCaption itemCaption
     Next
     
-    m_controlCountSignature = Application.CommandBars("Cell").Controls.Count
+    m_controlCountSignature = Application.CommandBars("Cell").Controls.count
     clsState.CellCtxMnuNeedsPrepare = False
 CleanExit:
     Exit Sub
@@ -116,7 +118,7 @@ Public Sub EnsureCellCtxMenuReady()
 
     ' Menu has been modified by Excel for the current context,
     ' then rebuild context menu cache
-    If cellCommandBar.Controls.Count <> m_controlCountSignature Then
+    If cellCommandBar.Controls.count <> m_controlCountSignature Then
         m_isCtxCacheInitialized = False
         BuildCellCtxMenuCache
         'Hide everything built-in (RibbonX buttons remain visible)
@@ -125,7 +127,7 @@ Public Sub EnsureCellCtxMenuReady()
         For Each itemCaption In m_ctxMenuWhitelist
             ShowCellCtxByCachedCaption itemCaption
         Next
-        m_controlCountSignature = cellCommandBar.Controls.Count
+        m_controlCountSignature = cellCommandBar.Controls.count
     ElseIf clsState.CellCtxMnuHideDefault Then
         HideAllBuiltInCellCtxMenuEntries
         clsState.CellCtxMnuHideDefault = False
@@ -204,12 +206,13 @@ FoundMatch:
         ' Update cache for default case
         If Not m_isCtxCacheInitialized Then BuildCellCtxMenuCache
         
-        If Application.CommandBars("Cell").Controls.Count <> m_controlCountSignature Then
+        If Application.CommandBars("Cell").Controls.count <> m_controlCountSignature Then
             m_isCtxCacheInitialized = False
             BuildCellCtxMenuCache
-            m_controlCountSignature = Application.CommandBars("Cell").Controls.Count
+            m_controlCountSignature = Application.CommandBars("Cell").Controls.count
         End If
         ShowAllCachedCellCtx
+        clsState.CellCtxMnuNeedsPrepare = False
     Else
         clsState.CellCtxMnuHideDefault = True
     End If
@@ -232,29 +235,43 @@ Public Sub ResetToDefaultCtxMenu()
     On Error GoTo ErrHandler
     If clsState.CellCtxMenuType = CCM_Default Then Exit Sub
     
-        ' Reset any custom context menu modifications
-            If Not m_isCtxCacheInitialized Then BuildCellCtxMenuCache
+    ' Reset any custom context menu modifications
+    If Not m_isCtxCacheInitialized Then BuildCellCtxMenuCache
     
-    If Application.CommandBars("Cell").Controls.Count <> m_controlCountSignature Then
+    If Application.CommandBars("Cell").Controls.count <> m_controlCountSignature Then
         m_isCtxCacheInitialized = False
         BuildCellCtxMenuCache
-        m_controlCountSignature = Application.CommandBars("Cell").Controls.Count
+        m_controlCountSignature = Application.CommandBars("Cell").Controls.count
     End If
     
     ShowAllCachedCellCtx
     
-        ' Reset menu type
-        clsState.CellCtxMenuType = CCM_Default
-        clsState.CellCtxMnuNeedsPrepare = False
-        clsState.CellCtxMnuHideDefault = False
+    ' Reset menu type
+    clsState.CellCtxMenuType = CCM_Default
+    clsState.CellCtxMnuNeedsPrepare = False
+    clsState.CellCtxMnuHideDefault = False
         
-        ' Clear dynamic button states
-        clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu1"
-        clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu2"
+    ' Clear dynamic button states
+    clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu1"
+    clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu2"
             
-        Exit Sub
+CleanExit:
+    Exit Sub
 ErrHandler:
     modErr.ReportError "ResetToDefaultCtxMenu", Err.Number, Erl
+    On Error Resume Next
+    ' Hard reset for ctx menu
+    CommandBars("Cell").Reset
+    
+    ' Cache invalidieren nach Reset!
+    m_isCtxCacheInitialized = False
+    m_controlCountSignature = 0
+    
+    ' State zurücksetzen
+    clsState.CellCtxMenuType = CCM_Default
+    clsState.CellCtxMnuNeedsPrepare = False
+    clsState.CellCtxMnuHideDefault = False
+    On Error GoTo 0
 End Sub
 
 ' ================================
@@ -328,10 +345,10 @@ Private Sub BuildCellCtxMenuCache()
     If Not m_isCtxCacheInitialized Then
         Set cellCommandBar = Application.CommandBars("Cell")
 
-        ReDim m_cellCtxControls(1 To cellCommandBar.Controls.Count)
-        ReDim m_cellCtxCaptions(1 To cellCommandBar.Controls.Count)
+        ReDim m_cellCtxControls(1 To cellCommandBar.Controls.count)
+        ReDim m_cellCtxCaptions(1 To cellCommandBar.Controls.count)
 
-        For idx = 1 To cellCommandBar.Controls.Count
+        For idx = 1 To cellCommandBar.Controls.count
             Set m_cellCtxControls(idx) = cellCommandBar.Controls(idx)
             'If cellCommandBar.Controls(Idx).BuiltIn Then Debug.Print cellCommandBar.Controls(Idx).Caption
             m_cellCtxCaptions(idx) = m_cellCtxControls(idx).caption

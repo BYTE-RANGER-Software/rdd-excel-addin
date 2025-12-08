@@ -2,9 +2,9 @@ VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmWait 
    Caption         =   "Initializing..."
    ClientHeight    =   990
-   ClientLeft      =   120
-   ClientTop       =   465
-   ClientWidth     =   4560
+   ClientLeft      =   121
+   ClientTop       =   462
+   ClientWidth     =   4554
    OleObjectBlob   =   "frmWait.frx":0000
    ShowModal       =   0   'False
    StartUpPosition =   1  'Fenstermitte
@@ -32,7 +32,7 @@ Private Declare PtrSafe Function DrawMenuBar _
     Lib "User32.dll" ( _
     ByVal HWnd As LongPtr) As LongPtr
 Private Declare PtrSafe Function FindWindow _
-    Lib "USER32" Alias "FindWindowA" ( _
+    Lib "user32" Alias "FindWindowA" ( _
     ByVal lpClassName As String, _
     ByVal lpWindowName As String) As Long
     

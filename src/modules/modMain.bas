@@ -13,16 +13,17 @@ Attribute VB_Name = "modMain"
 '   - AppVersion                  : Returns add-in version
 '
 '   === Lifecycle (Add-In) ===
-'   - HandleAddInWorkbookInstall  : First-time installation initialization
+'   - HandleAddInWorkbookInstall       : First-time installation initialization
 '   - HandleAddInWorkbookOpen          : Startup tasks (logging, events, state)
 '   - HandleAddInWorkbookBeforeClose   : Shutdown tasks (cleanup, save settings)
 '
 '   === Event Business Logic (RDD Workbooks) ===
 '   - HandleSheetActivate         : Sheet activation logic
+'   - HandleSheetDeactivate       :
 '   - HandleSheetChange           : Sheet change logic
 '   - HandleSheetBeforeRightClick : Right-click menu preparation
 '   - HandleWorkbookBeforeSave    : Pre-save operations
-'   - HandleWorkbookOpen
+'   - HandleWorkbookOpen          :
 '
 '   === FormDrop Callbacks ===
 '   - OnFormDropCatSelected       : Category dropdown selection logic
@@ -242,7 +243,8 @@ Public Sub HandleWorkbookOpen(ByVal targetBook As Workbook)
     ' only on RDD Workbooks
     If Not IsRDDWorkbook(targetBook) Then Exit Sub
     modOptions.ReadWorkbookOptions targetBook
-
+    
+    Exit Sub
 ErrHandler:
     modErr.ReportError "HandleWorkbookOpen", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
@@ -268,6 +270,7 @@ Public Sub HandleSheetDeactivate(ByVal sh As Worksheet)
     ' Code That runs only on Room sheets
     m_formDropMgr.HandleSheetDeactivate sh
     
+    Exit Sub
 ErrHandler:
     modErr.ReportError "HandleSheetDeactivate", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
@@ -288,6 +291,8 @@ Public Sub HandleSheetSelectionChange(ByVal sh As Worksheet, ByVal Target As Ran
     If Not IsRoomSheet(sh) Then Exit Sub
     
     m_formDropMgr.HandleSelectionChange sh, Target
+    
+    Exit Sub
 ErrHandler:
     modErr.ReportError "HandleSheetSelectionChange", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
@@ -340,9 +345,9 @@ Public Sub HandleSheetChange(ByVal changedSheet As Worksheet, ByVal targetRng As
     clsState.RoomSheetChanged = True
     clsState.RoomsValidated = False
     
-    clsState.InvalidateControl "RB75dd2c44_btnBuildData"
-    clsState.InvalidateControl "RB75dd2c44_btnSyncLists"
-    clsState.InvalidateControl "RB75dd2c44_btnNeedSyncLists"
+    clsState.InvalidateControl RIBBON_BTN_BUILD_DATA
+    clsState.InvalidateControl RIBBON_BTN_SYNC_LISTS
+    clsState.InvalidateControl RIBBON_BTN_NEED_SYNC_LISTS
     
     ' Determine what type of change occurred
     Dim changeType As ChangeCategory
@@ -406,6 +411,7 @@ End Sub
 '   - Does not modify shouldCancel in the current implementation.
 ' -----------------------------------------------------------------------------------
 Public Sub HandleSheetBeforeRightClick(ByVal clickedOnSheet As Worksheet, ByVal targetRng As Range, ByRef shouldCancel As Boolean)
+    On Error GoTo ErrHandler
     
     If modRooms.IsRoomSheet(clickedOnSheet) Then
         clsState.CellCtxMnuNeedsPrepare = True
@@ -418,6 +424,13 @@ Public Sub HandleSheetBeforeRightClick(ByVal clickedOnSheet As Worksheet, ByVal 
         modCellCtxMnu.ResetToDefaultCtxMenu
     End If
     
+CleanExit:
+    Exit Sub
+ErrHandler:
+    modCellCtxMnu.ResetToDefaultCtxMenu  ' Fallback auf Standard
+    modErr.ReportError "HandleSheetBeforeRightClick", Err.Number, Erl, _
+        caption:=modMain.AppProjectName
+    Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -536,48 +549,69 @@ End Sub
 ' Notes     : Form lifetime is scoped to the procedure.
 ' -----------------------------------------------------------------------------------
 Public Sub ShowOptions()
-
     On Error GoTo ErrHandler
-            
-    Dim currentWorkbook As Workbook: Set currentWorkbook = ActiveWorkbook
-
-    If Not modMain.IsRDDWorkbook(currentWorkbook) Then Exit Sub
     
     Dim currentOptions As tOptions
     Dim optionsForm As frmOptions
-    Dim newOptions As tOptions
-    Dim validationError As String
+    Dim currentWorkbook As Workbook
+    Dim hasRDDWorkbook As Boolean
+    Dim dataDict As Scripting.Dictionary
+    Dim lo As ListObject
+    
+    ' Check whether an RDD workbook is active
+    Set currentWorkbook = ActiveWorkbook
+    hasRDDWorkbook = IsRDDWorkbook(currentWorkbook)
+    
+    '  Load current options
+    currentOptions = modOptions.GetAllOptions()
+    
+    ' If RDD workbook is active, also load workbook options
+    If hasRDDWorkbook Then
+        modOptions.ReadWorkbookOptions currentWorkbook
+        currentOptions = modOptions.GetAllOptions()  ' Retrieve again after ReadWorkbookOptions
         
-    currentOptions = modOptions.GetAllOptions
+        ' Load data lists for combo boxes
+        Set dataDict = New Scripting.Dictionary
+    
+        ' get ListObject
+        Set lo = currentWorkbook.Worksheets(modConst.SHEET_DISPATCHER).ListObjects(modConst.NAME_DATA_TABLE)
+        If Not lo Is Nothing Then
+   
+            ' Extract columns in arrays
+            dataDict(modConst.LISTS_HEADER_PERSPECTIVE) = modLists.CollectTableColumnValuesToArray(lo, modConst.LISTS_HEADER_PERSPECTIVE)
+            dataDict(modConst.LISTS_HEADER_PARALLAX) = modLists.CollectTableColumnValuesToArray(lo, modConst.LISTS_HEADER_PARALLAX)
+            dataDict(modConst.LISTS_HEADER_SCENE_MODE) = modLists.CollectTableColumnValuesToArray(lo, modConst.LISTS_HEADER_SCENE_MODE)
 
-    Set optionsForm = New frmOptions: optionsForm.Init AppProjectName, currentOptions
-        
+        End If
+    End If
+    
+    'Initialize and display dialog
+    Set optionsForm = New frmOptions
     With optionsForm
-        optionsForm.Show
+        .Init AppProjectName, currentOptions, hasRDDWorkbook, dataDict
+        .Show vbModal
         
         If .Confirmed Then
-
-            newOptions = .ResultOptions
-
-            validationError = modOptions.ValidateOptions(newOptions)
-            If LenB(validationError) > 0 Then
-                MsgBox validationError, vbExclamation, AppProjectName
-                GoTo CleanExit
-            End If
-
-            modOptions.SetAllOptions newOptions
+            ' Apply changes
+            modOptions.SetAllOptions .ResultOptions
+            
+            ' Speichere General Options (Registry)
             modOptions.SaveGeneralOptions
-            modOptions.SaveWorkbookOptions currentWorkbook
+            
+            ' Speichere Workbook Options (Document Properties)
+            If hasRDDWorkbook Then
+                modOptions.SaveWorkbookOptions currentWorkbook
+            End If
+            
         End If
-    
     End With
     
 CleanExit:
     Unload optionsForm: Set optionsForm = Nothing
     Exit Sub
-
+    
 ErrHandler:
-    modErr.ReportError "ShowOptions", Err.Number, Erl, caption:=modMain.AppProjectName
+    modErr.ReportError "ShowOptions", Err.Number, Erl, caption:=AppProjectName
     Resume CleanExit
 End Sub
 
@@ -1051,8 +1085,8 @@ Public Sub SyncAllLists()
     modRooms.SynchronizeAllLists wb
           
     clsState.RoomSheetChanged = False
-    clsState.InvalidateControl "RB75dd2c44_btnSyncLists"
-    clsState.InvalidateControl "RB75dd2c44_btnNeedSyncLists"
+    clsState.InvalidateControl RIBBON_BTN_SYNC_LISTS
+    clsState.InvalidateControl RIBBON_BTN_NEED_SYNC_LISTS
      
     modUtil.HideOpMode False
     frmWait.Hide
@@ -1074,7 +1108,7 @@ Public Sub ValidateRoomData()
     On Error GoTo ErrHandler
     
     ' Verify we have a valid workbook
-    If Workbooks.Count = 0 Then Exit Sub
+    If Workbooks.count = 0 Then Exit Sub
     
     Dim wb As Workbook
     Set wb = ActiveWorkbook
@@ -1117,7 +1151,7 @@ Public Sub ValidateRoomData()
     End If
     
     ' Invalidate buttons that depend on validation
-    clsState.InvalidateControl "RB75dd2c44_btnBuildData"
+    clsState.InvalidateControl RIBBON_BTN_BUILD_DATA
         
     modUtil.HideOpMode False
     frmWait.Hide
@@ -1125,7 +1159,7 @@ Public Sub ValidateRoomData()
     Exit Sub
     
 ErrHandler:
-    modErr.ReportError "modRooms.ValidateRoomData", Err.Number, Erl, caption:=modMain.AppProjectName
+    modErr.ReportError "modMain.ValidateRoomData", Err.Number, Erl, caption:=modMain.AppProjectName
     
 End Sub
 

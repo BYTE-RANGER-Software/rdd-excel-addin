@@ -111,9 +111,9 @@ End Sub
 ' -----------------------------------------------------------------------------------
 Public Function JoinCollection(ByVal col As Collection, ByVal sSep As String) As String
     Dim arr() As String, i As Long
-    If col.Count = 0 Then Exit Function
-    ReDim arr(1 To col.Count)
-    For i = 1 To col.Count
+    If col.count = 0 Then Exit Function
+    ReDim arr(1 To col.count)
+    For i = 1 To col.count
         arr(i) = CStr(col(i))
     Next
     JoinCollection = Join(arr, sSep)
@@ -291,15 +291,3 @@ Public Function SplitTrim(ByVal sourceText As String, ByVal separator As String)
     SplitTrim = splitArray
 End Function
 
-Sub DeleteAllDropDowns()
-    Dim dd As DropDown
-    Dim ws As Worksheet
-    Set ws = ActiveSheet ' Oder spezifisches Blatt: Set ws = ThisWorkbook.Sheets("SheetName")
-
-    ' Durchlaufe alle DropDowns auf dem Arbeitsblatt und lösche sie
-    For Each dd In ws.DropDowns
-        dd.Delete
-    Next dd
-
-    MsgBox "Alle DropDowns wurden gelöscht!", vbInformation
-End Sub

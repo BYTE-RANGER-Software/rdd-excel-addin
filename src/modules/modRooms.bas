@@ -68,6 +68,10 @@ Public Function AddRoom(targetBook As Workbook, _
     Optional ByVal updateAggregations As Boolean = True) As Worksheet
                         
     On Error GoTo ErrHandler
+    
+    If Len(Trim$(roomName)) = 0 Then
+    Err.Raise ERR_INVALID_ROOM_NAME, "AddRoom", "Room name cannot be empty"
+End If
 
     Dim tmplSheet As Worksheet
     Dim newRoomSheet As Worksheet
@@ -79,7 +83,7 @@ Public Function AddRoom(targetBook As Workbook, _
         Set tmplSheet = RDDAddInWkBk.Worksheets(modConst.SHEET_DISPATCHER)
         tmplSheet.Visible = xlSheetVisible
         
-        tmplSheet.Copy After:=targetBook.Sheets(targetBook.Sheets.Count)
+        tmplSheet.Copy After:=targetBook.Sheets(targetBook.Sheets.count)
         Set newRoomSheet = ActiveSheet
         
         newRoomSheet.Visible = xlSheetHidden
@@ -94,7 +98,7 @@ Public Function AddRoom(targetBook As Workbook, _
     Set tmplSheet = RDDAddInWkBk.Worksheets(modConst.SHEET_ROOM_TEMPLATE)
     tmplSheet.Visible = xlSheetVisible
     
-    tmplSheet.Copy After:=targetBook.Sheets(targetBook.Sheets.Count)
+    tmplSheet.Copy After:=targetBook.Sheets(targetBook.Sheets.count)
     Set newRoomSheet = ActiveSheet
     
     newRoomSheet.name = modSheets.GetValidUniqueSheetName(roomName, targetBook)
@@ -174,7 +178,7 @@ Public Function RemoveRoom(ByVal targetSheet As Worksheet, _
     Dim usedByCol As Collection
     Set usedByCol = GetAllSheetNamesUsingRoomID(roomID, parentBook, targetSheet)
     If Not usedByCol Is Nothing Then
-        If usedByCol.Count > 0 Then
+        If usedByCol.count > 0 Then
             ' Hand result back to caller for UI, then raise a error
             Set returnRefSheets = usedByCol
             Err.Raise ERR_ROOM_SHEET_REFERENCED, _
@@ -260,7 +264,7 @@ Public Function UpdateRoomReferences(ByVal targetBook As Workbook, _
     Exit Function
     
 ErrHandler:
-    modErr.ReportError "modMain.UpdateRoomReferences", Err.Number, Erl, caption:=AppProjectName
+    modErr.ReportError "modRooms.UpdateRoomReferences", Err.Number, Erl, caption:=AppProjectName
 End Function
 
 ' -----------------------------------------------------------------------------------
@@ -393,8 +397,8 @@ ErrHandler:
 End Function
 
 ' -----------------------------------------------------------------------------------
-' Function  : HasRoomAlias
-' Purpose   : Determine whether the workbook contains a Room sheet with the given Alias.
+' Function  : HasRoomNo
+' Purpose   : Determine whether the workbook contains a Room sheet with the given AGS Number.
 '
 ' Parameters:
 '   targetBook       [Workbook]              - Workbook to scan.
@@ -544,6 +548,7 @@ Public Sub UpdateRoomsMetadataLists(ByVal targetBook As Workbook, _
 
     End If
     
+    Set roomsDict = Nothing
     modUtil.HideOpMode False
     Exit Sub
     
@@ -1267,6 +1272,38 @@ Private Sub SetupRoom(targetSheet As Worksheet, roomName As String, roomIdx As L
     ' Set RoomNo named cell (e.g., 42)
     targetSheet.Range(modConst.NAME_CELL_ROOM_NO).value = roomNo
     
+    If modOptions.Opt_DefaultGameHeight > 0 Then
+        targetSheet.Range(NAME_CELL_GAME_HEIGHT).value = modOptions.Opt_DefaultGameHeight
+    End If
+
+    If modOptions.Opt_DefaultGameWidth > 0 Then
+        targetSheet.Range(NAME_CELL_GAME_WIDTH).value = modOptions.Opt_DefaultGameWidth
+    End If
+    
+    If modOptions.Opt_DefaultBGHeight > 0 Then
+        targetSheet.Range(NAME_CELL_BG_HEIGHT).value = modOptions.Opt_DefaultBGHeight
+    End If
+
+    If modOptions.Opt_DefaultBGWidth > 0 Then
+        targetSheet.Range(NAME_CELL_BG_WIDTH).value = modOptions.Opt_DefaultBGWidth
+    End If
+    
+    If modOptions.Opt_DefaultUIHeight > 0 Then
+        targetSheet.Range(NAME_CELL_UI_HEIGHT).value = modOptions.Opt_DefaultUIHeight
+    End If
+    
+    If LenB(modOptions.Opt_DefaultPerspective) > 0 Then
+        targetSheet.Range(NAME_CELL_PERSPECTIVE).value = modOptions.Opt_DefaultPerspective
+    End If
+
+    If LenB(modOptions.Opt_DefaultParallax) > 0 Then
+        targetSheet.Range(NAME_CELL_PARALLAX).value = modOptions.Opt_DefaultParallax
+    End If
+
+    If LenB(modOptions.Opt_DefaultSceneMode) > 0 Then
+        targetSheet.Range(NAME_CELL_SCENE_MODE).value = modOptions.Opt_DefaultSceneMode
+    End If
+    
     ' Remove stale named range references to add-in template workbook
     For Each nm In targetSheet.Parent.Names
         If InStr(nm.RefersTo, "[" & RDDAddInWkBk.name & "]") > 0 Then
@@ -1376,10 +1413,10 @@ Private Function GetCleanRoomAlias(ByVal sourceName As String) As String
     Dim removeCharArray() As Variant
     Dim i As Long
 
-    ' Liste der zu entfernenden Zeichen
+    ' List of characters to be removed
     removeCharArray = Array(" ", "-", ".", "(", ")", ":", "/", "'")
 
-    ' Alle Zeichen durch leeren String ersetzen
+    ' Replace all characters with an empty string
     For i = LBound(removeCharArray) To UBound(removeCharArray)
         sourceName = Replace(sourceName, removeCharArray(i), "")
     Next i
@@ -1607,14 +1644,12 @@ Private Sub CollectActors(ByVal targetBook As Workbook, _
     Else
         
         For Each targetSheet In targetBook.Worksheets
-
-        
+  
             If modRooms.IsRoomSheet(targetSheet, roomID) Then
                 modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_ACTORS_ACTOR_ID, _
                     NAME_RANGE_ACTORS_ACTOR_NAME, actorsDict
             End If
         
-
         Next targetSheet
     End If
 End Sub
@@ -2357,7 +2392,7 @@ Private Function DetectCycleDFS(ByVal currentRoomID As String, _
     Dim depRoomID As Variant
     
     ' Check if current room is already in the current path (cycle detected)
-    For i = 1 To pathStack.Count
+    For i = 1 To pathStack.count
         If pathStack(i) = currentRoomID Then
             ' Build cycle message
             cycleMessage = "Cycle detected: "
@@ -2392,7 +2427,7 @@ Private Function DetectCycleDFS(ByVal currentRoomID As String, _
     End If
     
     ' Remove from path (backtrack)
-    pathStack.Remove pathStack.Count
+    pathStack.Remove pathStack.count
     
     ' Mark as fully processed
     If Not visitedRooms.Exists(currentRoomID) Then
