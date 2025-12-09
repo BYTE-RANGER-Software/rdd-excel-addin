@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmObjectEdit 
    Caption         =   "New Item"
-   ClientHeight    =   4334
+   ClientHeight    =   4335
    ClientLeft      =   110
    ClientTop       =   440
    ClientWidth     =   7799

@@ -58,7 +58,11 @@ End Sub
 ' ============================================================================
 
 Sub RB75dd2c44_btnAddRoom_OnAction(control As IRibbonControl)
+
+    
     Call modMain.AddNewRoom
+    Exit Sub
+
 End Sub
 
 
@@ -69,11 +73,15 @@ End Sub
 ' -----------------------------------------------------------------------------
 
 Sub RB75dd2c44_btnEditRoomIdentity_OnAction(control As IRibbonControl)
+    
     Call modMain.EditRoomIdentity
+
 End Sub
 
 
 Sub RB75dd2c44_btnEditRoomIdentity_getEnabled(control As IRibbonControl, ByRef returnedVal)
+
+    returnedVal = False
     If Workbooks.count > 0 Then
         If modMain.IsRDDWorkbook(ActiveWorkbook) And modRooms.IsRoomSheet(ActiveSheet) Then
             returnedVal = True
@@ -83,11 +91,16 @@ End Sub
 
 ' -----------------------------------------------------------------------------
 
-Sub RB75dd2c44_BtnRemoveRoom_OnAction(control As IRibbonControl)
+Sub RB75dd2c44_btnRemoveRoom_OnAction(control As IRibbonControl)
+
+    
     Call modMain.RemoveCurrentRoom
+
 End Sub
 
 Sub RB75dd2c44_btnRemoveRoom_getEnabled(control As IRibbonControl, ByRef returnedVal)
+
+    returnedVal = False
     If Workbooks.count > 0 Then
         If modMain.IsRDDWorkbook(ActiveWorkbook) And modRooms.IsRoomSheet(ActiveSheet) Then
             returnedVal = True
@@ -98,8 +111,10 @@ End Sub
 ' -----------------------------------------------------------------------------
 
 Sub RB75dd2c44_btnSyncLists_OnAction(control As IRibbonControl)
-    MsgBox "Sync Lists is not implemented yet.", vbInformation, "Sync Lists"
+
+    
     modMain.SyncAllLists
+
 End Sub
 
 Sub RB75dd2c44_btnSyncLists_getEnabled(control As IRibbonControl, ByRef returnedVal)
@@ -155,8 +170,6 @@ Sub RB75dd2c44_btnNeedSyncLists_getVisible(control As IRibbonControl, ByRef retu
 
 End Sub
 
-
-
 ' -----------------------------------------------------------------------------
 
 Sub RB75dd2c44_btnValidate_OnAction(control As IRibbonControl)
@@ -177,7 +190,6 @@ Sub RB75dd2c44_btnValidate_getEnabled(control As IRibbonControl, ByRef returnedV
             Exit Sub
         End If
     Next sheet
-
     
 End Sub
 
@@ -186,7 +198,7 @@ End Sub
 ' ============================================================================
 
 Sub RB75dd2c44_btnBuildData_OnAction(control As IRibbonControl)
-    'modMain.BuildPDCDataFromRooms -> 'modPDC.BuildPdcData 'TODO: Sub still needs to be adjusted, supplemented, and tested.
+    modMain.BuildPDCDataFromRooms
 End Sub
 
 Sub RB75dd2c44_btnBuildData_getEnabled(control As IRibbonControl, ByRef returnedVal)
@@ -204,26 +216,41 @@ End Sub
 ' -----------------------------------------------------------------------------
 
 Sub RB75dd2c44_btnBuildChart_OnAction(control As IRibbonControl)
-    MsgBox "Build Chart is not implemented yet.", vbInformation, "Build Chart"
-    'modPDC.GeneratePuzzleChart 'TODO: Sub still needs to be adjusted, supplemented, and tested.
+    modMain.GeneratePuzzleDependencyChart
 End Sub
 
 Sub RB75dd2c44_btnBuildChart_getEnabled(control As IRibbonControl, ByRef returnedVal)
-    If modMain.IsRDDWorkbook(ActiveWorkbook) Then
-        ' TODO: I still need to set conditions for displaying.
+    returnedVal = False
+    If Workbooks.count = 0 Then Exit Sub
+    If Not modMain.IsRDDWorkbook(ActiveWorkbook) Then Exit Sub
+    
+    ' Enable if PDC data has been built
+    If clsState.PDCDataBuilt Then
+        returnedVal = True
     End If
 End Sub
 
 ' -----------------------------------------------------------------------------
 
 Sub RB75dd2c44_btnUpdateChart_OnAction(control As IRibbonControl)
-    MsgBox "Update Chart is not implemented yet.", vbInformation, "Update Chart"
-    'modPDC.SyncPuzzleChart 'TODO: Sub still needs to be adjusted, supplemented, and tested.
+    modMain.SynchonizePuzzleDependencyChart
 End Sub
 
+' btnUpdateChart_getEnabled
 Sub RB75dd2c44_btnUpdateChart_getEnabled(control As IRibbonControl, ByRef returnedVal)
-    If modMain.IsRDDWorkbook(ActiveWorkbook) Then
-        ' TODO: I still need to set conditions for displaying.
+    returnedVal = False
+    If Workbooks.count = 0 Then Exit Sub
+    If Not modMain.IsRDDWorkbook(ActiveWorkbook) Then Exit Sub
+    
+    ' Enable if both PDCData and Chart sheets exist
+    On Error Resume Next
+    Dim hasData As Boolean, hasChart As Boolean
+    hasData = Not ActiveWorkbook.Sheets("PDCData") Is Nothing
+    hasChart = Not ActiveWorkbook.Sheets("Chart") Is Nothing
+    On Error GoTo 0
+    
+    If hasData And hasChart Then
+        returnedVal = True
     End If
 End Sub
 
@@ -232,9 +259,12 @@ End Sub
 ' ============================================================================
 
 Sub RB75dd2c44_btnExportPdf_OnAction(control As IRibbonControl)
-    ' Export current RDD views and chart to PDF.
+
+    
+    ' Export current RDD views and chart to PDF. as final RDD
     ' TODO: Implement PDF export.
     MsgBox "PDF export is not implemented yet.", vbInformation, "Export PDF"
+
 End Sub
 
 
@@ -244,9 +274,12 @@ Sub RB75dd2c44_btnExportPdf_getEnabled(control As IRibbonControl, ByRef returned
 End Sub
 
 Sub RB75dd2c44_btnExportCsv_OnAction(control As IRibbonControl)
+
+    
     ' Export puzzles, edges, rooms to CSV.
     ' TODO: Implement CSV export.
     MsgBox "CSV export is not implemented yet.", vbInformation, "Export CSV"
+
 End Sub
 
 Sub RB75dd2c44_btnExportCsv_getEnabled(control As IRibbonControl, ByRef returnedVal)
@@ -259,14 +292,19 @@ End Sub
 ' ============================================================================
 
 Sub RB75dd2c44_btnShowOptions_OnAction(control As IRibbonControl)
+    
     Call modMain.ShowOptions
+
 End Sub
 
 Sub RB75dd2c44_btnShowLog_OnAction(control As IRibbonControl)
+    
     Call modMain.ShowLog
+    
 End Sub
 
 Sub RB75dd2c44_btnShowManual_OnAction(control As IRibbonControl)
+    
     Call modMain.ShowManual
 End Sub
 
@@ -276,6 +314,7 @@ Sub RB75dd2c44_btnAddInVersion_GetLabel(control As IRibbonControl, ByRef returne
 End Sub
 
 Sub RB75dd2c44_btnAddInVersion_OnAction(control As IRibbonControl)
+    
     Call modMain.ShowAbout
 End Sub
 
@@ -285,6 +324,7 @@ End Sub
 
 Sub RB75dd2c44_btnDynCtxMnu1_getLabel(control As IRibbonControl, ByRef returnedVal)
     
+    returnedVal = ""
     If clsState.CellCtxMenuType = CCM_Rooms Then
         returnedVal = "Add New Room"
     End If
@@ -292,6 +332,8 @@ Sub RB75dd2c44_btnDynCtxMnu1_getLabel(control As IRibbonControl, ByRef returnedV
 End Sub
 
 Sub RB75dd2c44_btnDynCtxMnu1_getVisible(control As IRibbonControl, ByRef returnedVal)
+
+    returnedVal = False
     If clsState.CellCtxMenuType <> 0 Then
         Call EnsureCellCtxMenuReady
         returnedVal = True
@@ -299,21 +341,27 @@ Sub RB75dd2c44_btnDynCtxMnu1_getVisible(control As IRibbonControl, ByRef returne
 End Sub
 
 Sub RB75dd2c44_btnDynCtxMnu1_onAction(control As IRibbonControl)
+
+    
     Select Case clsState.CellCtxMenuType
-        Case CCM_Rooms
+        Case CCM_Rooms ' Right-click in the “Room ID” or “Room Alias” cells.
             modMain.AddNewRoomFromCellCtxMnu
         Case Else
-            ' TODO: I need to defined actions for other contexts
+            ' TODO: I need to defined actions for other contexts. Consider for which fields/actions of the room sheet custom context menus still make sense.
     End Select
 End Sub
 
 Sub RB75dd2c44_btnDynCtxMnu2_getLabel(control As IRibbonControl, ByRef returnedVal)
+    
+    returnedVal = ""
     If clsState.CellCtxMenuType = CCM_Rooms Then
         returnedVal = "Goto Room..."
     End If
 End Sub
 
 Sub RB75dd2c44_btnDynCtxMnu2_getVisible(control As IRibbonControl, ByRef returnedVal)
+
+    returnedVal = False
     If clsState.CellCtxMenuType = CCM_Rooms Then
         Call EnsureCellCtxMenuReady
         returnedVal = True
@@ -321,8 +369,12 @@ Sub RB75dd2c44_btnDynCtxMnu2_getVisible(control As IRibbonControl, ByRef returne
 End Sub
 
 Sub RB75dd2c44_btnDynCtxMnu2_onAction(control As IRibbonControl)
-    If clsState.CellCtxMenuType = CCM_Rooms Then
-        modMain.GotoRoomFromCell
-    End If
+    
+    Select Case clsState.CellCtxMenuType
+        Case CCM_Rooms   ' Right-click in the “Room ID” or “Room Alias” cells.
+            modMain.GotoRoomFromCell
+        Case Else
+            ' TODO: I need to defined actions for other contexts. Consider for which fields/actions of the room sheet custom context menus still make sense.
+    End Select
 End Sub
 

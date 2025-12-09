@@ -70,8 +70,8 @@ Public Function AddRoom(targetBook As Workbook, _
     On Error GoTo ErrHandler
     
     If Len(Trim$(roomName)) = 0 Then
-    Err.Raise ERR_INVALID_ROOM_NAME, "AddRoom", "Room name cannot be empty"
-End If
+        Err.Raise ERR_INVALID_ROOM_NAME, "AddRoom", "Room name cannot be empty"
+    End If
 
     Dim tmplSheet As Worksheet
     Dim newRoomSheet As Worksheet
@@ -706,7 +706,7 @@ Public Sub UpdateActorsLists(ByVal targetBook As Workbook, _
     On Error GoTo ErrHandler
     
     modUtil.HideOpMode True, affectScreen:=False, affectEvents:=False
-    
+        
     Dim listsSheet As Worksheet
     Dim dataList As ListObject
     If Not GetListsSheetAndTable(targetBook, listsSheet, dataList) Then Exit Sub
@@ -737,12 +737,14 @@ Public Sub UpdateActorsLists(ByVal targetBook As Workbook, _
             existingKeysDict, actorsDict, LISTS_HEADER_ACTOR_NAME
     End If
     
+CleanExit:
     modUtil.HideOpMode False
     Exit Sub
     
 ErrHandler:
     modUtil.HideOpMode False
     modErr.ReportError "modRooms.UpdateActorsList", Err.Number, Erl, caption:=modMain.AppProjectName
+    Exit Sub
 End Sub
 
 
@@ -1162,12 +1164,12 @@ Public Function ValidateRooms(ByVal targetBook As Workbook) As Long
         validationSheet.Cells(issueRow, 1).Font.Color = RGB(0, 128, 0)
         validationSheet.Cells(issueRow, 2).Font.Color = RGB(0, 128, 0)
         MsgBox "Validation completed successfully!" & vbCrLf & _
-               "No issues found.", vbInformation, modMain.AppProjectName
+            "No issues found.", vbInformation, modMain.AppProjectName
     Else
         MsgBox "Validation completed." & vbCrLf & _
-               (issueRow - 2) & " issue(s) found." & vbCrLf & vbCrLf & _
-               "Please review the 'Validation Results' sheet.", _
-               vbExclamation, modMain.AppProjectName
+            (issueRow - 2) & " issue(s) found." & vbCrLf & vbCrLf & _
+            "Please review the 'Validation Results' sheet.", _
+            vbExclamation, modMain.AppProjectName
     End If
     
 CleanExit:
@@ -1437,6 +1439,7 @@ End Function
 Private Function GetListsSheetAndTable(ByVal targetBook As Workbook, _
     ByRef listsSheet As Worksheet, _
     ByRef dataList As ListObject) As Boolean
+    
     On Error GoTo ErrHandler
     
     ' Determine Lists Sheet
@@ -1486,6 +1489,8 @@ End Function
 Private Sub CollectRoomMetadata(ByVal targetBook As Workbook, _
     ByRef roomsDict As Scripting.Dictionary, _
     Optional ByVal onlyFromSheet As Worksheet = Nothing)
+    
+    On Error GoTo ErrHandler
         
     Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
     Dim roomID As String
@@ -1493,6 +1498,8 @@ Private Sub CollectRoomMetadata(ByVal targetBook As Workbook, _
     Dim roomAlias As String
     
     If Not targetSheet Is Nothing Then
+        targetSheet.Unprotect
+        
         roomID = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_ID)
         If Len(roomID) > 0 Then
             roomNo = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_NO)
@@ -1500,20 +1507,33 @@ Private Sub CollectRoomMetadata(ByVal targetBook As Workbook, _
             roomsDict(roomID) = roomNo & DICT_VALUE_SEPERATOR & roomAlias
         End If
         
+        targetSheet.Protect
     Else
         For Each targetSheet In targetBook.Worksheets
         
             If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                targetSheet.Unprotect
+            
                 If Len(roomID) > 0 Then
                     roomNo = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_NO)
                     roomAlias = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_ROOM_ALIAS)
                     roomsDict(roomID) = roomNo & DICT_VALUE_SEPERATOR & roomAlias
                 End If
+                
+                targetSheet.Protect
             End If
         
 
         Next targetSheet
     End If
+    
+    Exit Sub
+    
+ErrHandler:
+    ' Protect the sheet again if it is still unprotected.
+    If Not targetSheet Is Nothing Then targetSheet.Protect
+    ' Forward error
+    Err.Raise Err.Number, "modRooms.CollectRoomMetadata", Err.Description
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -1529,24 +1549,42 @@ Private Sub CollectSceneIDs(ByVal targetBook As Workbook, _
     ByRef scenesDict As Scripting.Dictionary, _
     Optional ByVal onlyFromSheet As Worksheet = Nothing)
     
+    On Error GoTo ErrHandler
+    
     Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
     Dim roomID As String
     Dim sceneID As String
     
     If Not targetSheet Is Nothing Then
+        targetSheet.Unprotect
+    
         sceneID = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_SCENE_ID)
         If Len(sceneID) > 0 Then scenesDict(sceneID) = True
+        
+        targetSheet.Protect
     Else
     
         For Each targetSheet In targetBook.Worksheets
         
             If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                targetSheet.Unprotect
+            
                 sceneID = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_SCENE_ID)
                 If Len(sceneID) > 0 Then scenesDict(sceneID) = True
+                
+                targetSheet.Protect
             End If
         
         Next targetSheet
     End If
+    
+    Exit Sub
+    
+ErrHandler:
+    ' Protect the sheet again if it is still unprotected.
+    If Not targetSheet Is Nothing Then targetSheet.Protect
+    ' Forward error
+    Err.Raise Err.Number, "modRooms.CollectSceneIDs", Err.Description
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -1569,6 +1607,8 @@ Private Sub CollectGeneralSettings(ByVal targetBook As Workbook, _
     ByRef heightDict As Scripting.Dictionary, _
     ByRef uiHeightDict As Scripting.Dictionary, _
     Optional ByVal onlyFromSheet As Worksheet = Nothing)
+    
+    On Error GoTo ErrHandler
         
     Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
     Dim roomID As String
@@ -1579,6 +1619,7 @@ Private Sub CollectGeneralSettings(ByVal targetBook As Workbook, _
     Dim uiHeight As String
     
     If Not targetSheet Is Nothing Then
+        targetSheet.Unprotect
         ' Collect Game dimensions
         gameWidth = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_GAME_WIDTH)
         If Len(gameWidth) > 0 Then widthDict(gameWidth) = True
@@ -1596,10 +1637,14 @@ Private Sub CollectGeneralSettings(ByVal targetBook As Workbook, _
         ' Collect UI Height
         uiHeight = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_UI_HEIGHT)
         If Len(uiHeight) > 0 Then uiHeightDict(uiHeight) = True
+        
+        targetSheet.Protect
     
     Else
         For Each targetSheet In targetBook.Worksheets
             If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                targetSheet.Unprotect
+            
                 ' Collect Game dimensions
                 gameWidth = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_GAME_WIDTH)
                 If Len(gameWidth) > 0 Then widthDict(gameWidth) = True
@@ -1617,9 +1662,19 @@ Private Sub CollectGeneralSettings(ByVal targetBook As Workbook, _
                 ' Collect UI Height
                 uiHeight = modLists.GetNamedOrHeaderValue(targetSheet, NAME_CELL_UI_HEIGHT)
                 If Len(uiHeight) > 0 Then uiHeightDict(uiHeight) = True
+            
+                targetSheet.Protect
             End If
         Next targetSheet
     End If
+    
+    Exit Sub
+    
+ErrHandler:
+    ' Protect the sheet again if it is still unprotected.
+    If Not targetSheet Is Nothing Then targetSheet.Protect
+    ' Forward error
+    Err.Raise Err.Number, "modRooms.CollectGeneralSettings", Err.Description
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -1635,23 +1690,40 @@ Private Sub CollectActors(ByVal targetBook As Workbook, _
     ByRef actorsDict As Scripting.Dictionary, _
     Optional ByVal onlyFromSheet As Worksheet = Nothing)
     
+    On Error GoTo ErrHandler
+    
     Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
     Dim roomID As String
     
     If Not targetSheet Is Nothing Then
+        targetSheet.Unprotect
+        
         modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_ACTORS_ACTOR_ID, _
             NAME_RANGE_ACTORS_ACTOR_NAME, actorsDict
+            
+        targetSheet.Protect
     Else
         
         For Each targetSheet In targetBook.Worksheets
-  
+            
             If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                targetSheet.Unprotect
+                
                 modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_ACTORS_ACTOR_ID, _
                     NAME_RANGE_ACTORS_ACTOR_NAME, actorsDict
+                    
+                targetSheet.Protect
             End If
-        
         Next targetSheet
     End If
+    
+    Exit Sub
+    
+ErrHandler:
+    ' Protect the sheet again if it is still unprotected.
+    If Not targetSheet Is Nothing Then targetSheet.Protect
+    ' Forward error
+    Err.Raise Err.Number, "modRooms.CollectActors", Err.Description
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -1669,27 +1741,42 @@ Private Sub CollectSounds(ByVal targetBook As Workbook, _
     ByRef soundsDict As Scripting.Dictionary, _
     Optional ByVal onlyFromSheet As Worksheet = Nothing)
     
+    On Error GoTo ErrHandler
+    
     Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
     Dim roomID As String
   
     If Not targetSheet Is Nothing Then
-    
+        targetSheet.Unprotect
+        
         modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_SOUNDS_SOUND_ID, _
             NAME_RANGE_SOUNDS_DESCRIPTION, soundsDict
-                    
+            
+        targetSheet.Protect
     Else
     
         For Each targetSheet In targetBook.Worksheets
         
             If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                targetSheet.Unprotect
+                
                 ' Collect Sound ID + Description
                 modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_SOUNDS_SOUND_ID, _
                     NAME_RANGE_SOUNDS_DESCRIPTION, soundsDict
+                    
+                targetSheet.Protect
             End If
 
         Next targetSheet
     End If
     
+    Exit Sub
+    
+ErrHandler:
+    ' Protect the sheet again if it is still unprotected.
+    If Not targetSheet Is Nothing Then targetSheet.Protect
+    ' Forward error
+    Err.Raise Err.Number, "modRooms.CollectSounds", Err.Description
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -1707,27 +1794,42 @@ Private Sub CollectSpecialFX(ByVal targetBook As Workbook, _
     ByRef specialFXDict As Scripting.Dictionary, _
     Optional ByVal onlyFromSheet As Worksheet = Nothing)
     
+    On Error GoTo ErrHandler
+    
     Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
     Dim roomID As String
 
     If Not targetSheet Is Nothing Then
+        targetSheet.Unprotect
     
         modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_SPECIAL_FX_ANIMATION_ID, _
             NAME_RANGE_SPECIAL_FX_DESCRIPTION, specialFXDict
-                    
+            
+        targetSheet.Protect
     Else
     
         For Each targetSheet In targetBook.Worksheets
         
             If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                targetSheet.Unprotect
+            
                 ' Collect Animation ID + Description
                 modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_SPECIAL_FX_ANIMATION_ID, _
                     NAME_RANGE_SPECIAL_FX_DESCRIPTION, specialFXDict
             
+                targetSheet.Protect
             End If
 
         Next targetSheet
     End If
+    
+    Exit Sub
+    
+ErrHandler:
+    ' Protect the sheet again if it is still unprotected.
+    If Not targetSheet Is Nothing Then targetSheet.Protect
+    ' Forward error
+    Err.Raise Err.Number, "modRooms.CollectSpecialFX", Err.Description
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -1747,30 +1849,49 @@ Private Sub CollectFlags(ByVal targetBook As Workbook, _
     ByRef flagsTypeDict As Scripting.Dictionary, _
     Optional ByVal onlyFromSheet As Worksheet = Nothing)
     
+    On Error GoTo ErrHandler
+    
     Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
     Dim roomID As String
     
     If Not targetSheet Is Nothing Then
+    
+        targetSheet.Unprotect
+    
         modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_FLAGS_FLAG_ID, _
             NAME_RANGE_FLAGS_DESCRIPTION, flagsDict
                     
         modLists.CollectNamedRangeValuesToDict targetSheet, NAME_RANGE_FLAGS_BOOL_TYPE, flagsTypeDict
+        
+        targetSheet.Protect
     
     Else
         For Each targetSheet In targetBook.Worksheets
         
             If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                targetSheet.Unprotect
+            
                 ' Collect Flag ID + Description
                 modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_FLAGS_FLAG_ID, _
                     NAME_RANGE_FLAGS_DESCRIPTION, flagsDict
                     
                 modLists.CollectNamedRangeValuesToDict targetSheet, NAME_RANGE_FLAGS_BOOL_TYPE, flagsTypeDict
+                
+                targetSheet.Protect
                     
             End If
 
         Next targetSheet
     
     End If
+    
+    Exit Sub
+    
+ErrHandler:
+    ' Protect the sheet again if it is still unprotected.
+    If Not targetSheet Is Nothing Then targetSheet.Protect
+    ' Forward error
+    Err.Raise Err.Number, "modRooms.CollectFlags", Err.Description
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -1786,23 +1907,41 @@ Private Sub CollectItems(ByVal targetBook As Workbook, _
     ByRef itemsDict As Scripting.Dictionary, _
     Optional ByVal onlyFromSheet As Worksheet = Nothing)
     
+    On Error GoTo ErrHandler
+    
     Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
     Dim roomID As String
     
     If Not targetSheet Is Nothing Then
+        targetSheet.Unprotect
+    
         modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_PICKUPABLE_OBJECTS_ITEM_ID, _
             NAME_RANGE_PICKUPABLE_OBJECTS_NAME, itemsDict
+            
+        targetSheet.Protect
     Else
         For Each targetSheet In targetBook.Worksheets
         
             If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                targetSheet.Unprotect
+            
                 modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_PICKUPABLE_OBJECTS_ITEM_ID, _
                     NAME_RANGE_PICKUPABLE_OBJECTS_NAME, itemsDict
+                    
+                targetSheet.Protect
             End If
         
         Next targetSheet
     
     End If
+    
+    Exit Sub
+    
+ErrHandler:
+    ' Protect the sheet again if it is still unprotected.
+    If Not targetSheet Is Nothing Then targetSheet.Protect
+    ' Forward error
+    Err.Raise Err.Number, "modRooms.CollectItems", Err.Description
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -1820,27 +1959,45 @@ Private Sub CollectStateObjects(ByVal targetBook As Workbook, _
     ByRef objectsStateDict As Scripting.Dictionary, _
     Optional ByVal onlyFromSheet As Worksheet = Nothing)
     
+    On Error GoTo ErrHandler
+    
     Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
     Dim roomID As String
     
     If Not targetSheet Is Nothing Then
+        targetSheet.Unprotect
+    
         modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_MULTI_STATE_OBJECTS_STATE_ID, _
             NAME_RANGE_MULTI_STATE_OBJECTS_OBJECT_NAME, objectsDict
             
         modLists.CollectNamedRangeValuesToDict targetSheet, NAME_RANGE_MULTI_STATE_OBJECTS_STATE, objectsStateDict
+        
+        targetSheet.Protect
     Else
         For Each targetSheet In targetBook.Worksheets
         
             If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                targetSheet.Unprotect
+            
                 modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_MULTI_STATE_OBJECTS_STATE_ID, _
                     NAME_RANGE_MULTI_STATE_OBJECTS_OBJECT_NAME, objectsDict
                     
                 modLists.CollectNamedRangeValuesToDict targetSheet, NAME_RANGE_MULTI_STATE_OBJECTS_STATE, objectsStateDict
+                
+                targetSheet.Protect
             End If
         
         Next targetSheet
     
     End If
+
+    Exit Sub
+    
+ErrHandler:
+    ' Protect the sheet again if it is still unprotected.
+    If Not targetSheet Is Nothing Then targetSheet.Protect
+    ' Forward error
+    Err.Raise Err.Number, "modRooms.CollectStateObjects", Err.Description
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -1856,23 +2013,40 @@ Private Sub CollectHotspots(ByVal targetBook As Workbook, _
     ByRef hotspotsDict As Scripting.Dictionary, _
     Optional ByVal onlyFromSheet As Worksheet = Nothing)
     
+    On Error GoTo ErrHandler
+    
     Dim targetSheet As Worksheet: Set targetSheet = onlyFromSheet
     Dim roomID As String
     
     If Not targetSheet Is Nothing Then
+        targetSheet.Unprotect
         modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID, _
             NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_NAME, hotspotsDict
+            
+        targetSheet.Protect
     Else
         For Each targetSheet In targetBook.Worksheets
         
             If modRooms.IsRoomSheet(targetSheet, roomID) Then
+                targetSheet.Unprotect
+            
                 modLists.CollectNamedRangePairsToDict targetSheet, NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID, _
                     NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_NAME, hotspotsDict
+                    
+                targetSheet.Protect
             End If
         
         Next targetSheet
     
     End If
+    
+    Exit Sub
+    
+ErrHandler:
+    ' Protect the sheet again if it is still unprotected.
+    If Not targetSheet Is Nothing Then targetSheet.Protect
+    ' Forward error
+    Err.Raise Err.Number, "modRooms.CollectHotspots", Err.Description
 End Sub
 
 
@@ -2029,8 +2203,8 @@ End Sub
 ' Returns   : Long - Next available row for writing
 ' -----------------------------------------------------------------------------------
 Private Function CheckDuplicateRoomIDs(ByVal targetBook As Workbook, _
-                                       ByVal validationSheet As Worksheet, _
-                                       ByVal startRow As Long) As Long
+    ByVal validationSheet As Worksheet, _
+    ByVal startRow As Long) As Long
     Dim roomIDDict As Scripting.Dictionary
     Dim roomSheet As Worksheet
     Dim roomID As String
@@ -2080,8 +2254,8 @@ End Function
 ' Returns   : Long - Next available row for writing
 ' -----------------------------------------------------------------------------------
 Private Function CheckDuplicateRoomAliases(ByVal targetBook As Workbook, _
-                                           ByVal validationSheet As Worksheet, _
-                                           ByVal startRow As Long) As Long
+    ByVal validationSheet As Worksheet, _
+    ByVal startRow As Long) As Long
     Dim aliasDict As Scripting.Dictionary
     Dim roomSheet As Worksheet
     Dim roomAlias As String
@@ -2136,8 +2310,8 @@ End Function
 ' Returns   : Long - Next available row for writing
 ' -----------------------------------------------------------------------------------
 Private Function CheckDuplicateRoomNumbers(ByVal targetBook As Workbook, _
-                                           ByVal validationSheet As Worksheet, _
-                                           ByVal startRow As Long) As Long
+    ByVal validationSheet As Worksheet, _
+    ByVal startRow As Long) As Long
     Dim roomNoDict As Scripting.Dictionary
     Dim roomSheet As Worksheet
     Dim roomNo As Long
@@ -2200,8 +2374,8 @@ End Function
 ' Returns   : Long - Next available row for writing
 ' -----------------------------------------------------------------------------------
 Private Function CheckMissingRoomReferences(ByVal targetBook As Workbook, _
-                                            ByVal validationSheet As Worksheet, _
-                                            ByVal startRow As Long) As Long
+    ByVal validationSheet As Worksheet, _
+    ByVal startRow As Long) As Long
     Dim roomSheet As Worksheet
     Dim refRange As Range
     Dim cell As Range
@@ -2282,8 +2456,8 @@ End Function
 '   - Reports the cycle path when found
 ' -----------------------------------------------------------------------------------
 Private Function CheckCircularDependencies(ByVal targetBook As Workbook, _
-                                           ByVal validationSheet As Worksheet, _
-                                           ByVal startRow As Long) As Long
+    ByVal validationSheet As Worksheet, _
+    ByVal startRow As Long) As Long
     Dim roomGraph As Scripting.Dictionary
     Dim roomSheet As Worksheet
     Dim currentRow As Long
@@ -2382,10 +2556,10 @@ End Function
 ' Returns   : Boolean - True if cycle detected, False otherwise
 ' -----------------------------------------------------------------------------------
 Private Function DetectCycleDFS(ByVal currentRoomID As String, _
-                                ByVal roomGraph As Scripting.Dictionary, _
-                                ByVal visitedRooms As Scripting.Dictionary, _
-                                ByVal pathStack As Collection, _
-                                ByRef cycleMessage As String) As Boolean
+    ByVal roomGraph As Scripting.Dictionary, _
+    ByVal visitedRooms As Scripting.Dictionary, _
+    ByVal pathStack As Collection, _
+    ByRef cycleMessage As String) As Boolean
     Dim i As Long
     Dim pathItem As Variant
     Dim dependencies As Collection
@@ -2436,5 +2610,6 @@ Private Function DetectCycleDFS(ByVal currentRoomID As String, _
     
     DetectCycleDFS = False
 End Function
+
 
 

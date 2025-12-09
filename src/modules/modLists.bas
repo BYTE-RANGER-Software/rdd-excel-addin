@@ -735,8 +735,12 @@ Public Function CollectTableColumnValuesToArray(ByVal lo As ListObject, _
     count = 0
     For Each cell In col.DataBodyRange
         cellValue = Trim$(CStr(cell.value))
-        result(count) = cellValue
-        count = count + 1
+        If LenB(cellValue) > 0 Then
+            result(count) = cellValue
+            count = count + 1
+        ElseIf breakOnEmptyLine Then
+            Exit For
+        End If
     Next cell
     
     CollectTableColumnValuesToArray = result

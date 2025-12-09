@@ -18,6 +18,7 @@ Attribute VB_Exposed = False
 '   - RoomSheetChanged            : Tracks whether Room sheet data has changed
 '   - RoomsValidated              : Tracks whether room data validation has passed
 '   - RoomsValidationIssueCount   : Number of validation issues found (0 = success)
+'   - PDCDataBuilt                : Tracks whether PDC data has been built from rooms
 '   - CellCtxMnuNeedsPrepare      : Indicates if context menu needs rebuilding
 '   - CellCtxMenuType             : Stores resolved context menu type
 '   - CellCtxMnuHideDefault       : Controls visibility of built-in context menu items
@@ -62,6 +63,7 @@ Option Explicit
 Private m_roomSheetChanged As Boolean       ' Tracks whether Room sheet changed
 Private m_roomsValidated As Boolean         ' Tracks whether room data validation has passed
 Private m_roomsValidationIssueCount As Long ' Number of validation issues found (0 = success)
+Private m_pdcDataBuilt As Boolean           ' Tracks whether PDC data has been built from rooms
 Private m_cellCtxMnuNeedsPrepare As Boolean ' Tracks context menu prepare need. True to (re)prepare the ctx menu on next call when Excel changed the "Cell" CommandBar
 Private m_cellCtxMenuType As Integer        ' Stores context menu type. Resolved context menu type according to CellCtxMnu
 Private m_cellCtxMnuHideDefault As Boolean  ' Hides default context entries. If True, built-in entries will be hidden during the next prepare pass
@@ -134,6 +136,7 @@ Public Sub Cleanup()
     m_cellCtxMnuHideDefault = False
     m_roomsValidated = False
     m_roomsValidationIssueCount = 0
+    m_pdcDataBuilt = False
 End Sub
 
 Public Property Get RoomsValidated() As Boolean
@@ -151,3 +154,14 @@ End Property
 Public Property Let RoomsValidationIssueCount(ByVal value As Long)
     m_roomsValidationIssueCount = value
 End Property
+
+Public Property Get PDCDataBuilt() As Boolean
+    PDCDataBuilt = m_pdcDataBuilt
+End Property
+
+Public Property Let PDCDataBuilt(ByVal value As Boolean)
+    m_pdcDataBuilt = value
+End Property
+
+
+

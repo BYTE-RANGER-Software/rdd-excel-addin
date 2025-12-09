@@ -42,10 +42,10 @@ Public Function RangeHasValue( _
     Optional ByVal isExactMatch As Boolean = True, _
     Optional ByVal isCaseSensitive As Boolean = False) As Boolean
 
+    On Error GoTo ErrHandler
+    
     Dim hasValue As Boolean
     
-    On Error GoTo ErrHandler
-
     If searchRange Is Nothing Then Exit Function
 
     Dim dataValues As Variant
@@ -78,8 +78,7 @@ CleanExit:
     Exit Function
     
 ErrHandler:
-    modErr.ReportError "RangeHasValue", Err.Number, Erl, caption:=modMain.AppProjectName
-    Resume CleanExit
+    RangeHasValue = False
 End Function
 
 ' -----------------------------------------------------------------------------------

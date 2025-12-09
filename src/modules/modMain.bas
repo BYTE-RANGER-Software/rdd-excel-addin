@@ -171,6 +171,7 @@ End Sub
 ' Notes     : must called from Workbook_open(). Requires clsState
 ' -----------------------------------------------------------------------------------
 Public Sub HandleAddInWorkbookOpen()
+    On Error GoTo ErrHandler
     
     ' Ensure temp path exists before logging
     m_appTempPath = modUtil.GetTempFolder & "\BYTE RANGER"
@@ -203,6 +204,13 @@ Public Sub HandleAddInWorkbookOpen()
     ' init State
     clsState.Init
     clsState.InvalidateRibbon
+    
+    Exit Sub
+
+ErrHandler:
+    
+    modErr.ReportError "HandleAddInWorkbookOpen", Err.Number, Erl, _
+        caption:=modMain.AppProjectName
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -310,6 +318,8 @@ End Sub
 '   - Only acts when SHEET_DISPATCHER is present in the target workbook.
 ' -----------------------------------------------------------------------------------
 Public Sub HandleSheetActivate(ByVal activatedSheet As Worksheet)
+    On Error GoTo ErrHandler
+    
     ' Code that must run on all Sheets
     clsState.InvalidateRibbon
         
@@ -319,6 +329,10 @@ Public Sub HandleSheetActivate(ByVal activatedSheet As Worksheet)
                         
     modRooms.ApplyParallaxRangeCover activatedSheet
     
+    Exit Sub
+    
+ErrHandler:
+    modErr.ReportError "HandleSheetActivate", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -335,6 +349,8 @@ End Sub
 '   - Only acts on room sheets when the dispatcher tag sheet exists.
 ' -----------------------------------------------------------------------------------
 Public Sub HandleSheetChange(ByVal changedSheet As Worksheet, ByVal targetRng As Range)
+    On Error GoTo ErrHandler
+    
     Dim srcBook As Workbook: Set srcBook = changedSheet.Parent
     
     ' Only process on RDD Workbooks and on room sheets
@@ -392,6 +408,11 @@ Public Sub HandleSheetChange(ByVal changedSheet As Worksheet, ByVal targetRng As
             ' No list update needed for this change
             
     End Select
+    
+    Exit Sub
+    
+ErrHandler:
+    modErr.ReportError "HandleSheetActivate", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -430,7 +451,6 @@ ErrHandler:
     modCellCtxMnu.ResetToDefaultCtxMenu  ' Fallback auf Standard
     modErr.ReportError "HandleSheetBeforeRightClick", Err.Number, Erl, _
         caption:=modMain.AppProjectName
-    Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -449,8 +469,15 @@ End Sub
 '   - Currently only persists workbook options, does not alter shouldCancel.
 ' -----------------------------------------------------------------------------------
 Public Sub HandleWorkbookBeforeSave(ByVal targetBook As Workbook, ByVal showSaveAsUi As Boolean, ByRef shouldCancel As Boolean)
+    On Error GoTo ErrHandler
+    
     If Not IsRDDWorkbook(targetBook) Then Exit Sub
     modOptions.SaveWorkbookOptions targetBook
+    
+    Exit Sub
+    
+ErrHandler:
+    modErr.ReportError "HandleWorkbookBeforeSave", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -578,9 +605,9 @@ Public Sub ShowOptions()
         If Not lo Is Nothing Then
    
             ' Extract columns in arrays
-            dataDict(modConst.LISTS_HEADER_PERSPECTIVE) = modLists.CollectTableColumnValuesToArray(lo, modConst.LISTS_HEADER_PERSPECTIVE)
-            dataDict(modConst.LISTS_HEADER_PARALLAX) = modLists.CollectTableColumnValuesToArray(lo, modConst.LISTS_HEADER_PARALLAX)
-            dataDict(modConst.LISTS_HEADER_SCENE_MODE) = modLists.CollectTableColumnValuesToArray(lo, modConst.LISTS_HEADER_SCENE_MODE)
+            dataDict(modConst.LISTS_HEADER_PERSPECTIVE) = modLists.CollectTableColumnValuesToArray(lo, modConst.LISTS_HEADER_PERSPECTIVE, True)
+            dataDict(modConst.LISTS_HEADER_PARALLAX) = modLists.CollectTableColumnValuesToArray(lo, modConst.LISTS_HEADER_PARALLAX, True)
+            dataDict(modConst.LISTS_HEADER_SCENE_MODE) = modLists.CollectTableColumnValuesToArray(lo, modConst.LISTS_HEADER_SCENE_MODE, True)
 
         End If
     End If
@@ -608,6 +635,7 @@ Public Sub ShowOptions()
     
 CleanExit:
     Unload optionsForm: Set optionsForm = Nothing
+    Set dataDict = Nothing
     Exit Sub
     
 ErrHandler:
@@ -747,7 +775,7 @@ Public Function AddNewRoom(Optional ByVal shouldGoToNewRoom As Boolean = True) A
         
         modRooms.ApplyParallaxRangeCover newSheet
         If shouldGoToNewRoom Then
-            Application.Goto newSheet.Range("A1"), True
+            Application.GoTo newSheet.Range("A1"), True
         Else
             currentSheet.Activate
             If Not currentCell Is Nothing Then currentCell.Select
@@ -840,6 +868,253 @@ ErrHandler:
 End Sub
 
 ' -----------------------------------------------------------------------------------
+' Procedure : BuildPDCDataFromRooms
+' Purpose   : Orchestrates PDC data generation from all room sheets.
+'             Validates preconditions, shows progress dialog, calls modPDC.BuildPdcData,
+'             updates application state, and provides user feedback.
+'
+' Parameters: (none)
+' Returns   : (none)
+'
+' Notes     :
+'   - Requires validation to pass first (RoomsValidated = True, RoomsValidationIssueCount = 0)
+'   - Creates/updates "PDCData" sheet with nodes and edges
+'   - Updates clsState.PDCDataBuilt on success
+' -----------------------------------------------------------------------------------
+Public Sub BuildPDCDataFromRooms()
+    On Error GoTo ErrHandler
+    
+    ' Verify we have a valid workbook
+    If Workbooks.count = 0 Then Exit Sub
+    
+    Dim wb As Workbook
+    Set wb = ActiveWorkbook
+    
+    ' Verify this is an RDD workbook
+    If Not modMain.IsRDDWorkbook(wb) Then
+        MsgBox "This is not an RDD workbook.", vbExclamation, modMain.AppProjectName
+        Exit Sub
+    End If
+    
+    ' Verify validation has passed
+    If Not clsState.RoomsValidated Or clsState.RoomsValidationIssueCount > 0 Then
+        MsgBox "Please validate room data first." & vbCrLf & _
+               "Use 'Validate' button before building PDC data.", _
+               vbExclamation, modMain.AppProjectName
+        Exit Sub
+    End If
+    
+    ' Check if there are any room sheets
+    Dim hasRoomSheets As Boolean
+    Dim ws As Worksheet
+    
+    hasRoomSheets = False
+    For Each ws In wb.Worksheets
+        If modRooms.IsRoomSheet(ws) Then
+            hasRoomSheets = True
+            Exit For
+        End If
+    Next ws
+    
+    If Not hasRoomSheets Then
+        MsgBox "No room sheets found to process.", vbInformation, modMain.AppProjectName
+        Exit Sub
+    End If
+    
+    ' Show progress and build data
+    frmWait.ShowDialog
+    modUtil.HideOpMode True
+    
+    Dim nodesCount As Long
+    Dim edgesCount As Long
+    
+    modPDC.BuildPdcData wb, nodesCount, edgesCount
+    
+    ' Update state
+    clsState.PDCDataBuilt = True
+    
+    ' Invalidate buttons that depend on PDC data
+    clsState.InvalidateControl RIBBON_BTN_BUILD_CHART
+    clsState.InvalidateControl RIBBON_BTN_UPDATE_CHART
+    
+    modUtil.HideOpMode False
+    frmWait.Hide
+    
+    ' User feedback
+    MsgBox "PDC Data created:" & vbCrLf & _
+           "- " & nodesCount & " Nodes" & vbCrLf & _
+           "- " & edgesCount & " Edges", _
+           vbInformation, modMain.AppProjectName
+    
+    Exit Sub
+    
+ErrHandler:
+    frmWait.Hide
+    modUtil.HideOpMode False
+    modErr.ReportError "modMain.BuildPDCDataFromRooms", Err.Number, Erl, caption:=modMain.AppProjectName
+End Sub
+
+
+' -----------------------------------------------------------------------------------
+' Procedure : GeneratePuzzleDependencyChart
+' Purpose   : Orchestrates PDC chart generation from PDCData.
+'             Validates preconditions, shows progress dialog, calls modPDC.GeneratePuzzleChart,
+'             and provides user feedback.
+'
+' Parameters: (none)
+' Returns   : (none)
+'
+' Notes     :
+'   - Requires PDCData sheet to exist (PDCDataBuilt = True)
+'   - Creates/replaces "Chart" sheet with visual node/edge representation
+' -----------------------------------------------------------------------------------
+Public Sub GeneratePuzzleDependencyChart()
+    On Error GoTo ErrHandler
+    
+    ' Verify we have a valid workbook
+    If Workbooks.count = 0 Then Exit Sub
+    
+    Dim wb As Workbook
+    Set wb = ActiveWorkbook
+    
+    ' Verify this is an RDD workbook
+    If Not modMain.IsRDDWorkbook(wb) Then
+        MsgBox "This is not an RDD workbook.", vbExclamation, modMain.AppProjectName
+        Exit Sub
+    End If
+    
+    ' Verify PDCData exists
+    If Not clsState.PDCDataBuilt Then
+        MsgBox "Please build PDC data first." & vbCrLf & _
+               "Use 'Build Data' button before generating the chart.", _
+               vbExclamation, modMain.AppProjectName
+        Exit Sub
+    End If
+    
+    ' Check if PDCData sheet exists
+    On Error Resume Next
+    Dim dataSheet As Worksheet
+    Set dataSheet = wb.Sheets("PDCData")
+    On Error GoTo ErrHandler
+    
+    If dataSheet Is Nothing Then
+        MsgBox "PDCData sheet not found." & vbCrLf & _
+               "Please rebuild PDC data first.", _
+               vbExclamation, modMain.AppProjectName
+        Exit Sub
+    End If
+    
+  ' Check if Chart sheet already exists - ask for confirmation to overwrite
+    On Error Resume Next
+    Dim existingChart As Worksheet
+    Set existingChart = wb.Sheets("Chart")
+    On Error GoTo ErrHandler
+    
+    If Not existingChart Is Nothing Then
+        Dim result As VbMsgBoxResult
+        result = MsgBox("A chart already exists." & vbCrLf & _
+                        "Do you want to replace it?", _
+                        vbQuestion + vbYesNo, modMain.AppProjectName)
+        If result = vbNo Then Exit Sub
+    End If
+
+    ' Show progress and generate chart
+    frmWait.ShowDialog
+    modUtil.HideOpMode True
+    
+    modPDC.GeneratePuzzleChart wb
+    
+    modUtil.HideOpMode False
+    frmWait.Hide
+    
+    ' User feedback
+    MsgBox "Puzzle Dependency Chart generated!", vbInformation, modMain.AppProjectName
+    
+    Exit Sub
+    
+ErrHandler:
+    frmWait.Hide
+    modUtil.HideOpMode False
+    modErr.ReportError "modMain.GeneratePuzzleDependencyChart", Err.Number, Erl, caption:=modMain.AppProjectName
+End Sub
+
+
+' -----------------------------------------------------------------------------------
+' Procedure : SynchonizePuzzleDependencyChart
+' Purpose   : Orchestrates PDC chart synchronization with PDCData.
+'             Validates preconditions, shows progress dialog, calls modPDC.SyncPuzzleChart,
+'             and provides user feedback.
+'
+' Parameters: (none)
+' Returns   : (none)
+'
+' Notes     :
+'   - Requires both PDCData and Chart sheets to exist
+'   - Updates existing nodes, creates new ones, redraws all edges
+' -----------------------------------------------------------------------------------
+Public Sub SynchonizePuzzleDependencyChart()
+    On Error GoTo ErrHandler
+    
+    ' Verify we have a valid workbook
+    If Workbooks.count = 0 Then Exit Sub
+    
+    Dim wb As Workbook
+    Set wb = ActiveWorkbook
+    
+    ' Verify this is an RDD workbook
+    If Not modMain.IsRDDWorkbook(wb) Then
+        MsgBox "This is not an RDD workbook.", vbExclamation, modMain.AppProjectName
+        Exit Sub
+    End If
+    
+    ' Check if PDCData sheet exists
+    On Error Resume Next
+    Dim dataSheet As Worksheet
+    Set dataSheet = wb.Sheets("PDCData")
+    On Error GoTo ErrHandler
+    
+    If dataSheet Is Nothing Then
+        MsgBox "PDCData sheet not found." & vbCrLf & _
+               "Please build PDC data first.", _
+               vbExclamation, modMain.AppProjectName
+        Exit Sub
+    End If
+    
+    ' Check if Chart sheet exists
+    On Error Resume Next
+    Dim chartSheet As Worksheet
+    Set chartSheet = wb.Sheets("Chart")
+    On Error GoTo ErrHandler
+    
+    If chartSheet Is Nothing Then
+        MsgBox "Chart sheet not found." & vbCrLf & _
+               "Please generate the chart first.", _
+               vbExclamation, modMain.AppProjectName
+        Exit Sub
+    End If
+    
+    ' Show progress and sync chart
+    frmWait.ShowDialog
+    modUtil.HideOpMode True
+    
+    modPDC.SyncPuzzleChart wb
+    
+    modUtil.HideOpMode False
+    frmWait.Hide
+    
+    ' User feedback
+    MsgBox "Chart synchronized!", vbInformation, modMain.AppProjectName
+    
+    Exit Sub
+    
+ErrHandler:
+    frmWait.Hide
+    modUtil.HideOpMode False
+    modErr.ReportError "modMain.SynchonizePuzzleDependencyChart", Err.Number, Erl, caption:=modMain.AppProjectName
+End Sub
+
+
+' -----------------------------------------------------------------------------------
 ' Procedure : GotoRoomFromCell
 ' Purpose   : Navigates to the room sheet referenced by the Room ID in the active cell.
 '             Displays message if room not found or cell is empty.
@@ -863,7 +1138,7 @@ Public Sub GotoRoomFromCell()
     
     Dim roomSheet As Worksheet
     If modRooms.HasRoomID(currentWorkbook, roomID, roomSheet) Then
-        Application.Goto roomSheet.Range("A1"), True
+        Application.GoTo roomSheet.Range("A1"), True
         Exit Sub
     End If
     

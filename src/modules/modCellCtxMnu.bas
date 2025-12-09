@@ -69,19 +69,23 @@ Public Sub InitCellCtxMenu()
     
     Dim itemCaption As Variant
     
+    ' Reset to clean state
     CommandBars("Cell").Reset
     
+    ' Build cache from the clean/full menu
     BuildCellCtxMenuCache
-    HideAllBuiltInCellCtxMenuEntries
 
+    ' Define whitelist
     m_ctxMenuWhitelist = Array("K&opieren", "&Copy", "Kom&mentar einfügen", "Insert Co&mment", "Neuer Kommentar", "New Co&mment", "Neue Notiz", "&New Note", "K&ommentare ein-/ausblenden", "&Kommentar löschen")
 
-    For Each itemCaption In m_ctxMenuWhitelist
-        ShowCellCtxByCachedCaption itemCaption
-    Next
-    
+    ' Store signature of the FULL menu
     m_controlCountSignature = Application.CommandBars("Cell").Controls.count
+    
+    ' State is default (full menu visible)
+    clsState.CellCtxMenuType = CCM_Default
     clsState.CellCtxMnuNeedsPrepare = False
+    clsState.CellCtxMnuHideDefault = False
+    
 CleanExit:
     Exit Sub
 ErrHandler:
@@ -233,7 +237,9 @@ End Function
 ' -----------------------------------------------------------------------------------
 Public Sub ResetToDefaultCtxMenu()
     On Error GoTo ErrHandler
-    If clsState.CellCtxMenuType = CCM_Default Then Exit Sub
+    
+    ' Skip if already in default state AND menu wasn't manually hidden
+    If clsState.CellCtxMenuType = CCM_Default And Not clsState.CellCtxMnuHideDefault Then Exit Sub
     
     ' Reset any custom context menu modifications
     If Not m_isCtxCacheInitialized Then BuildCellCtxMenuCache

@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmOptions 
    Caption         =   "Settings - %1"
-   ClientHeight    =   10868
+   ClientHeight    =   10860
    ClientLeft      =   121
    ClientTop       =   462
    ClientWidth     =   10197
@@ -67,15 +67,19 @@ Friend Sub Init(ByVal strProjectName As String, ByRef optionsDto As tOptions, _
     LoadGeneralOptions
     LoadWorkbookOptions
           
+    ' Configure MultiPage
+    SetupMultiPage
+    
     ' Enable/Disable workbook-specific tabs
     EnableWorkbookTabs m_hasRDDWorkbook
     
-    ' Configure MultiPage
-    SetupMultiPage
-
     m_blnConfirmed = False
     m_blnInit = True
     
+End Sub
+
+Private Sub UserForm_Terminate()
+    Set m_cboDataDict = Nothing
 End Sub
 
 ' ===== Public API ===================================================================
@@ -131,8 +135,8 @@ Private Sub LoadDataIntoComboBoxes()
         FillComboFromList Me.cboParallax, m_cboDataDict(modConst.LISTS_HEADER_PARALLAX)
     End If
     
-    If m_cboDataDict.Exists(modConst.LISTS_HEADER_SCENE_ID) Then
-        FillComboFromList Me.cboSceneMode, m_cboDataDict(modConst.LISTS_HEADER_SCENE_ID)
+    If m_cboDataDict.Exists(modConst.LISTS_HEADER_SCENE_MODE) Then
+        FillComboFromList Me.cboSceneMode, m_cboDataDict(modConst.LISTS_HEADER_SCENE_MODE)
     End If
 End Sub
 
@@ -403,6 +407,3 @@ Private Sub ValidateNumericTextBox(ByRef tb As MSForms.TextBox, ByVal defaultVal
     End If
 End Sub
 
-Private Sub UserForm_Terminate()
-    Set m_cboDataDict = Nothing
-End Sub

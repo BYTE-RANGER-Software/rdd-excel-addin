@@ -353,6 +353,8 @@ End Function
 ' Notes     : Resets the general-changed flag after loading.
 ' -----------------------------------------------------------------------------------
 Public Sub ReadGeneralOptions()
+On Error GoTo ErrHandler
+
     Dim defaults As tOptions
     defaults = GetDefaultOptions()
     
@@ -365,6 +367,11 @@ Public Sub ReadGeneralOptions()
         REG_LOG_RETENTION_DAYS, CStr(defaults.General.logRetentionDays)))
     
     HasGeneralOptionsChanged = False
+    
+Exit Sub
+    
+ErrHandler:
+    modErr.ReportError "ReadGeneralOptions", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -375,6 +382,8 @@ End Sub
 ' Notes     : Extend with concrete property names as needed; clears changed flag.
 ' -----------------------------------------------------------------------------------
 Public Sub ReadWorkbookOptions(ByVal sourceWorkbook As Workbook)
+On Error GoTo ErrHandler
+
     Dim defaults As tOptions
     defaults = GetDefaultOptions()
     
@@ -405,6 +414,11 @@ Public Sub ReadWorkbookOptions(ByVal sourceWorkbook As Workbook)
         PROP_PROTECT_ROOM_SHEETS, CStr(defaults.Workbook.protectRoomSheets)))
     
     HasWorkbookOptionsChanged = False
+    
+Exit Sub
+    
+ErrHandler:
+    modErr.ReportError "ReadWorkbookOptions", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
 
 ' ===== Persistence: Save =============================================================
@@ -416,6 +430,8 @@ End Sub
 '   ignoreChangeFlag [Boolean] - True to persist regardless of change flag.
 ' -----------------------------------------------------------------------------------
 Public Sub SaveGeneralOptions(Optional ByVal ignoreChangeFlag As Boolean = False)
+On Error GoTo ErrHandler
+
     If HasGeneralOptionsChanged Or ignoreChangeFlag Then
         ' General Section
         SaveSetting REG_APP_NAME, REG_SECTION_GENERAL, REG_MANUAL_PATH, _
@@ -427,6 +443,11 @@ Public Sub SaveGeneralOptions(Optional ByVal ignoreChangeFlag As Boolean = False
         
         HasGeneralOptionsChanged = False
     End If
+    
+Exit Sub
+    
+ErrHandler:
+    modErr.ReportError "SaveGeneralOptions", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -438,6 +459,8 @@ End Sub
 '   ignoreChangeFlag [Boolean]  - True to persist regardless of change flag.
 ' -----------------------------------------------------------------------------------
 Public Sub SaveWorkbookOptions(ByVal targetWorkbook As Workbook, Optional ByVal ignoreChangeFlag As Boolean = False)
+On Error GoTo ErrHandler
+
     If HasWorkbookOptionsChanged Or ignoreChangeFlag Then
         ' Room Defaults
         modProps.SetDocumentPropertyValue targetWorkbook, PROP_DEFAULT_GAME_WIDTH, _
@@ -467,6 +490,11 @@ Public Sub SaveWorkbookOptions(ByVal targetWorkbook As Workbook, Optional ByVal 
         
         HasWorkbookOptionsChanged = False
     End If
+    
+Exit Sub
+    
+ErrHandler:
+    modErr.ReportError "SaveWorkbookOptions", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
 
 ' ===== Validation ==================================================================

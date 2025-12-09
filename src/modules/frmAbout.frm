@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmAbout 
    Caption         =   "About %1"
-   ClientHeight    =   3872
+   ClientHeight    =   3870
    ClientLeft      =   44
    ClientTop       =   385
    ClientWidth     =   5863

@@ -36,6 +36,8 @@ Private Const VK_CONTROL As Long = &H11
 '   - Strg pressed + click: Navigation to the puzzle
 ' ---------------------- -------------------------------------------------------------
 Public Sub OnPdcNodeClick()
+    On Error GoTo ErrHandler
+
     Dim nodeID As String
     
     nodeID = Application.Caller
@@ -43,6 +45,11 @@ Public Sub OnPdcNodeClick()
     If IsCtrlKeyDown() Then
         modPDC.NavigateToPuzzle nodeID
     End If
+    
+    Exit Sub
+    
+ErrHandler:
+    modErr.ReportError "OnPdcNodeClick", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
 
 ' -----------------------------------------------------------------------------------

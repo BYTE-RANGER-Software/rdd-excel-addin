@@ -85,7 +85,10 @@ Private Const COL_EDGE_NOTES    As Long = 12  ' L
 ' Purpose   : Scans all Room sheets, extracts puzzle data from the PUZZLES section,
 '             and builds a comprehensive nodes and edges dataset for the PDC.
 '
-' Parameters: (none)
+' Parameters:
+'   srcBook       [Workbook] - The workbook to scan for room sheets
+'   outNodesCount [Long]     - (ByRef) Returns the number of nodes created
+'   outEdgesCount [Long]     - (ByRef) Returns the number of edges created
 '
 ' Returns   : (none)
 '
@@ -99,26 +102,33 @@ Private Const COL_EDGE_NOTES    As Long = 12  ' L
 '   - Automatically creates implicit nodes for items/flags found in Requires
 '   - Deduplicates nodes across all rooms
 ' -----------------------------------------------------------------------------------
-Public Sub BuildPdcData()
+Public Sub BuildPdcData( _
+    ByVal srcBook As Workbook, _
+    ByRef outNodesCount As Long, _
+    ByRef outEdgesCount As Long)
+    
     On Error GoTo ErrHandler
     
-    Dim wb As Workbook: Set wb = ActiveWorkbook
-    Dim ws As Worksheet
+    Dim roomSheet As Worksheet
     Dim targetSheet As Worksheet
     Dim nodesDict As Scripting.Dictionary    ' Key = NodeID, Value = node data array
     Dim edgesCol As Collection               ' Collection of edge data arrays
     Dim roomID As String
+    
+    ' Initialize outputs
+    outNodesCount = 0
+    outEdgesCount = 0
     
     ' Initialize collections
     Set nodesDict = New Scripting.Dictionary
     Set edgesCol = New Collection
     
     ' Scan all Room sheets
-    For Each ws In wb.Worksheets
-        If modRooms.IsRoomSheet(ws, roomID) Then
-            CollectPuzzleData ws, roomID, nodesDict, edgesCol
+    For Each roomSheet In srcBook.Worksheets
+        If modRooms.IsRoomSheet(roomSheet, roomID) Then
+            CollectPuzzleData roomSheet, roomID, nodesDict, edgesCol
         End If
-    Next ws
+    Next roomSheet
     
     ' Create/clear PDCData sheet and write results
     Set targetSheet = modSheets.EnsureSheet("PDCData")
@@ -135,11 +145,9 @@ Public Sub BuildPdcData()
     ' Format
     targetSheet.Columns.AutoFit
     
-    ' Feedback
-    MsgBox "PDC Data created:" & vbCrLf & _
-        "- " & nodesDict.count & " Nodes" & vbCrLf & _
-        "- " & edgesCol.count & " Edges", _
-        vbInformation, modMain.AppProjectName
+    ' Return counts
+    outNodesCount = nodesDict.count
+    outEdgesCount = edgesCol.count
     
     Exit Sub
     
@@ -152,14 +160,15 @@ End Sub
 ' Purpose   : Builds a fresh "Chart" sheet, creates node shapes from PDCData
 '             and draws connectors for edges.
 '
-' Parameters: (none)
+' Parameters:
+'   srcBook [Workbook] - The workbook containing PDCData sheet
 '
 ' Notes:
 '   - Deletes any existing sheet named "Chart" without prompt.
 '   - Node shape name = Node ID, fill color based on NodeType.
 '   - Uses grid placement starting at (100,100).
 ' -----------------------------------------------------------------------------------
-Public Sub GeneratePuzzleChart()
+Public Sub GeneratePuzzleChart(ByVal srcBook As Workbook)
     On Error GoTo ErrHandler
 
     Dim dataSheet As Worksheet, chartSheet As Worksheet
@@ -172,16 +181,16 @@ Public Sub GeneratePuzzleChart()
     Dim fromShape As Shape, toShape As Shape
     Dim shapeCount As Long
 
-    Set dataSheet = ActiveWorkbook.Sheets("PDCData")
+    Set dataSheet = srcBook.Sheets("PDCData")
 
     ' Recreate "Chart" sheet
     On Error Resume Next
     Application.DisplayAlerts = False
-    ActiveWorkbook.Sheets("Chart").Delete
+    srcBook.Sheets("Chart").Delete
     Application.DisplayAlerts = True
     On Error GoTo ErrHandler
 
-    Set chartSheet = ActiveWorkbook.Sheets.Add
+    Set chartSheet = srcBook.Sheets.Add
     chartSheet.name = "Chart"
 
     Set nodesDict = New Scripting.Dictionary
@@ -249,8 +258,14 @@ End Sub
 ' Procedure : UpdatePuzzleChart
 ' Purpose   : Updates existing node shapes' text and color on "Chart", removes all
 '             old connectors, and redraws connectors based on PDCData.
+'
+' Parameters:
+'   srcBook [Workbook] - The workbook containing PDCData and Chart sheets
+'
+' Notes:
+'   - Called by modMain (user interaction handled there)
 ' -----------------------------------------------------------------------------------
-Public Sub UpdatePuzzleChart()
+Public Sub UpdatePuzzleChart(ByVal srcBook As Workbook)
     On Error GoTo ErrHandler
 
     Dim dataSheet As Worksheet, chartSheet As Worksheet
@@ -261,8 +276,8 @@ Public Sub UpdatePuzzleChart()
     Dim fromShape As Shape, toShape As Shape
     Dim nodesDict As Scripting.Dictionary
 
-    Set dataSheet = ActiveWorkbook.Sheets("PDCData")
-    Set chartSheet = ActiveWorkbook.Sheets("Chart")
+    Set dataSheet = srcBook.Sheets("PDCData")
+    Set chartSheet = srcBook.Sheets("Chart")
     Set nodesDict = New Scripting.Dictionary
     
     ' Build dictionary of existing shapes
@@ -328,8 +343,14 @@ End Sub
 ' Procedure : SyncPuzzleChart
 ' Purpose   : Synchronizes the chart with PDCData: updates existing nodes, creates
 '             missing nodes, removes old connectors, redraws edges.
+'
+' Parameters:
+'   srcBook [Workbook] - The workbook containing PDCData and Chart sheets
+'
+' Notes:
+'   - Called by modMain.SynchonizePuzzleDependencyChart (user interaction handled there)
 ' -----------------------------------------------------------------------------------
-Public Sub SyncPuzzleChart()
+Public Sub SyncPuzzleChart(ByVal srcBook As Workbook)
     On Error GoTo ErrHandler
 
     Dim dataSheet As Worksheet, chartSheet As Worksheet
@@ -342,8 +363,8 @@ Public Sub SyncPuzzleChart()
     Dim posX As Double, posY As Double
     Dim shapeCount As Long
 
-    Set dataSheet = ActiveWorkbook.Sheets("PDCData")
-    Set chartSheet = ActiveWorkbook.Sheets("Chart")
+    Set dataSheet = srcBook.Sheets("PDCData")
+    Set chartSheet = srcBook.Sheets("Chart")
     Set nodesDict = New Scripting.Dictionary
 
     ' Initial placement for new nodes
@@ -939,7 +960,7 @@ Public Sub NavigateToPuzzle(ByRef nodeID As String)
         targetSheet.Cells(targetRow, 1).Select
         
         ' Optional: Highlight row
-        Application.Goto targetSheet.Cells(targetRow, 1), Scroll:=True
+        Application.GoTo targetSheet.Cells(targetRow, 1), Scroll:=True
     Else
         ' No puzzle found - could be an item/flag
         MsgBox "'" & nodeID & "' is not a puzzle or was not found." & vbCrLf & _

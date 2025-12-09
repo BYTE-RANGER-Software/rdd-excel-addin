@@ -114,7 +114,6 @@ Public Function HasSheetTag(ByVal wks As Worksheet, ByVal strTagText As String, 
         r_strValue = CStr(objCp.value)
         If Err.Number <> 0 Then
           
-            modErr.ReportError "HasSheetTag", Err.Number, Erl, caption:=modMain.AppProjectName, customMessage:="Read value from " & strTagText & " failed on " & wks.name
             Err.Clear
             r_strValue = vbNullString
         End If
@@ -280,7 +279,6 @@ Public Function HasWorkbookTag(ByVal wb As Workbook, ByVal strTagText As String,
         r_strValue = CStr(objDp.value)
         If Err.Number <> 0 Then
           
-            modErr.ReportError "HasWorkbookTag", Err.Number, Erl, caption:=modMain.AppProjectName, customMessage:="Read value from " & strTagText & " failed on " & wb.name
             Err.Clear
             r_strValue = vbNullString
         End If
