@@ -36,6 +36,11 @@ Option Private Module
 Public Enum CellCtxMnu
     CCM_Default      ' Default menu behavior
     CCM_Rooms        ' Context menu for cells that intersect Room ID/Alias cells
+    CCM_Puzzles = 2
+    CCM_Items = 3
+    CCM_Actors = 4
+    CCM_Flags = 5
+    CCM_Dependencies = 6
 End Enum
 
 ' ================================
@@ -258,8 +263,8 @@ Public Sub ResetToDefaultCtxMenu()
     clsState.CellCtxMnuHideDefault = False
         
     ' Clear dynamic button states
-    clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu1"
-    clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu2"
+    clsState.InvalidateControl RIBBON_CTX_MNU_BTN_1
+    clsState.InvalidateControl RIBBON_CTX_MNU_BTN_2
             
 CleanExit:
     Exit Sub

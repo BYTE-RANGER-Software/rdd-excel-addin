@@ -2,9 +2,9 @@ VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmObjectEdit 
    Caption         =   "New Item"
    ClientHeight    =   4335
-   ClientLeft      =   110
-   ClientTop       =   440
-   ClientWidth     =   7799
+   ClientLeft      =   105
+   ClientTop       =   435
+   ClientWidth     =   7800
    OleObjectBlob   =   "frmObjectEdit.frx":0000
 End
 Attribute VB_Name = "frmObjectEdit"

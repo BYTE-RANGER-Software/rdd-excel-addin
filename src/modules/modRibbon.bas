@@ -259,32 +259,41 @@ End Sub
 ' ============================================================================
 
 Sub RB75dd2c44_btnExportPdf_OnAction(control As IRibbonControl)
-
-    
-    ' Export current RDD views and chart to PDF. as final RDD
-    ' TODO: Implement PDF export.
-    MsgBox "PDF export is not implemented yet.", vbInformation, "Export PDF"
-
+    modMain.ExportToPdf
 End Sub
 
 
 Sub RB75dd2c44_btnExportPdf_getEnabled(control As IRibbonControl, ByRef returnedVal)
     returnedVal = False
+    If Workbooks.count = 0 Then Exit Sub
     If Not modMain.IsRDDWorkbook(ActiveWorkbook) Then Exit Sub
+    
+    ' Enable if at least one room sheet exists
+    Dim sheet As Worksheet
+    For Each sheet In ActiveWorkbook.Worksheets
+        If modRooms.IsRoomSheet(sheet) Then
+            returnedVal = True
+            Exit Sub
+        End If
+    Next sheet
 End Sub
 
 Sub RB75dd2c44_btnExportCsv_OnAction(control As IRibbonControl)
-
-    
-    ' Export puzzles, edges, rooms to CSV.
-    ' TODO: Implement CSV export.
-    MsgBox "CSV export is not implemented yet.", vbInformation, "Export CSV"
-
+    modMain.ExportToCsv
 End Sub
 
 Sub RB75dd2c44_btnExportCsv_getEnabled(control As IRibbonControl, ByRef returnedVal)
-    If modMain.IsRDDWorkbook(ActiveWorkbook) Then
-    End If
+    returnedVal = False
+    If Workbooks.count = 0 Then Exit Sub
+    If Not modMain.IsRDDWorkbook(ActiveWorkbook) Then Exit Sub
+    
+    ' Enable if PDCData sheet exists
+    On Error Resume Next
+    Dim hasData As Boolean
+    hasData = Not ActiveWorkbook.Sheets("PDCData") Is Nothing
+    On Error GoTo 0
+    
+    returnedVal = hasData
 End Sub
 
 ' ============================================================================
@@ -292,20 +301,15 @@ End Sub
 ' ============================================================================
 
 Sub RB75dd2c44_btnShowOptions_OnAction(control As IRibbonControl)
-    
-    Call modMain.ShowOptions
-
+    modMain.ShowOptions
 End Sub
 
 Sub RB75dd2c44_btnShowLog_OnAction(control As IRibbonControl)
-    
-    Call modMain.ShowLog
-    
+    modMain.ShowLog
 End Sub
 
 Sub RB75dd2c44_btnShowManual_OnAction(control As IRibbonControl)
-    
-    Call modMain.ShowManual
+    modMain.ShowManual
 End Sub
 
 Sub RB75dd2c44_btnAddInVersion_GetLabel(control As IRibbonControl, ByRef returnedVal)
@@ -314,8 +318,7 @@ Sub RB75dd2c44_btnAddInVersion_GetLabel(control As IRibbonControl, ByRef returne
 End Sub
 
 Sub RB75dd2c44_btnAddInVersion_OnAction(control As IRibbonControl)
-    
-    Call modMain.ShowAbout
+    modMain.ShowAbout
 End Sub
 
 ' ============================================================================
@@ -323,58 +326,74 @@ End Sub
 ' ============================================================================
 
 Sub RB75dd2c44_btnDynCtxMnu1_getLabel(control As IRibbonControl, ByRef returnedVal)
-    
     returnedVal = ""
-    If clsState.CellCtxMenuType = CCM_Rooms Then
-        returnedVal = "Add New Room"
-    End If
-    
+    Select Case clsState.CellCtxMenuType
+        Case CCM_Rooms
+            returnedVal = "Add New Room"
+        Case CCM_Puzzles
+            returnedVal = "Goto Node in Chart"
+        Case CCM_Items
+            returnedVal = "Find Usage"
+        Case CCM_Actors
+            returnedVal = "Find Usage"
+        Case CCM_Flags
+            returnedVal = "Find Usage"
+        Case CCM_Dependencies
+            returnedVal = "Goto Referenced"
+    End Select
 End Sub
 
 Sub RB75dd2c44_btnDynCtxMnu1_getVisible(control As IRibbonControl, ByRef returnedVal)
-
     returnedVal = False
-    If clsState.CellCtxMenuType <> 0 Then
-        Call EnsureCellCtxMenuReady
+    If clsState.CellCtxMenuType <> CCM_Default Then
+        modCellCtxMnu.EnsureCellCtxMenuReady
         returnedVal = True
     End If
 End Sub
 
 Sub RB75dd2c44_btnDynCtxMnu1_onAction(control As IRibbonControl)
-
-    
     Select Case clsState.CellCtxMenuType
-        Case CCM_Rooms ' Right-click in the “Room ID” or “Room Alias” cells.
+        Case CCM_Rooms
             modMain.AddNewRoomFromCellCtxMnu
-        Case Else
-            ' TODO: I need to defined actions for other contexts. Consider for which fields/actions of the room sheet custom context menus still make sense.
+        Case CCM_Puzzles
+            'modMain.GotoPuzzleInChart 'ToDo
+        Case CCM_Items
+            'modMain.FindItemUsage 'ToDo
+        Case CCM_Actors
+            'modMain.FindActorUsage 'ToDo
+        Case CCM_Flags
+            'modMain.FindFlagUsage 'ToDo
+        Case CCM_Dependencies
+            'modMain.GotoReferencedItem 'ToDo
     End Select
 End Sub
 
 Sub RB75dd2c44_btnDynCtxMnu2_getLabel(control As IRibbonControl, ByRef returnedVal)
-    
     returnedVal = ""
-    If clsState.CellCtxMenuType = CCM_Rooms Then
-        returnedVal = "Goto Room..."
-    End If
+    Select Case clsState.CellCtxMenuType
+        Case CCM_Rooms
+            returnedVal = "Goto Room..."
+        Case CCM_Puzzles
+            returnedVal = "Show Dependencies"
+    End Select
 End Sub
 
 Sub RB75dd2c44_btnDynCtxMnu2_getVisible(control As IRibbonControl, ByRef returnedVal)
-
     returnedVal = False
-    If clsState.CellCtxMenuType = CCM_Rooms Then
-        Call EnsureCellCtxMenuReady
-        returnedVal = True
-    End If
+    ' Button 2 is only visible for contexts that have a second action
+    Select Case clsState.CellCtxMenuType
+        Case CCM_Rooms, CCM_Puzzles
+            Call EnsureCellCtxMenuReady
+            returnedVal = True
+    End Select
 End Sub
 
 Sub RB75dd2c44_btnDynCtxMnu2_onAction(control As IRibbonControl)
-    
     Select Case clsState.CellCtxMenuType
-        Case CCM_Rooms   ' Right-click in the “Room ID” or “Room Alias” cells.
+        Case CCM_Rooms
             modMain.GotoRoomFromCell
-        Case Else
-            ' TODO: I need to defined actions for other contexts. Consider for which fields/actions of the room sheet custom context menus still make sense.
+        Case CCM_Puzzles
+            'modMain.ShowPuzzleDependencies 'ToDo
     End Select
 End Sub
 

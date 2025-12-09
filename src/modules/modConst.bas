@@ -33,6 +33,9 @@ Public Const RIBBON_BTN_BUILD_CHART As String = "RB75dd2c44_btnBuildChart"
 Public Const RIBBON_BTN_UPDATE_CHART As String = "RB75dd2c44_btnUpdateChart"
 Public Const RIBBON_BTN_SYNC_LISTS As String = "RB75dd2c44_btnSyncLists"
 Public Const RIBBON_BTN_NEED_SYNC_LISTS As String = "RB75dd2c44_btnNeedSyncLists"
+
+Public Const RIBBON_CTX_MNU_BTN_1 As String = "RB75dd2c44_btnDynCtxMnu1"
+Public Const RIBBON_CTX_MNU_BTN_2 As String = "RB75dd2c44_btnDynCtxMnu2"
     
 Public Const FILENAME_MANUAL As String = "RDD-AddIn Manual.pdf"
 

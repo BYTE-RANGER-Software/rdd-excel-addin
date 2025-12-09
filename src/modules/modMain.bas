@@ -45,6 +45,11 @@ Attribute VB_Name = "modMain"
 '   - RemoveCurrentRoom           : Deletes active room sheet
 '   - GotoRoomFromCell            : Navigates to room referenced in cell
 '   - EditRoomIdentity            : Edits room ID and alias with dialog
+'   - BuildPDCDataFromRooms       : Builds PDC data from room sheets
+'   - GeneratePuzzleDependencyChart : Generates PDC chart from data
+'   - SynchonizePuzzleDependencyChart : Syncs chart with PDC data
+'   - ExportToPdf                 : Exports RDD workbook to PDF
+'   - ExportToCsv                 : Exports PDC data to CSV files
 '
 ' Dependencies:
 '   - clsAppEvents    : Event sink (delegates to this module)
@@ -56,6 +61,8 @@ Attribute VB_Name = "modMain"
 '   - modRooms        : Room sheet operations
 '   - modCellCtxMnu   : Cell context menu
 '   - modProps        : Document properties
+'   - modPDC          : Puzzle Dependency Chart operations
+'   - modExport       : PDF and CSV export functionality
 '
 ' Notes:
 '   - This module acts as the **central controller** for the application
@@ -439,8 +446,8 @@ Public Sub HandleSheetBeforeRightClick(ByVal clickedOnSheet As Worksheet, ByVal 
 
         modCellCtxMnu.EvaluateCellCtxMenu clickedOnSheet, targetRng
   
-        clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu1"
-        clsState.InvalidateControl "RB75dd2c44_btnDynCtxMnu2"
+        clsState.InvalidateControl RIBBON_CTX_MNU_BTN_1
+        clsState.InvalidateControl RIBBON_CTX_MNU_BTN_2
     Else
         modCellCtxMnu.ResetToDefaultCtxMenu
     End If
@@ -484,13 +491,13 @@ End Sub
 ' Procedure : EnsureWorkbookIsTagged
 ' Purpose   : Marks workbook as compatible with this add-in if not already tagged.
 ' Parameters:
-'   wb [Workbook] - Target workbook.
+'   targetBook [Workbook] - Target workbook.
 ' Returns   : (none)
 ' Notes     : Tag key/value defined by APP_DOC_TAG_KEY/APP_DOC_TAG_VAL.
 ' -----------------------------------------------------------------------------------
-Public Sub EnsureWorkbookIsTagged(ByVal wb As Workbook)
-    If Not modProps.DocumentPropertyExists(wb, APP_DOC_TAG_KEY) Then
-        modProps.SetDocumentPropertyValue wb, APP_DOC_TAG_KEY, APP_DOC_TAG_VAL
+Public Sub EnsureWorkbookIsTagged(ByVal targetBook As Workbook)
+    If Not modProps.DocumentPropertyExists(targetBook, APP_DOC_TAG_KEY) Then
+        modProps.SetDocumentPropertyValue targetBook, APP_DOC_TAG_KEY, APP_DOC_TAG_VAL
     End If
 End Sub
 
@@ -887,11 +894,11 @@ Public Sub BuildPDCDataFromRooms()
     ' Verify we have a valid workbook
     If Workbooks.count = 0 Then Exit Sub
     
-    Dim wb As Workbook
-    Set wb = ActiveWorkbook
+    Dim rddWorkBook As Workbook
+    Set rddWorkBook = ActiveWorkbook
     
     ' Verify this is an RDD workbook
-    If Not modMain.IsRDDWorkbook(wb) Then
+    If Not modMain.IsRDDWorkbook(rddWorkBook) Then
         MsgBox "This is not an RDD workbook.", vbExclamation, modMain.AppProjectName
         Exit Sub
     End If
@@ -909,7 +916,7 @@ Public Sub BuildPDCDataFromRooms()
     Dim ws As Worksheet
     
     hasRoomSheets = False
-    For Each ws In wb.Worksheets
+    For Each ws In rddWorkBook.Worksheets
         If modRooms.IsRoomSheet(ws) Then
             hasRoomSheets = True
             Exit For
@@ -928,7 +935,7 @@ Public Sub BuildPDCDataFromRooms()
     Dim nodesCount As Long
     Dim edgesCount As Long
     
-    modPDC.BuildPdcData wb, nodesCount, edgesCount
+    modPDC.BuildPdcData rddWorkBook, nodesCount, edgesCount
     
     ' Update state
     clsState.PDCDataBuilt = True
@@ -974,11 +981,11 @@ Public Sub GeneratePuzzleDependencyChart()
     ' Verify we have a valid workbook
     If Workbooks.count = 0 Then Exit Sub
     
-    Dim wb As Workbook
-    Set wb = ActiveWorkbook
+    Dim rddWorkBook As Workbook
+    Set rddWorkBook = ActiveWorkbook
     
     ' Verify this is an RDD workbook
-    If Not modMain.IsRDDWorkbook(wb) Then
+    If Not modMain.IsRDDWorkbook(rddWorkBook) Then
         MsgBox "This is not an RDD workbook.", vbExclamation, modMain.AppProjectName
         Exit Sub
     End If
@@ -994,7 +1001,7 @@ Public Sub GeneratePuzzleDependencyChart()
     ' Check if PDCData sheet exists
     On Error Resume Next
     Dim dataSheet As Worksheet
-    Set dataSheet = wb.Sheets("PDCData")
+    Set dataSheet = rddWorkBook.Sheets("PDCData")
     On Error GoTo ErrHandler
     
     If dataSheet Is Nothing Then
@@ -1007,7 +1014,7 @@ Public Sub GeneratePuzzleDependencyChart()
   ' Check if Chart sheet already exists - ask for confirmation to overwrite
     On Error Resume Next
     Dim existingChart As Worksheet
-    Set existingChart = wb.Sheets("Chart")
+    Set existingChart = rddWorkBook.Sheets("Chart")
     On Error GoTo ErrHandler
     
     If Not existingChart Is Nothing Then
@@ -1022,7 +1029,7 @@ Public Sub GeneratePuzzleDependencyChart()
     frmWait.ShowDialog
     modUtil.HideOpMode True
     
-    modPDC.GeneratePuzzleChart wb
+    modPDC.GeneratePuzzleChart rddWorkBook
     
     modUtil.HideOpMode False
     frmWait.Hide
@@ -1058,11 +1065,11 @@ Public Sub SynchonizePuzzleDependencyChart()
     ' Verify we have a valid workbook
     If Workbooks.count = 0 Then Exit Sub
     
-    Dim wb As Workbook
-    Set wb = ActiveWorkbook
+    Dim rddWorkBook As Workbook
+    Set rddWorkBook = ActiveWorkbook
     
     ' Verify this is an RDD workbook
-    If Not modMain.IsRDDWorkbook(wb) Then
+    If Not modMain.IsRDDWorkbook(rddWorkBook) Then
         MsgBox "This is not an RDD workbook.", vbExclamation, modMain.AppProjectName
         Exit Sub
     End If
@@ -1070,7 +1077,7 @@ Public Sub SynchonizePuzzleDependencyChart()
     ' Check if PDCData sheet exists
     On Error Resume Next
     Dim dataSheet As Worksheet
-    Set dataSheet = wb.Sheets("PDCData")
+    Set dataSheet = rddWorkBook.Sheets("PDCData")
     On Error GoTo ErrHandler
     
     If dataSheet Is Nothing Then
@@ -1083,7 +1090,7 @@ Public Sub SynchonizePuzzleDependencyChart()
     ' Check if Chart sheet exists
     On Error Resume Next
     Dim chartSheet As Worksheet
-    Set chartSheet = wb.Sheets("Chart")
+    Set chartSheet = rddWorkBook.Sheets("Chart")
     On Error GoTo ErrHandler
     
     If chartSheet Is Nothing Then
@@ -1097,7 +1104,7 @@ Public Sub SynchonizePuzzleDependencyChart()
     frmWait.ShowDialog
     modUtil.HideOpMode True
     
-    modPDC.SyncPuzzleChart wb
+    modPDC.SyncPuzzleChart rddWorkBook
     
     modUtil.HideOpMode False
     frmWait.Hide
@@ -1113,6 +1120,178 @@ ErrHandler:
     modErr.ReportError "modMain.SynchonizePuzzleDependencyChart", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
 
+' -----------------------------------------------------------------------------------
+' Procedure : ExportToPdf
+' Purpose   : Orchestrates PDF export of the complete RDD workbook.
+'             Shows file dialog, validates preconditions, calls modExport.ExportWorkbookToPdf,
+'             and provides user feedback.
+'
+' Parameters: (none)
+' Returns   : (none)
+'
+' Notes     :
+'   - Exports cover page, TOC, all room sheets, and chart to single PDF
+'   - Requires at least one room sheet to exist
+' -----------------------------------------------------------------------------------
+Public Sub ExportToPdf()
+    On Error GoTo ErrHandler
+    
+    ' Verify we have a valid workbook
+    If Workbooks.count = 0 Then Exit Sub
+    
+    Dim rddWorkBook As Workbook
+    Set rddWorkBook = ActiveWorkbook
+    
+    ' Verify this is an RDD workbook
+    If Not modMain.IsRDDWorkbook(rddWorkBook) Then
+        MsgBox "This is not an RDD workbook.", vbExclamation, modMain.AppProjectName
+        Exit Sub
+    End If
+    
+    ' Check if there are any room sheets
+    Dim hasRoomSheets As Boolean
+    Dim ws As Worksheet
+    
+    hasRoomSheets = False
+    For Each ws In rddWorkBook.Worksheets
+        If modRooms.IsRoomSheet(ws) Then
+            hasRoomSheets = True
+            Exit For
+        End If
+    Next ws
+    
+    If Not hasRoomSheets Then
+        MsgBox "No room sheets found to export.", vbInformation, modMain.AppProjectName
+        Exit Sub
+    End If
+    
+    ' Show file dialog
+    Dim filePath As String
+    Dim defaultName As String
+    
+    ' Build default filename from workbook name
+    defaultName = Left$(rddWorkBook.name, InStrRev(rddWorkBook.name, ".") - 1) & "_RDD.pdf"
+    
+    With Application.FileDialog(msoFileDialogSaveAs)
+        .title = "Export RDD to PDF"
+        .InitialFileName = defaultName
+        .FilterIndex = 1
+        
+        If .Show = 0 Then Exit Sub  ' User cancelled
+        filePath = .SelectedItems(1)
+    End With
+    
+    ' Ensure .pdf extension
+    If LCase$(Right$(filePath, 4)) <> ".pdf" Then
+        filePath = filePath & ".pdf"
+    End If
+    
+    ' Show progress and export
+    frmWait.ShowDialog
+    modUtil.HideOpMode True
+    
+    Dim success As Boolean
+    success = modExport.ExportWorkbookToPdf(rddWorkBook, filePath)
+    
+    modUtil.HideOpMode False
+    frmWait.Hide
+    
+    ' User feedback
+    If success Then
+        MsgBox "PDF exported successfully!" & vbCrLf & vbCrLf & filePath, _
+               vbInformation, modMain.AppProjectName
+    Else
+        MsgBox "PDF export failed.", vbExclamation, modMain.AppProjectName
+    End If
+    
+    Exit Sub
+    
+ErrHandler:
+    frmWait.Hide
+    modUtil.HideOpMode False
+    modErr.ReportError "modMain.ExportToPdf", Err.Number, Erl, caption:=modMain.AppProjectName
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : ExportToCsv
+' Purpose   : Orchestrates CSV export of PDC data (nodes and edges).
+'             Shows folder dialog, validates preconditions, calls modExport.ExportPdcToCsv,
+'             and provides user feedback.
+'
+' Parameters: (none)
+' Returns   : (none)
+'
+' Notes     :
+'   - Creates nodes.csv and edges.csv in selected folder
+'   - Requires PDCData sheet to exist
+'   - Format compatible with yEd, Graphviz, EdrawMax
+' -----------------------------------------------------------------------------------
+Public Sub ExportToCsv()
+    On Error GoTo ErrHandler
+    
+    ' Verify we have a valid workbook
+    If Workbooks.count = 0 Then Exit Sub
+    
+    Dim rddWorkBook As Workbook
+    Set rddWorkBook = ActiveWorkbook
+    
+    ' Verify this is an RDD workbook
+    If Not modMain.IsRDDWorkbook(rddWorkBook) Then
+        MsgBox "This is not an RDD workbook.", vbExclamation, modMain.AppProjectName
+        Exit Sub
+    End If
+    
+    ' Check if PDCData sheet exists
+    On Error Resume Next
+    Dim dataSheet As Worksheet
+    Set dataSheet = rddWorkBook.Sheets("PDCData")
+    On Error GoTo ErrHandler
+    
+    If dataSheet Is Nothing Then
+        MsgBox "PDCData sheet not found." & vbCrLf & _
+               "Please build PDC data first.", _
+               vbExclamation, modMain.AppProjectName
+        Exit Sub
+    End If
+    
+    ' Show folder dialog
+    Dim folderPath As String
+    
+    With Application.FileDialog(msoFileDialogFolderPicker)
+        .title = "Select folder for CSV export"
+        
+        If .Show = 0 Then Exit Sub  ' User cancelled
+        folderPath = .SelectedItems(1)
+    End With
+    
+    ' Show progress and export
+    frmWait.ShowDialog
+    modUtil.HideOpMode True
+    
+    Dim success As Boolean
+    success = modExport.ExportPdcToCsv(rddWorkBook, folderPath)
+    
+    modUtil.HideOpMode False
+    frmWait.Hide
+    
+    ' User feedback
+    If success Then
+        MsgBox "CSV files exported successfully!" & vbCrLf & vbCrLf & _
+               "- nodes.csv" & vbCrLf & _
+               "- edges.csv" & vbCrLf & vbCrLf & _
+               "Location: " & folderPath, _
+               vbInformation, modMain.AppProjectName
+    Else
+        MsgBox "CSV export failed.", vbExclamation, modMain.AppProjectName
+    End If
+    
+    Exit Sub
+    
+ErrHandler:
+    frmWait.Hide
+    modUtil.HideOpMode False
+    modErr.ReportError "modMain.ExportToCsv", Err.Number, Erl, caption:=modMain.AppProjectName
+End Sub
 
 ' -----------------------------------------------------------------------------------
 ' Procedure : GotoRoomFromCell
@@ -1350,14 +1529,14 @@ End Sub
 Public Sub SyncAllLists()
     On Error GoTo ErrHandler
 
-    Dim wb As Workbook
-    Set wb = ActiveWorkbook
+    Dim rddWorkBook As Workbook
+    Set rddWorkBook = ActiveWorkbook
      
     frmWait.ShowDialog
     modUtil.HideOpMode True
      
     ' Full SYNC of all categories
-    modRooms.SynchronizeAllLists wb
+    modRooms.SynchronizeAllLists rddWorkBook
           
     clsState.RoomSheetChanged = False
     clsState.InvalidateControl RIBBON_BTN_SYNC_LISTS
@@ -1385,13 +1564,13 @@ Public Sub ValidateRoomData()
     ' Verify we have a valid workbook
     If Workbooks.count = 0 Then Exit Sub
     
-    Dim wb As Workbook
-    Set wb = ActiveWorkbook
+    Dim rddWorkBook As Workbook
+    Set rddWorkBook = ActiveWorkbook
     
     Dim issues As Long
     
     ' Verify this is an RDD workbook
-    If Not modMain.IsRDDWorkbook(wb) Then
+    If Not modMain.IsRDDWorkbook(rddWorkBook) Then
         MsgBox "This is not an RDD workbook.", vbExclamation, modMain.AppProjectName
         Exit Sub
     End If
@@ -1401,7 +1580,7 @@ Public Sub ValidateRoomData()
     Dim ws As Worksheet
     
     hasRoomSheets = False
-    For Each ws In wb.Worksheets
+    For Each ws In rddWorkBook.Worksheets
         If modRooms.IsRoomSheet(ws) Then
             hasRoomSheets = True
             Exit For
@@ -1417,7 +1596,7 @@ Public Sub ValidateRoomData()
     modUtil.HideOpMode True
     
     ' Run validation
-    issues = modRooms.ValidateRooms(wb)
+    issues = modRooms.ValidateRooms(rddWorkBook)
     clsState.RoomsValidationIssueCount = issues
     
     If issues = 0 Then
