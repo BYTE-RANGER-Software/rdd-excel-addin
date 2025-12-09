@@ -177,7 +177,7 @@ Public Sub GeneratePuzzleChart(ByVal srcBook As Workbook)
     Dim nodeShape As Shape
     Dim posX As Double, posY As Double
     Dim nodeID As String, nodeName As String, nodeType As String
-    Dim fromId As String, toId As String
+    Dim fromID As String, toID As String
     Dim fromShape As Shape, toShape As Shape
     Dim shapeCount As Long
 
@@ -229,12 +229,12 @@ NextNode:
     ' Draw connectors from Edges section (H:L)
     lastRow = dataSheet.Cells(dataSheet.Rows.count, COL_EDGE_ID).End(xlUp).Row
     For rowIndex = 2 To lastRow
-        fromId = Trim$(CStr(dataSheet.Cells(rowIndex, COL_EDGE_FROM).value))
-        toId = Trim$(CStr(dataSheet.Cells(rowIndex, COL_EDGE_TO).value))
+        fromID = Trim$(CStr(dataSheet.Cells(rowIndex, COL_EDGE_FROM).value))
+        toID = Trim$(CStr(dataSheet.Cells(rowIndex, COL_EDGE_TO).value))
 
-        If nodesDict.Exists(fromId) And nodesDict.Exists(toId) Then
-            Set fromShape = nodesDict(fromId)
-            Set toShape = nodesDict(toId)
+        If nodesDict.Exists(fromID) And nodesDict.Exists(toID) Then
+            Set fromShape = nodesDict(fromID)
+            Set toShape = nodesDict(toID)
 
             Dim conn As Shape
             Set conn = chartSheet.Shapes.AddConnector(msoConnectorElbow, 0, 0, 100, 100)
@@ -272,7 +272,7 @@ Public Sub UpdatePuzzleChart(ByVal srcBook As Workbook)
     Dim lastRow As Long, rowIndex As Long
     Dim nodeID As String, nodeName As String, nodeType As String
     Dim targetShape As Shape
-    Dim fromId As String, toId As String
+    Dim fromID As String, toID As String
     Dim fromShape As Shape, toShape As Shape
     Dim nodesDict As Scripting.Dictionary
 
@@ -314,12 +314,12 @@ Public Sub UpdatePuzzleChart(ByVal srcBook As Workbook)
     ' 3) Draw new connectors
     lastRow = dataSheet.Cells(dataSheet.Rows.count, COL_EDGE_ID).End(xlUp).Row
     For rowIndex = 2 To lastRow
-        fromId = Trim$(CStr(dataSheet.Cells(rowIndex, COL_EDGE_FROM).value))
-        toId = Trim$(CStr(dataSheet.Cells(rowIndex, COL_EDGE_TO).value))
+        fromID = Trim$(CStr(dataSheet.Cells(rowIndex, COL_EDGE_FROM).value))
+        toID = Trim$(CStr(dataSheet.Cells(rowIndex, COL_EDGE_TO).value))
 
-        If nodesDict.Exists(fromId) And nodesDict.Exists(toId) Then
-            Set fromShape = nodesDict(fromId)
-            Set toShape = nodesDict(toId)
+        If nodesDict.Exists(fromID) And nodesDict.Exists(toID) Then
+            Set fromShape = nodesDict(fromID)
+            Set toShape = nodesDict(toID)
 
             Dim connectorShape As Shape
             Set connectorShape = chartSheet.Shapes.AddConnector(msoConnectorElbow, 0, 0, 100, 100)
@@ -357,7 +357,7 @@ Public Sub SyncPuzzleChart(ByVal srcBook As Workbook)
     Dim lastRow As Long, rowIndex As Long
     Dim nodeID As String, nodeName As String, nodeType As String
     Dim targetShape As Shape
-    Dim fromId As String, toId As String
+    Dim fromID As String, toID As String
     Dim fromShape As Shape, toShape As Shape
     Dim nodesDict As Scripting.Dictionary
     Dim posX As Double, posY As Double
@@ -431,12 +431,12 @@ NextSyncNode:
     ' Redraw connectors
     lastRow = dataSheet.Cells(dataSheet.Rows.count, COL_EDGE_ID).End(xlUp).Row
     For rowIndex = 2 To lastRow
-        fromId = Trim$(CStr(dataSheet.Cells(rowIndex, COL_EDGE_FROM).value))
-        toId = Trim$(CStr(dataSheet.Cells(rowIndex, COL_EDGE_TO).value))
+        fromID = Trim$(CStr(dataSheet.Cells(rowIndex, COL_EDGE_FROM).value))
+        toID = Trim$(CStr(dataSheet.Cells(rowIndex, COL_EDGE_TO).value))
 
-        If nodesDict.Exists(fromId) And nodesDict.Exists(toId) Then
-            Set fromShape = nodesDict(fromId)
-            Set toShape = nodesDict(toId)
+        If nodesDict.Exists(fromID) And nodesDict.Exists(toID) Then
+            Set fromShape = nodesDict(fromID)
+            Set toShape = nodesDict(toID)
 
             Dim conn As Shape
             Set conn = chartSheet.Shapes.AddConnector(msoConnectorElbow, 0, 0, 100, 100)
@@ -467,7 +467,7 @@ Public Sub ValidateModel()
     Dim dataSheet As Worksheet, issuesSheet As Worksheet
     Dim nodesDict As Scripting.Dictionary
     Dim rowOut As Long, rowIndex As Long, lastRow As Long
-    Dim nodeID As String, fromId As String, toId As String
+    Dim nodeID As String, fromID As String, toID As String
     Dim issueCount As Long
     
     Set dataSheet = EnsureSheet("PDCData")
@@ -499,21 +499,21 @@ Public Sub ValidateModel()
     ' Check edges for missing references
     lastRow = dataSheet.Cells(dataSheet.Rows.count, COL_EDGE_ID).End(xlUp).Row
     For rowIndex = 2 To lastRow
-        fromId = Trim$(CStr(dataSheet.Cells(rowIndex, COL_EDGE_FROM).value))
-        toId = Trim$(CStr(dataSheet.Cells(rowIndex, COL_EDGE_TO).value))
+        fromID = Trim$(CStr(dataSheet.Cells(rowIndex, COL_EDGE_FROM).value))
+        toID = Trim$(CStr(dataSheet.Cells(rowIndex, COL_EDGE_TO).value))
         
-        If LenB(fromId) > 0 And Not nodesDict.Exists(fromId) Then
+        If LenB(fromID) > 0 And Not nodesDict.Exists(fromID) Then
             issuesSheet.Cells(rowOut, 1).value = "Missing Reference"
-            issuesSheet.Cells(rowOut, 2).value = "Edge From-ID nicht gefunden: " & fromId
-            issuesSheet.Cells(rowOut, 3).value = fromId
+            issuesSheet.Cells(rowOut, 2).value = "Edge From-ID nicht gefunden: " & fromID
+            issuesSheet.Cells(rowOut, 3).value = fromID
             rowOut = rowOut + 1
             issueCount = issueCount + 1
         End If
         
-        If LenB(toId) > 0 And Not nodesDict.Exists(toId) Then
+        If LenB(toID) > 0 And Not nodesDict.Exists(toID) Then
             issuesSheet.Cells(rowOut, 1).value = "Missing Reference"
-            issuesSheet.Cells(rowOut, 2).value = "Edge To-ID nicht gefunden: " & toId
-            issuesSheet.Cells(rowOut, 3).value = toId
+            issuesSheet.Cells(rowOut, 2).value = "Edge To-ID nicht gefunden: " & toID
+            issuesSheet.Cells(rowOut, 3).value = toID
             rowOut = rowOut + 1
             issueCount = issueCount + 1
         End If
@@ -731,12 +731,12 @@ End Function
 ' Purpose   : Creates an edge data array for storage in the edges collection.
 ' -----------------------------------------------------------------------------------
 Private Function CreateEdgeData( _
-    ByVal fromId As String, _
-    ByVal toId As String, _
+    ByVal fromID As String, _
+    ByVal toID As String, _
     ByVal edgeType As String, _
     ByVal notes As String) As Variant
     
-    CreateEdgeData = Array(fromId, toId, edgeType, notes)
+    CreateEdgeData = Array(fromID, toID, edgeType, notes)
 End Function
 
 ' ===== Private Helpers: Type Detection ==============================================
