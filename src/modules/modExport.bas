@@ -114,7 +114,7 @@ Public Function ExportWorkbookToPdf( _
     ' Export to PDF
     exportBook.Sheets(sheetNames(1)).ExportAsFixedFormat _
         Type:=xlTypePDF, _
-        fileNAme:=filePath, _
+        fileName:=filePath, _
         Quality:=xlQualityStandard, _
         IncludeDocProperties:=True, _
         IgnorePrintAreas:=False, _

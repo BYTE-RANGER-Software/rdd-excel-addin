@@ -1,0 +1,16 @@
+# OS & Tools
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+*.tmp
+
+# Backup & temporäre Dateien
+~$*.*
+
+# internal use
+not public/
+_internal/
+
+

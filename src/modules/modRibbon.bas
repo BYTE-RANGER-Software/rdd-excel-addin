@@ -49,7 +49,7 @@ Option Private Module
 Sub RB75dd2c44_Ribbon_OnLoad(ribbon As IRibbonUI)
     Set clsState.RibbonUI = ribbon
     If RDDAddInWkBk.IsAddin Then
-        Call InitCellCtxMenu
+        Call InitializeCellCtxMenu
     End If
 End Sub
 
@@ -336,6 +336,8 @@ Sub RB75dd2c44_btnDynCtxMnu1_getLabel(control As IRibbonControl, ByRef returnedV
             returnedVal = "Find Usage"
         Case CCM_Actors
             returnedVal = "Find Usage"
+        Case CCM_Hotspot
+            returnedVal = "Find Usage"
         Case CCM_Flags
             returnedVal = "Find Usage"
         Case CCM_Dependencies
@@ -356,15 +358,17 @@ Sub RB75dd2c44_btnDynCtxMnu1_onAction(control As IRibbonControl)
         Case CCM_Rooms
             modMain.AddNewRoomFromCellCtxMnu
         Case CCM_Puzzles
-            'modMain.GotoPuzzleInChart 'ToDo
+            modMain.GotoPuzzleInChart
         Case CCM_Items
-            'modMain.FindItemUsage 'ToDo
+            modMain.FindItemUsage
         Case CCM_Actors
-            'modMain.FindActorUsage 'ToDo
+            modMain.FindActorUsage
+        Case CCM_Hotspot
+            modMain.FindHotspotUsage
         Case CCM_Flags
-            'modMain.FindFlagUsage 'ToDo
+            modMain.FindFlagUsage
         Case CCM_Dependencies
-            'modMain.GotoReferencedItem 'ToDo
+            modMain.GotoReferencedItem
     End Select
 End Sub
 
@@ -393,7 +397,7 @@ Sub RB75dd2c44_btnDynCtxMnu2_onAction(control As IRibbonControl)
         Case CCM_Rooms
             modMain.GotoRoomFromCell
         Case CCM_Puzzles
-            'modMain.ShowPuzzleDependencies 'ToDo
+            modMain.ShowPuzzleDependencies
     End Select
 End Sub
 

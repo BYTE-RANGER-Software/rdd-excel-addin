@@ -76,7 +76,7 @@ End Sub
 '
 ' Notes     : Safe to call multiple times.
 ' -----------------------------------------------------------------------------------
-Public Sub Init(Optional ByVal onCatCallback As String = vbNullString, Optional ByVal onSubCallback As String = vbNullString)
+Public Sub Inititialize(Optional ByVal onCatCallback As String = vbNullString, Optional ByVal onSubCallback As String = vbNullString)
                 
     On Error GoTo ErrHandler
     

@@ -63,7 +63,7 @@ Public Sub AddRecord(ByVal eventText As String, Optional ByVal info As String, _
     Optional ByVal forceSave As Boolean = False)
 End Sub
 
-Public Sub SaveLogAs(ByVal fileNAme As String, Optional ByVal overwrite As Boolean = False)
+Public Sub SaveLogAs(ByVal fileName As String, Optional ByVal overwrite As Boolean = False)
 End Sub
 
 Public Sub WriteError(Optional ByVal functionName As String = vbNullString, Optional ByVal errorNumber As Long = -9999, Optional ByVal errorLine As Long = -1)

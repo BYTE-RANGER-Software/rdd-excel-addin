@@ -663,7 +663,7 @@ Private Function EnsureArrowShape() As Shape
             .Fill.ForeColor.RGB = RGB(240, 242, 247)
             .Line.ForeColor.RGB = RGB(166, 172, 179)
             .TextFrame2.TextRange.Characters.text = ChrW$(TRIANGLE_BIG)
-            .TextFrame2.TextRange.ParagraphFormat.Alignment = msoAlignCenter
+            .TextFrame2.TextRange.ParagraphFormat.alignment = msoAlignCenter
             .TextFrame2.VerticalAnchor = msoAnchorMiddle
             .TextFrame2.TextRange.Font.Size = 8
             .TextFrame2.TextRange.Font.name = "Segoe UI Symbol"
@@ -671,6 +671,7 @@ Private Function EnsureArrowShape() As Shape
             .TextFrame2.TextRange.Font.Fill.Visible = msoTrue
             .TextFrame2.TextRange.Font.Fill.Solid
             .TextFrame2.TextRange.Font.Fill.ForeColor.RGB = RGB(88, 89, 91)
+            .Locked = True   ' only works if UserInterfaceOnly:=True
         End With
     End If
     Set EnsureArrowShape = shp
@@ -930,6 +931,7 @@ Private Function EnsureDropDown(ByVal ctrlName As String) As DropDown
         dd.name = ctrlName
         dd.Placement = xlMove     ' move with cells (no auto-resize)
         dd.PrintObject = False
+        dd.Locked = True ' only works if UserInterfaceOnly:=True
     End If
 
     Set EnsureDropDown = dd
@@ -1003,7 +1005,7 @@ End Sub
 ' Notes     :
 '   - Deletes DropDowns "*_Cat" and "*_Sub" and Shapes "*_Arrow" when prefixed.
 ' -----------------------------------------------------------------------------------
-Private Function CleanSheetArtifacts(ByVal targetSheet As Worksheet, Optional ByVal prefix As String = "fd_") As Long
+Private Function CleanSheetArtifacts(ByVal targetSheet As Worksheet, Optional ByVal Prefix As String = "fd_") As Long
     Dim deleted As Long
     Dim i As Long, ctrlNm As String
 
@@ -1012,7 +1014,7 @@ Private Function CleanSheetArtifacts(ByVal targetSheet As Worksheet, Optional By
     ' 1) Form Controls: DropDowns
     For i = targetSheet.DropDowns.count To 1 Step -1
         ctrlNm = targetSheet.DropDowns(i).name
-        If NameHasAllowedPrefix(ctrlNm, prefix) Then
+        If NameHasAllowedPrefix(ctrlNm, Prefix) Then
             If ctrlNm Like "*_Cat" Or ctrlNm Like "*_Sub" Then
                 targetSheet.DropDowns(i).Delete
                 deleted = deleted + 1
@@ -1023,7 +1025,7 @@ Private Function CleanSheetArtifacts(ByVal targetSheet As Worksheet, Optional By
     ' 2) Shapes: our Arrow button (and any leftover shapes with _Arrow)
     For i = targetSheet.Shapes.count To 1 Step -1
         ctrlNm = targetSheet.Shapes(i).name
-        If NameHasAllowedPrefix(ctrlNm, prefix) Then
+        If NameHasAllowedPrefix(ctrlNm, Prefix) Then
             If ctrlNm Like "*_Arrow" Then
                 targetSheet.Shapes(i).Delete
                 deleted = deleted + 1
@@ -1048,9 +1050,9 @@ End Function
 ' Notes     :
 '   - Case-insensitive comparison.
 ' -----------------------------------------------------------------------------------
-Private Function NameHasAllowedPrefix(ByVal nameValue As String, ByVal prefix As String) As Boolean
-    If Len(nameValue) >= Len(prefix) Then
-        If StrComp(Left$(nameValue, Len(prefix)), prefix, vbTextCompare) = 0 Then
+Private Function NameHasAllowedPrefix(ByVal nameValue As String, ByVal Prefix As String) As Boolean
+    If Len(nameValue) >= Len(Prefix) Then
+        If StrComp(Left$(nameValue, Len(Prefix)), Prefix, vbTextCompare) = 0 Then
             NameHasAllowedPrefix = True
             Exit Function
         End If

@@ -124,6 +124,7 @@ Public Const ROOM_SHEET_DEFAULT_PREFIX As String = "Room"
 Public Const ROOM_SHEET_ALIAS_PREFIX As String = "r_"
 Public Const ROOM_SHEET_ID_PREFIX As String = "R"
 Public Const ROOM_SHEET_ID_TAG_NAME As String = "RoomID"
+Public Const ROOM_SHEET_PWD As String = "1234"
 
 Public Const ROOM_HDR_NM_ADD_PARALLAX_SET As String = "ADDITIONAL PARALLAX SETTINGS"
 Public Const ROOM_ADD_PARALLAX_SET_HIDE_TOKEN As String = "None"

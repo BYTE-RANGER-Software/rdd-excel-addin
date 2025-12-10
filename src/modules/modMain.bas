@@ -50,6 +50,13 @@ Attribute VB_Name = "modMain"
 '   - SynchonizePuzzleDependencyChart : Syncs chart with PDC data
 '   - ExportToPdf                 : Exports RDD workbook to PDF
 '   - ExportToCsv                 : Exports PDC data to CSV files
+'   - FindItemUsage               : Searches for Item ID usages across rooms
+'   - FindActorUsage              : Searches for Actor ID usages across rooms
+'   - FindHotspotUsage            : Searches for Actor ID usages across rooms
+'   - FindFlagUsage               : Searches for Flag ID usages across rooms
+'   - GotoPuzzleInChart      : Navigate from Puzzle cell to Chart node
+'   - ShowPuzzleDependencies : Show dependencies of selected puzzle
+'   - GotoReferencedItem     : Navigate to referenced item from Dependencies column
 '
 ' Dependencies:
 '   - clsAppEvents    : Event sink (delegates to this module)
@@ -63,6 +70,7 @@ Attribute VB_Name = "modMain"
 '   - modProps        : Document properties
 '   - modPDC          : Puzzle Dependency Chart operations
 '   - modExport       : PDF and CSV export functionality
+'   - modSearch       : Search functionality for Find Usage features
 '
 ' Notes:
 '   - This module acts as the **central controller** for the application
@@ -179,7 +187,7 @@ End Sub
 ' -----------------------------------------------------------------------------------
 Public Sub HandleAddInWorkbookOpen()
     On Error GoTo ErrHandler
-    
+            
     ' Ensure temp path exists before logging
     m_appTempPath = modUtil.GetTempFolder & "\BYTE RANGER"
     If Dir(m_appTempPath, vbDirectory) = "" Then MkDir m_appTempPath
@@ -192,17 +200,22 @@ Public Sub HandleAddInWorkbookOpen()
     ' Error Logger
     modErr.InitLogger m_appTempPath, AppProjectName, (AppProjectName & " " & AppVersion)
     
+    'init frmWait
+    frmWait.Initialize
+    ' show Wait dialog
+    frmWait.ShowDialog "Initialize RDD Add-In"
+    
     ' load options
     modOptions.ReadGeneralOptions
     
+    ' Handles WorkbookOpen when the add-in is activated in an opened workbook.
+    If Not m_activeWorkbookOnInstall Is Nothing Then HandleWorkbookOpen m_activeWorkbookOnInstall
+    
     If m_formDropMgr Is Nothing Then Set m_formDropMgr = New clsFormDropManager
-    m_formDropMgr.Init _
+    m_formDropMgr.Inititialize _
         onCatCallback:="modFormDropCallbacks.OnFormDropCatSelected", _
         onSubCallback:="modFormDropCallbacks.OnFormDropSubSelected"
-        
-    'init frmWait
-    frmWait.Init
-    
+                
     ' wire application events when running as add-in
     If RDDAddInWkBk.IsAddin Then
         ConnectEventHandler
@@ -212,10 +225,11 @@ Public Sub HandleAddInWorkbookOpen()
     clsState.Init
     clsState.InvalidateRibbon
     
+    frmWait.Hide
     Exit Sub
 
 ErrHandler:
-    
+    frmWait.Hide
     modErr.ReportError "HandleAddInWorkbookOpen", Err.Number, Erl, _
         caption:=modMain.AppProjectName
 End Sub
@@ -237,6 +251,9 @@ Public Sub HandleAddInWorkbookBeforeClose(Cancel As Boolean)
     
     Set m_formDropMgr = Nothing
 
+    ' reset to default context menu
+    modCellCtxMnu.CleanupCellCtxMenu
+    
     '  Update ribbon/UI and clear state
     clsState.InvalidateRibbon
     clsState.Cleanup
@@ -258,6 +275,7 @@ Public Sub HandleWorkbookOpen(ByVal targetBook As Workbook)
     ' only on RDD Workbooks
     If Not IsRDDWorkbook(targetBook) Then Exit Sub
     modOptions.ReadWorkbookOptions targetBook
+    modRooms.ProtectAllRoomSheets targetBook
     
     Exit Sub
 ErrHandler:
@@ -622,7 +640,7 @@ Public Sub ShowOptions()
     'Initialize and display dialog
     Set optionsForm = New frmOptions
     With optionsForm
-        .Init AppProjectName, currentOptions, hasRDDWorkbook, dataDict
+        .Initialize AppProjectName, currentOptions, hasRDDWorkbook, dataDict
         .Show vbModal
         
         If .Confirmed Then
@@ -1294,6 +1312,573 @@ ErrHandler:
 End Sub
 
 ' -----------------------------------------------------------------------------------
+' Procedure : FindItemUsage
+' Purpose   : Searches for all usages of the Item ID or Name in the active cell.
+'             Displays results in frmSearchResults with navigation capability.
+'
+' Parameters: (none)
+' Returns   : (none)
+'
+' Notes     :
+'   - Context menu callback for CCM_Items
+'   - Searches in: Puzzle Requires, Puzzle Grants, Item definitions
+'   - Results are shown in a modeless form for easy navigation
+' -----------------------------------------------------------------------------------
+Public Sub FindItemUsage()
+    On Error GoTo ErrHandler
+    
+    Dim searchTerm As String
+    Dim results As Collection
+    Dim currentWorkbook As Workbook
+    Dim frm As frmSearchResults
+    
+    ' Validate preconditions
+    If Workbooks.count = 0 Then Exit Sub
+    Set currentWorkbook = ActiveWorkbook
+    
+    If Not IsRDDWorkbook(currentWorkbook) Then
+        MsgBox "This is not an RDD workbook.", vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Get search term from active cell
+    searchTerm = Trim$(CStr(ActiveCell.value))
+    If Len(searchTerm) = 0 Then
+        MsgBox "No Item ID or Name in the selected cell.", vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Perform search
+    Application.StatusBar = "Searching for '" & searchTerm & "'..."
+    Set results = modSearch.FindItemUsages(searchTerm, currentWorkbook)
+    Application.StatusBar = False
+    
+    ' Show results
+    If results.count = 0 Then
+        MsgBox "No usages found for Item '" & searchTerm & "'.", _
+               vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Display results form (modeless)
+    Set frm = New frmSearchResults
+    frm.Initialize searchTerm, results, currentWorkbook
+    frm.Show vbModeless
+    
+    Exit Sub
+    
+ErrHandler:
+    Application.StatusBar = False
+    modErr.ReportError "modMain.FindItemUsage", Err.Number, Erl, caption:=AppProjectName
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : FindActorUsage
+' Purpose   : Searches for all usages of the Actor ID or Name in the active cell.
+'             Displays results in frmSearchResults with navigation capability.
+'
+' Parameters: (none)
+' Returns   : (none)
+'
+' Notes     :
+'   - Context menu callback for CCM_Actors
+'   - Searches in: Actor Conditions, Puzzle Owner, Puzzle Target, Actor definitions
+'   - Results are shown in a modeless form for easy navigation
+' -----------------------------------------------------------------------------------
+Public Sub FindActorUsage()
+    On Error GoTo ErrHandler
+    
+    Dim searchTerm As String
+    Dim results As Collection
+    Dim currentWorkbook As Workbook
+    Dim frm As frmSearchResults
+    
+    ' Validate preconditions
+    If Workbooks.count = 0 Then Exit Sub
+    Set currentWorkbook = ActiveWorkbook
+    
+    If Not IsRDDWorkbook(currentWorkbook) Then
+        MsgBox "This is not an RDD workbook.", vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Get search term from active cell
+    searchTerm = Trim$(CStr(ActiveCell.value))
+    If Len(searchTerm) = 0 Then
+        MsgBox "No Actor ID or Name in the selected cell.", vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Perform search
+    Application.StatusBar = "Searching for '" & searchTerm & "'..."
+    Set results = modSearch.FindActorUsages(searchTerm, currentWorkbook)
+    Application.StatusBar = False
+    
+    ' Show results
+    If results.count = 0 Then
+        MsgBox "No usages found for Actor '" & searchTerm & "'.", _
+               vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Display results form (modeless)
+    Set frm = New frmSearchResults
+    frm.Initialize searchTerm, results, currentWorkbook
+    frm.Show vbModeless
+    
+    Exit Sub
+    
+ErrHandler:
+    Application.StatusBar = False
+    modErr.ReportError "modMain.FindActorUsage", Err.Number, Erl, caption:=AppProjectName
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : FindHotspotUsage
+' Purpose   : Searches for all usages of the Hotspot ID or Name in the active cell.
+'             Displays results in frmSearchResults with navigation capability.
+'
+' Parameters: (none)
+' Returns   : (none)
+'
+' Notes     :
+'   - Context menu callback for CCM_Hotspot
+'   - Searches in: Puzzle Target, Actor Conditions, Hotspot definitions
+'   - Results are shown in a modeless form for easy navigation
+' -----------------------------------------------------------------------------------
+Public Sub FindHotspotUsage()
+    On Error GoTo ErrHandler
+    
+    Dim searchTerm As String
+    Dim results As Collection
+    Dim currentWorkbook As Workbook
+    Dim frm As frmSearchResults
+    
+    ' Validate preconditions
+    If Workbooks.count = 0 Then Exit Sub
+    Set currentWorkbook = ActiveWorkbook
+    
+    If Not IsRDDWorkbook(currentWorkbook) Then
+        MsgBox "This is not an RDD workbook.", vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Get search term from active cell
+    searchTerm = Trim$(CStr(ActiveCell.value))
+    If Len(searchTerm) = 0 Then
+        MsgBox "No Hotspot ID or Name in the selected cell.", vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Perform search
+    Application.StatusBar = "Searching for '" & searchTerm & "'..."
+    Set results = modSearch.FindHotspotUsages(searchTerm, currentWorkbook)
+    Application.StatusBar = False
+    
+    ' Show results
+    If results.count = 0 Then
+        MsgBox "No usages found for Hotspot '" & searchTerm & "'.", _
+               vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Display results form (modeless)
+    Set frm = New frmSearchResults
+    frm.Initialize searchTerm, results, currentWorkbook
+    frm.Show vbModeless
+    
+    Exit Sub
+    
+ErrHandler:
+    Application.StatusBar = False
+    modErr.ReportError "modMain.FindHotspotUsage", Err.Number, Erl, caption:=AppProjectName
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : FindFlagUsage
+' Purpose   : Searches for all usages of the Flag ID in the active cell.
+'             Displays results in frmSearchResults with navigation capability.
+'
+' Parameters: (none)
+' Returns   : (none)
+'
+' Notes     :
+'   - Context menu callback for CCM_Flags
+'   - Searches in: Puzzle Requires, Puzzle DependsOn, Actor Conditions
+'   - Results are shown in a modeless form for easy navigation
+' -----------------------------------------------------------------------------------
+Public Sub FindFlagUsage()
+    On Error GoTo ErrHandler
+    
+    Dim searchTerm As String
+    Dim results As Collection
+    Dim currentWorkbook As Workbook
+    Dim frm As frmSearchResults
+    
+    ' Validate preconditions
+    If Workbooks.count = 0 Then Exit Sub
+    Set currentWorkbook = ActiveWorkbook
+    
+    If Not IsRDDWorkbook(currentWorkbook) Then
+        MsgBox "This is not an RDD workbook.", vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Get search term from active cell
+    searchTerm = Trim$(CStr(ActiveCell.value))
+    If Len(searchTerm) = 0 Then
+        MsgBox "No Flag ID in the selected cell.", vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Perform search
+    Application.StatusBar = "Searching for '" & searchTerm & "'..."
+    Set results = modSearch.FindFlagUsages(searchTerm, currentWorkbook)
+    Application.StatusBar = False
+    
+    ' Show results
+    If results.count = 0 Then
+        MsgBox "No usages found for Flag '" & searchTerm & "'.", _
+               vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Display results form (modeless)
+    Set frm = New frmSearchResults
+    frm.Initialize searchTerm, results, currentWorkbook
+    frm.Show vbModeless
+    
+    Exit Sub
+    
+ErrHandler:
+    Application.StatusBar = False
+    modErr.ReportError "modMain.FindFlagUsage", Err.Number, Erl, caption:=AppProjectName
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : GotoPuzzleInChart
+' Purpose   : Navigates to the Puzzle node in the Chart sheet based on the Puzzle ID
+'             in the active cell. Selects and scrolls to the corresponding shape.
+'
+' Parameters: (none)
+' Returns   : (none)
+'
+' Notes     :
+'   - Context menu callback for CCM_Puzzles (Button 1)
+'   - Requires Chart sheet to exist
+'   - Shape names in Chart match Puzzle IDs
+' -----------------------------------------------------------------------------------
+Public Sub GotoPuzzleInChart()
+    On Error GoTo ErrHandler
+    
+    Dim puzzleID As String
+    Dim currentWorkbook As Workbook
+    Dim chartSheet As Worksheet
+    Dim targetShape As Shape
+    
+    ' Validate preconditions
+    If Workbooks.count = 0 Then Exit Sub
+    Set currentWorkbook = ActiveWorkbook
+    
+    If Not IsRDDWorkbook(currentWorkbook) Then
+        MsgBox "This is not an RDD workbook.", vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Get Puzzle ID from active cell
+    puzzleID = Trim$(CStr(ActiveCell.value))
+    If Len(puzzleID) = 0 Then
+        MsgBox "No Puzzle ID in the selected cell.", vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Check if Chart sheet exists
+    On Error Resume Next
+    Set chartSheet = currentWorkbook.Sheets("Chart")
+    On Error GoTo ErrHandler
+    
+    If chartSheet Is Nothing Then
+        MsgBox "Chart sheet not found." & vbCrLf & _
+               "Please generate the Puzzle Dependency Chart first.", _
+               vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Find the shape with matching name (shapes are named with their Node ID)
+    On Error Resume Next
+    Set targetShape = chartSheet.Shapes(puzzleID)
+    On Error GoTo ErrHandler
+    
+    If targetShape Is Nothing Then
+        MsgBox "Puzzle '" & puzzleID & "' not found in Chart." & vbCrLf & _
+               "The chart may need to be regenerated.", _
+               vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Navigate to the shape
+    chartSheet.Activate
+    targetShape.Select
+    
+    ' Scroll to make shape visible
+    Application.GoTo chartSheet.Range(targetShape.TopLeftCell.Address), Scroll:=True
+    
+    Exit Sub
+    
+ErrHandler:
+    modErr.ReportError "modMain.GotoPuzzleInChart", Err.Number, Erl, caption:=AppProjectName
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : ShowPuzzleDependencies
+' Purpose   : Displays the dependencies of the Puzzle ID in the active cell.
+'             Shows what the puzzle requires and depends on.
+'
+' Parameters: (none)
+' Returns   : (none)
+'
+' Notes     :
+'   - Context menu callback for CCM_Puzzles (Button 2)
+'   - Reads from Puzzles_Requires and Puzzles_DependsOn columns
+'   - Displays results in a message box (simple approach)
+' -----------------------------------------------------------------------------------
+Public Sub ShowPuzzleDependencies()
+    On Error GoTo ErrHandler
+    
+    Dim puzzleID As String
+    Dim currentWorkbook As Workbook
+    Dim currentSheet As Worksheet
+    Dim puzzleRow As Long
+    Dim requiresValue As String
+    Dim dependsOnValue As String
+    Dim grantsValue As String
+    Dim msg As String
+    Dim puzzleIDRange As Range
+    Dim requiresRange As Range
+    Dim dependsOnRange As Range
+    Dim grantsRange As Range
+    Dim i As Long
+    
+    ' Validate preconditions
+    If Workbooks.count = 0 Then Exit Sub
+    Set currentWorkbook = ActiveWorkbook
+    Set currentSheet = ActiveSheet
+    
+    If Not IsRDDWorkbook(currentWorkbook) Then
+        MsgBox "This is not an RDD workbook.", vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Get Puzzle ID from active cell
+    puzzleID = Trim$(CStr(ActiveCell.value))
+    If Len(puzzleID) = 0 Then
+        MsgBox "No Puzzle ID in the selected cell.", vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Get the named ranges
+    On Error Resume Next
+    Set puzzleIDRange = currentSheet.Range(modConst.NAME_RANGE_PUZZLES_PUZZLE_ID)
+    Set requiresRange = currentSheet.Range(modConst.NAME_RANGE_PUZZLES_REQUIRES)
+    Set dependsOnRange = currentSheet.Range(modConst.NAME_RANGE_PUZZLES_DEPENDS_ON)
+    Set grantsRange = currentSheet.Range(modConst.NAME_RANGE_PUZZLES_GRANTS)
+    On Error GoTo ErrHandler
+    
+    If puzzleIDRange Is Nothing Then
+        MsgBox "Puzzle data not found on this sheet.", vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Find the puzzle row
+    puzzleRow = 0
+    For i = 1 To puzzleIDRange.Rows.count
+        If StrComp(Trim$(CStr(puzzleIDRange.Cells(i, 1).value)), puzzleID, vbTextCompare) = 0 Then
+            puzzleRow = i
+            Exit For
+        End If
+    Next i
+    
+    If puzzleRow = 0 Then
+        MsgBox "Puzzle '" & puzzleID & "' not found on this sheet.", vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Get dependency values
+    requiresValue = ""
+    dependsOnValue = ""
+    grantsValue = ""
+    
+    If Not requiresRange Is Nothing Then
+        requiresValue = Trim$(CStr(requiresRange.Cells(puzzleRow, 1).value))
+    End If
+    
+    If Not dependsOnRange Is Nothing Then
+        dependsOnValue = Trim$(CStr(dependsOnRange.Cells(puzzleRow, 1).value))
+    End If
+    
+    If Not grantsRange Is Nothing Then
+        grantsValue = Trim$(CStr(grantsRange.Cells(puzzleRow, 1).value))
+    End If
+    
+    ' Build message
+    msg = "Dependencies for Puzzle: " & puzzleID & vbCrLf & vbCrLf
+    
+    msg = msg & "REQUIRES (Items/Flags):" & vbCrLf
+    If Len(requiresValue) > 0 Then
+        msg = msg & "  " & requiresValue & vbCrLf
+    Else
+        msg = msg & "  (none)" & vbCrLf
+    End If
+    
+    msg = msg & vbCrLf & "DEPENDS ON (Puzzles):" & vbCrLf
+    If Len(dependsOnValue) > 0 Then
+        msg = msg & "  " & dependsOnValue & vbCrLf
+    Else
+        msg = msg & "  (none)" & vbCrLf
+    End If
+    
+    msg = msg & vbCrLf & "GRANTS (Items/Flags):" & vbCrLf
+    If Len(grantsValue) > 0 Then
+        msg = msg & "  " & grantsValue & vbCrLf
+    Else
+        msg = msg & "  (none)" & vbCrLf
+    End If
+    
+    MsgBox msg, vbInformation, "Puzzle Dependencies"
+    
+    Exit Sub
+    
+ErrHandler:
+    modErr.ReportError "modMain.ShowPuzzleDependencies", Err.Number, Erl, caption:=AppProjectName
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : GotoReferencedItem
+' Purpose   : Navigates to the definition of an item referenced in the Dependencies
+'             column (DependsOn). This could be another Puzzle ID, Item ID, Flag ID,
+'             or Hotspot ID.
+'
+' Parameters: (none)
+' Returns   : (none)
+'
+' Notes     :
+'   - Context menu callback for CCM_Dependencies
+'   - Determines type from prefix: R=Room/Puzzle, i_=Item, g_/f_=Flag, h=Hotspot
+'   - Navigates to the source definition
+' -----------------------------------------------------------------------------------
+Public Sub GotoReferencedItem()
+    On Error GoTo ErrHandler
+    
+    Dim refValue As String
+    Dim currentWorkbook As Workbook
+    Dim targetSheet As Worksheet
+    Dim targetRow As Long
+    Dim found As Boolean
+    
+    ' Validate preconditions
+    If Workbooks.count = 0 Then Exit Sub
+    Set currentWorkbook = ActiveWorkbook
+    
+    If Not IsRDDWorkbook(currentWorkbook) Then
+        MsgBox "This is not an RDD workbook.", vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Get reference value from active cell
+    refValue = Trim$(CStr(ActiveCell.value))
+    If Len(refValue) = 0 Then
+        MsgBox "No reference in the selected cell.", vbInformation, AppProjectName
+        Exit Sub
+    End If
+    
+    ' Handle comma-separated values - take the first one
+    If InStr(refValue, ",") > 0 Then
+        refValue = Trim$(Split(refValue, ",")(0))
+    End If
+    
+    found = False
+    
+    ' Determine type and navigate accordingly
+    Select Case True
+        ' Puzzle ID (typically starts with room prefix like "R001_P01")
+        Case Left$(refValue, 1) = "R" Or InStr(refValue, "_P") > 0
+            ' Try to find as Puzzle
+            If modSearch.FindPuzzleLocation(refValue, targetSheet, targetRow) Then
+                targetSheet.Activate
+                targetSheet.Cells(targetRow, 1).Select
+                Application.GoTo targetSheet.Cells(targetRow, 1), Scroll:=True
+                found = True
+            End If
+            
+        ' Item ID (starts with "i_" or "i")
+        Case LCase$(Left$(refValue, 2)) = "i_" Or LCase$(Left$(refValue, 1)) = "i"
+            If modSearch.FindItemDefinition(refValue, currentWorkbook, targetSheet, targetRow) Then
+                targetSheet.Activate
+                targetSheet.Cells(targetRow, 1).Select
+                Application.GoTo targetSheet.Cells(targetRow, 1), Scroll:=True
+                found = True
+            End If
+            
+        ' Flag ID (starts with "g_" for global or "f_")
+        Case LCase$(Left$(refValue, 2)) = "g_" Or LCase$(Left$(refValue, 2)) = "f_"
+            If modSearch.FindFlagDefinition(refValue, currentWorkbook, targetSheet, targetRow) Then
+                targetSheet.Activate
+                targetSheet.Cells(targetRow, 1).Select
+                Application.GoTo targetSheet.Cells(targetRow, 1), Scroll:=True
+                found = True
+            End If
+            
+        ' Hotspot ID (starts with "h" or "h_")
+        Case LCase$(Left$(refValue, 2)) = "h_" Or LCase$(Left$(refValue, 1)) = "h"
+            If modSearch.FindHotspotDefinition(refValue, currentWorkbook, targetSheet, targetRow) Then
+                targetSheet.Activate
+                targetSheet.Cells(targetRow, 1).Select
+                Application.GoTo targetSheet.Cells(targetRow, 1), Scroll:=True
+                found = True
+            End If
+            
+        ' Try all types if prefix doesn't match
+        Case Else
+            ' Try Puzzle first
+            If modSearch.FindPuzzleLocation(refValue, targetSheet, targetRow) Then
+                targetSheet.Activate
+                targetSheet.Cells(targetRow, 1).Select
+                Application.GoTo targetSheet.Cells(targetRow, 1), Scroll:=True
+                found = True
+            ' Then Item
+            ElseIf modSearch.FindItemDefinition(refValue, currentWorkbook, targetSheet, targetRow) Then
+                targetSheet.Activate
+                targetSheet.Cells(targetRow, 1).Select
+                Application.GoTo targetSheet.Cells(targetRow, 1), Scroll:=True
+                found = True
+            ' Then Flag
+            ElseIf modSearch.FindFlagDefinition(refValue, currentWorkbook, targetSheet, targetRow) Then
+                targetSheet.Activate
+                targetSheet.Cells(targetRow, 1).Select
+                Application.GoTo targetSheet.Cells(targetRow, 1), Scroll:=True
+                found = True
+            ' Then Hotspot
+            ElseIf modSearch.FindHotspotDefinition(refValue, currentWorkbook, targetSheet, targetRow) Then
+                targetSheet.Activate
+                targetSheet.Cells(targetRow, 1).Select
+                Application.GoTo targetSheet.Cells(targetRow, 1), Scroll:=True
+                found = True
+            End If
+    End Select
+    
+    If Not found Then
+        MsgBox "Reference '" & refValue & "' not found." & vbCrLf & _
+               "It may be defined in a different workbook or not yet created.", _
+               vbInformation, AppProjectName
+    End If
+    
+    Exit Sub
+    
+ErrHandler:
+    modErr.ReportError "modMain.GotoReferencedItem", Err.Number, Erl, caption:=AppProjectName
+End Sub
+
+' -----------------------------------------------------------------------------------
 ' Procedure : GotoRoomFromCell
 ' Purpose   : Navigates to the room sheet referenced by the Room ID in the active cell.
 '             Displays message if room not found or cell is empty.
@@ -1794,6 +2379,8 @@ ErrHandler:
     ' On error: return no specific category
     DetermineChangeCategory = CC_None
 End Function
+
+
 
 
 

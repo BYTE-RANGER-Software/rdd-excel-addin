@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmOptions 
    Caption         =   "Settings - %1"
-   ClientHeight    =   10860
-   ClientLeft      =   120
-   ClientTop       =   465
-   ClientWidth     =   10200
+   ClientHeight    =   10868
+   ClientLeft      =   121
+   ClientTop       =   462
+   ClientWidth     =   10197
    OleObjectBlob   =   "frmOptions.frx":0000
    StartUpPosition =   1  'Fenstermitte
 End
@@ -13,6 +13,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+'   - Attribute VB_PredeclaredId = False
 Option Explicit
 Private m_blnInit As Boolean
 Private m_blnConfirmed As Boolean
@@ -25,7 +26,7 @@ Private Const PAGE_GENERAL       As Long = 0
 Private Const PAGE_ROOM_DEFAULTS As Long = 1
 Private Const PAGE_BEHAVIOR      As Long = 2
 ' -----------------------------------------------------------------------------------
-' Procedure : Init (Friend)
+' Procedure : Initialize (Friend)
 ' Purpose   : Initializes the Options dialog with project name and current settings.
 '             Loads options DTO into form controls.
 '
@@ -47,7 +48,7 @@ Private Const PAGE_BEHAVIOR      As Long = 2
 '   - Configures MultiPage control starting at page index 0
 '   - Sets m_blnConfirmed = False (assumes cancel by default)
 ' -----------------------------------------------------------------------------------
-Friend Sub Init(ByVal strProjectName As String, ByRef optionsDto As tOptions, _
+Friend Sub Initialize(ByVal strProjectName As String, ByRef optionsDto As tOptions, _
     Optional ByVal hasRDDWorkbook As Boolean = False, _
     Optional dataLists As Scripting.Dictionary)
     

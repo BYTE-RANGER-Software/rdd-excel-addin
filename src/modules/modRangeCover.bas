@@ -41,7 +41,6 @@ Public Sub EnsureRangeCover( _
     Dim coverShape As Shape
     Set coverShape = TryGetShape(targetSheet, coverName)
     
-    targetSheet.Unprotect
     If coverShape Is Nothing Then
         Set coverShape = targetSheet.Shapes.AddShape( _
             msoShapeRectangle, _
@@ -60,7 +59,6 @@ Public Sub EnsureRangeCover( _
     End If
     
     If bringToFront Then coverShape.ZOrder msoBringToFront
-    targetSheet.Protect
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -155,7 +153,6 @@ Public Sub LockRangeAndHideFormulas( _
     targetSheet.Unprotect password:=password
     targetRange.Locked = True
     targetRange.FormulaHidden = True
-    targetSheet.Protect password:=password, UserInterfaceOnly:=True
 
 CleanExit:
 End Sub
@@ -187,7 +184,6 @@ Public Sub UnlockRangeAndShowFormulas( _
     targetSheet.Unprotect password:=password
     targetRange.Locked = False
     targetRange.FormulaHidden = False
-    targetSheet.Protect password:=password, UserInterfaceOnly:=True
 
 CleanExit:
 End Sub

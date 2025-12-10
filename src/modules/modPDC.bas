@@ -13,7 +13,6 @@ Attribute VB_Name = "modPDC"
 '   - SyncPuzzleChart     : Synchronizes chart with data
 '   - ValidateModel       : Validates puzzle IDs and edge references
 '   - NavigateToPuzzle    : Navigates to puzzle source (called by shape click)
-'   - FindPuzzleLocation  : Finds a puzzle in Room sheets by ID
 '
 ' Data Structure (Sheet "PDCData"):
 '   Nodes (A:F): NodeID, NodeName, NodeType, Room, Difficulty, Status
@@ -36,6 +35,7 @@ Attribute VB_Name = "modPDC"
 '   - modConst   : Named range constants
 '   - modErr     : Error reporting
 '   - modMain    : AppProjectName
+'   - modSearch  :
 '
 ' Notes     :
 '   - Uses Named Ranges for robust column detection
@@ -973,67 +973,6 @@ Public Sub NavigateToPuzzle(ByRef nodeID As String)
 ErrHandler:
     modErr.ReportError "NavigateToPuzzle", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
-
-' -----------------------------------------------------------------------------------
-' Function: FindPuzzleLocation
-' Purpose: Searches for a puzzle by its ID in all room sheets.
-'
-' Parameters:
-'   puzzleID    [String]    - The puzzle ID to search for (e.g., “R001_P01”)
-'   outSheet    [Worksheet] - (ByRef) The worksheet found
-'   outRow      [Long]      - (ByRef) The row of the puzzle
-'
-' Returns   : Boolean - True if found
-'
-' Notes:
-'   - Searches all room sheets via modRooms.IsRoomSheet
-'   - Uses named range NAME_RANGE_PUZZLES_PUZZLE_ID
-' -----------------------------------------------------------------------------------
-Public Function FindPuzzleLocation( _
-    ByVal puzzleID As String, _
-    ByRef outSheet As Worksheet, _
-    ByRef outRow As Long) As Boolean
-    
-    On Error GoTo ErrHandler
-    
-    Dim ws As Worksheet
-    Dim roomID As String
-    Dim puzzleIDRange As Range
-    Dim cell As Range
-    Dim rowIdx As Long
-    
-    ' Durchsuche alle Room-Sheets
-    For Each ws In ActiveWorkbook.Worksheets
-        If modRooms.IsRoomSheet(ws, roomID) Then
-            ' Versuche Named Range zu holen
-            On Error Resume Next
-            Set puzzleIDRange = ws.Range(modConst.NAME_RANGE_PUZZLES_PUZZLE_ID)
-            On Error GoTo ErrHandler
-            
-            If Not puzzleIDRange Is Nothing Then
-                ' Durchsuche die Puzzle-IDs
-                For rowIdx = 1 To puzzleIDRange.Rows.count
-                    If Trim$(CStr(puzzleIDRange.Cells(rowIdx, 1).value)) = puzzleID Then
-                        ' Gefunden!
-                        Set outSheet = ws
-                        outRow = puzzleIDRange.Cells(rowIdx, 1).Row
-                        FindPuzzleLocation = True
-                        Exit Function
-                    End If
-                Next rowIdx
-            End If
-            
-            Set puzzleIDRange = Nothing
-        End If
-    Next ws
-    
-    ' Nicht gefunden
-    FindPuzzleLocation = False
-    Exit Function
-    
-ErrHandler:
-    FindPuzzleLocation = False
-End Function
 
 
 ' ===== Private Helpers: Utility =====================================================

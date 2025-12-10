@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmObjectEdit 
    Caption         =   "New Item"
-   ClientHeight    =   4335
-   ClientLeft      =   105
-   ClientTop       =   435
-   ClientWidth     =   7800
+   ClientHeight    =   4334
+   ClientLeft      =   110
+   ClientTop       =   440
+   ClientWidth     =   7799
    OleObjectBlob   =   "frmObjectEdit.frx":0000
 End
 Attribute VB_Name = "frmObjectEdit"
@@ -12,6 +12,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+'   - Attribute VB_PredeclaredId = False
 Option Explicit
 
 Private m_hasCancelled As Boolean
@@ -907,23 +908,23 @@ End Function
 '
 ' Notes     : Uses m_isUpdatingText flag to prevent infinite loops
 ' -----------------------------------------------------------------------------------
-Private Sub EnforcePrefixForTextBox(ByRef txt As MSForms.TextBox, ByVal prefix As String)
+Private Sub EnforcePrefixForTextBox(ByRef txt As MSForms.TextBox, ByVal Prefix As String)
     If m_isUpdatingText Then Exit Sub
-    If Len(prefix) = 0 Then Exit Sub
+    If Len(Prefix) = 0 Then Exit Sub
     
-    If Not txt.text Like prefix & "*" Then
+    If Not txt.text Like Prefix & "*" Then
         m_isUpdatingText = True
         
         Dim userText As String
         Dim cursorPos As Long
         
         cursorPos = txt.SelStart
-        userText = Replace(txt.text, prefix, vbNullString)
+        userText = Replace(txt.text, Prefix, vbNullString)
         
-        txt.text = prefix & userText
+        txt.text = Prefix & userText
         
         ' Cursor nach Präfix positionieren
-        If cursorPos < Len(prefix) Then cursorPos = Len(prefix)
+        If cursorPos < Len(Prefix) Then cursorPos = Len(Prefix)
         txt.SelStart = cursorPos
         
         m_isUpdatingText = False

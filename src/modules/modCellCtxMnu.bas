@@ -6,12 +6,13 @@ Attribute VB_Name = "modCellCtxMnu"
 '          and whitelist-based re-showing of selected items.
 '
 ' Public API:
-'   - InitCellCtxMenu()
+'   - InitializeCellCtxMenu()
 '   - EnsureCellCtxMenuReady()
 '   - EvaluateCellCtxMenu(wks As Worksheet, Target As Range) As Integer
 '   - ResetToDefaultCtxMenu()
 '   - ShowCellCtxByCachedCaption(part As String)
 '   - ShowAllCachedCellCtx()
+'   - CleanupCellCtxMenu()
 '
 ' Dependencies:
 '   - Uses Application.CommandBars("Cell")
@@ -36,11 +37,12 @@ Option Private Module
 Public Enum CellCtxMnu
     CCM_Default      ' Default menu behavior
     CCM_Rooms        ' Context menu for cells that intersect Room ID/Alias cells
-    CCM_Puzzles = 2
-    CCM_Items = 3
-    CCM_Actors = 4
-    CCM_Flags = 5
-    CCM_Dependencies = 6
+    CCM_Puzzles = 2  ' Puzzle ID cell
+    CCM_Items = 3    ' Item ID/Name cell
+    CCM_Actors = 4   ' Actor ID/Name cell
+    CCM_Hotspot = 5  ' Hotspot ID/Name cell
+    CCM_Flags = 6    ' Flag ID cell
+    CCM_Dependencies = 7 ' Puzzle DependsOn and Requires cells
 End Enum
 
 ' ================================
@@ -56,7 +58,7 @@ Private m_ctxMenuWhitelist As Variant                    ' Whitelist of caption 
 ' Public API – Initialization & state
 ' ================================
 ' -----------------------------------------------------------------------------------
-' Procedure : InitCellCtxMenu
+' Procedure : InitializeCellCtxMenu
 ' Purpose   : Initializes the cell context menu handling, builds the cache of the
 '             current "Cell" CommandBar entries, hides built-in items, and re-shows
 '             a whitelisted subset by caption.
@@ -69,7 +71,7 @@ Private m_ctxMenuWhitelist As Variant                    ' Whitelist of caption 
 '   - Stores a control-count signature (m_controlCountSignature) to detect later changes.
 '   - Resets clsState.CellCtxMnuNeedsPrepare to False.
 ' -----------------------------------------------------------------------------------
-Public Sub InitCellCtxMenu()
+Public Sub InitializeCellCtxMenu()
     On Error GoTo ErrHandler
     
     Dim itemCaption As Variant
@@ -94,7 +96,7 @@ Public Sub InitCellCtxMenu()
 CleanExit:
     Exit Sub
 ErrHandler:
-    modErr.ReportError "InitCellCtxMenu", Err.Number, Erl, caption:=modMain.AppProjectName
+    modErr.ReportError "InitializeCellCtxMenu", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
 End Sub
 
@@ -174,6 +176,7 @@ End Sub
 ' Notes:
 '   - Uses On Error Resume Next around Named Range access.
 '   - Updates global clsState.CellCtxMenuType and returns it.
+'   - Order of checks matters: more specific checks should come first.
 ' -----------------------------------------------------------------------------------
 Public Function EvaluateCellCtxMenu(sheet As Worksheet, cell As Range) As Integer
     On Error GoTo ErrHandler
@@ -182,6 +185,9 @@ Public Function EvaluateCellCtxMenu(sheet As Worksheet, cell As Range) As Intege
     clsState.CellCtxMenuType = CCM_Default
     
     If modRooms.IsRoomSheet(sheet) Then
+    
+        ' === Check Room References (Doors To) ===
+        
         ' Check if cell intersects with NAME_RANGE_DOORS_TO_ROOM_ID
         On Error Resume Next
         Set namedRng = sheet.Names(NAME_RANGE_DOORS_TO_ROOM_ID).RefersToRange
@@ -201,6 +207,135 @@ Public Function EvaluateCellCtxMenu(sheet As Worksheet, cell As Range) As Intege
         If Not namedRng Is Nothing Then
             If Not Intersect(cell, namedRng) Is Nothing Then
                 clsState.CellCtxMenuType = CCM_Rooms
+                GoTo FoundMatch
+            End If
+        End If
+        Set namedRng = Nothing
+        
+        ' === Check Puzzle-related ranges ===
+        
+        ' Check Puzzle ID column
+        On Error Resume Next
+        Set namedRng = sheet.Names(NAME_RANGE_PUZZLES_PUZZLE_ID).RefersToRange
+        On Error GoTo ErrHandler
+        If Not namedRng Is Nothing Then
+            If Not Intersect(cell, namedRng) Is Nothing Then
+                clsState.CellCtxMenuType = CCM_Puzzles
+                GoTo FoundMatch
+            End If
+        End If
+        Set namedRng = Nothing
+        
+        ' Check Puzzle DependsOn column (Dependencies)
+        On Error Resume Next
+        Set namedRng = sheet.Names(NAME_RANGE_PUZZLES_DEPENDS_ON).RefersToRange
+        On Error GoTo ErrHandler
+        If Not namedRng Is Nothing Then
+            If Not Intersect(cell, namedRng) Is Nothing Then
+                clsState.CellCtxMenuType = CCM_Dependencies
+                GoTo FoundMatch
+            End If
+        End If
+        Set namedRng = Nothing
+        
+        ' Check Puzzle Requires column (Dependencies)
+        On Error Resume Next
+        Set namedRng = sheet.Names(NAME_RANGE_PUZZLES_REQUIRES).RefersToRange
+        On Error GoTo ErrHandler
+        If Not namedRng Is Nothing Then
+            If Not Intersect(cell, namedRng) Is Nothing Then
+                clsState.CellCtxMenuType = CCM_Dependencies
+                GoTo FoundMatch
+            End If
+        End If
+        Set namedRng = Nothing
+        
+        ' === Check Item References (PICKUPABLE_OBJECTS) ===
+        
+        'item ID
+        On Error Resume Next
+        Set namedRng = sheet.Names(NAME_RANGE_PICKUPABLE_OBJECTS_ITEM_ID).RefersToRange
+        On Error GoTo ErrHandler
+        If Not namedRng Is Nothing Then
+            If Not Intersect(cell, namedRng) Is Nothing Then
+                clsState.CellCtxMenuType = CCM_Items
+                GoTo FoundMatch
+            End If
+        End If
+        Set namedRng = Nothing
+        
+        'Item Name
+        On Error Resume Next
+        Set namedRng = sheet.Names(NAME_RANGE_PICKUPABLE_OBJECTS_NAME).RefersToRange
+        On Error GoTo ErrHandler
+        If Not namedRng Is Nothing Then
+            If Not Intersect(cell, namedRng) Is Nothing Then
+                clsState.CellCtxMenuType = CCM_Items
+                GoTo FoundMatch
+            End If
+        End If
+        Set namedRng = Nothing
+        
+        ' === Check Actor References ===
+        
+        'Actor ID
+        On Error Resume Next
+        Set namedRng = sheet.Names(NAME_RANGE_ACTORS_ACTOR_ID).RefersToRange
+        On Error GoTo ErrHandler
+        If Not namedRng Is Nothing Then
+            If Not Intersect(cell, namedRng) Is Nothing Then
+                clsState.CellCtxMenuType = CCM_Actors
+                GoTo FoundMatch
+            End If
+        End If
+        Set namedRng = Nothing
+        
+        'Actor Name
+        On Error Resume Next
+        Set namedRng = sheet.Names(NAME_RANGE_ACTORS_ACTOR_NAME).RefersToRange
+        On Error GoTo ErrHandler
+        If Not namedRng Is Nothing Then
+            If Not Intersect(cell, namedRng) Is Nothing Then
+                clsState.CellCtxMenuType = CCM_Actors
+                GoTo FoundMatch
+            End If
+        End If
+        Set namedRng = Nothing
+        
+        ' === Check Hotspot References ===
+        
+        'Hotspot ID
+        On Error Resume Next
+        Set namedRng = sheet.Names(NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID).RefersToRange
+        On Error GoTo ErrHandler
+        If Not namedRng Is Nothing Then
+            If Not Intersect(cell, namedRng) Is Nothing Then
+                clsState.CellCtxMenuType = CCM_Hotspot
+                GoTo FoundMatch
+            End If
+        End If
+        Set namedRng = Nothing
+        
+        'Hotspot Name
+        On Error Resume Next
+        Set namedRng = sheet.Names(NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_NAME).RefersToRange
+        On Error GoTo ErrHandler
+        If Not namedRng Is Nothing Then
+            If Not Intersect(cell, namedRng) Is Nothing Then
+                clsState.CellCtxMenuType = CCM_Hotspot
+                GoTo FoundMatch
+            End If
+        End If
+        Set namedRng = Nothing
+        
+        ' === Check Flag ID ===
+        
+        On Error Resume Next
+        Set namedRng = sheet.Names(NAME_RANGE_FLAGS_FLAG_ID).RefersToRange
+        On Error GoTo ErrHandler
+        If Not namedRng Is Nothing Then
+            If Not Intersect(cell, namedRng) Is Nothing Then
+                clsState.CellCtxMenuType = CCM_Flags
                 GoTo FoundMatch
             End If
         End If
@@ -445,5 +580,59 @@ Private Sub ShowCellCtxByCaption(ByVal part As String)
     For Each CmdBarCtrl In Application.CommandBars("Cell").Controls
         If InStr(1, CmdBarCtrl.caption, part, vbTextCompare) > 0 Then CmdBarCtrl.Visible = True
     Next CmdBarCtrl
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : CleanupCellCtxMenu
+' Purpose   : Cleans up module state, releases object references, and restores the
+'             default "Cell" context menu.
+'
+' Params    : (none)
+' Returns   : (none)
+'
+' Behavior  :
+'   - Resets the "Cell" CommandBar to default Excel state.
+'   - Releases all cached CommandBarControl object references.
+'   - Clears all module-level arrays and flags.
+'   - Resets related clsState flags to default values.
+'
+' Notes:
+'   - Should be called during add-in shutdown or before re-initialization.
+'   - Uses On Error Resume Next to ensure cleanup completes even if errors occur.
+' -----------------------------------------------------------------------------------
+Public Sub CleanupCellCtxMenu()
+    On Error Resume Next
+    
+    Dim idx As Long
+    
+    ' Release all cached CommandBarControl object references
+    If (Not Not m_cellCtxControls) <> 0 Then
+        For idx = LBound(m_cellCtxControls) To UBound(m_cellCtxControls)
+            Set m_cellCtxControls(idx) = Nothing
+        Next idx
+    End If
+    
+    ' Clear arrays
+    Erase m_cellCtxControls
+    Erase m_cellCtxCaptions
+    m_ctxMenuWhitelist = Empty
+    
+    ' Reset module-level state variables
+    m_isCtxCacheInitialized = False
+    m_controlCountSignature = 0
+    
+    ' Reset the "Cell" CommandBar to Excel default
+    Application.CommandBars("Cell").Reset
+    
+    ' Reset global state flags in clsState
+    clsState.CellCtxMenuType = CCM_Default
+    clsState.CellCtxMnuNeedsPrepare = False
+    clsState.CellCtxMnuHideDefault = False
+    
+    ' Clear dynamic button states
+    clsState.InvalidateControl RIBBON_CTX_MNU_BTN_1
+    clsState.InvalidateControl RIBBON_CTX_MNU_BTN_2
+    
+    On Error GoTo 0
 End Sub
 
