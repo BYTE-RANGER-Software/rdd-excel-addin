@@ -10,6 +10,7 @@ Attribute VB_Name = "modMain"
 '   === Configuration ===
 '   - AppProjectName              : Returns the VBA project name
 '   - AppTempPath                 : Gets/sets temp/log path
+'   - AppDataPath                 : Gets/sets data/log path
 '   - AppVersion                  : Returns add-in version
 '
 '   === Lifecycle (Add-In) ===
@@ -54,9 +55,11 @@ Attribute VB_Name = "modMain"
 '   - FindActorUsage              : Searches for Actor ID usages across rooms
 '   - FindHotspotUsage            : Searches for Actor ID usages across rooms
 '   - FindFlagUsage               : Searches for Flag ID usages across rooms
-'   - GotoPuzzleInChart      : Navigate from Puzzle cell to Chart node
-'   - ShowPuzzleDependencies : Show dependencies of selected puzzle
-'   - GotoReferencedItem     : Navigate to referenced item from Dependencies column
+'   - GotoPuzzleInChart           : Navigate from Puzzle cell to Chart node
+'   - ShowPuzzleDependencies      : Show dependencies of selected puzzle
+'   - GotoReferencedItem          : Navigate to referenced item from Dependencies column
+'   - SyncAllLists                : Synchronizes all list-based metadata
+'   - ValidateRoomData            : Validates all room sheets and updates state
 '
 ' Dependencies:
 '   - clsAppEvents    : Event sink (delegates to this module)
@@ -103,6 +106,7 @@ End Enum
 ' Module-level private state and WithEvents references used across procedures.
 
 Private m_appTempPath As String
+Private m_appDataPath As String
 Private m_appProjectName As String
 
 Private m_appEvents As clsAppEvents ' keeps WithEvents sink alive
@@ -125,7 +129,7 @@ End Property
 
 ' -----------------------------------------------------------------------------------
 ' Property  : AppTempPath (Get/Let)
-' Purpose   : Gets/Sets the path used for temp/log files.
+' Purpose   : Gets/Sets the path used for temp files.
 ' Parameters: (none)
 ' Returns   : String (Get)
 ' Notes     : Ensure trailing "\" when setting.
@@ -145,6 +149,31 @@ Public Property Let AppTempPath(ByVal value As String)
         End If
     End If
     m_appTempPath = value
+
+End Property
+
+' -----------------------------------------------------------------------------------
+' Property  : AppDataPath (Get/Let)
+' Purpose   : Gets/Sets the path used for data/log files.
+' Parameters: (none)
+' Returns   : String (Get)
+' Notes     : Ensure trailing "\" when setting.
+' -----------------------------------------------------------------------------------
+Public Property Get AppdataPath() As String
+
+    AppdataPath = m_appDataPath
+
+End Property
+
+Public Property Let AppdataPath(ByVal value As String)
+
+    ' Ensure trailing backslash
+    If Len(value) > 0 Then
+        If Right$(value, 1) <> "\" Then
+            value = value & "\"
+        End If
+    End If
+    m_appDataPath = value
 
 End Property
 
@@ -188,17 +217,23 @@ End Sub
 Public Sub HandleAddInWorkbookOpen()
     On Error GoTo ErrHandler
             
-    ' Ensure temp path exists before logging
+    '
+    SetAppProjectName
+    
+    ' Ensure AppData path exists before logging
+    m_appDataPath = modUtil.GetAppDataFolder & "\BYTE RANGER"
+    If Dir(m_appDataPath, vbDirectory) = "" Then MkDir m_appDataPath
+    m_appDataPath = m_appDataPath & "\" & AppProjectName & "\"
+    If Dir(m_appDataPath, vbDirectory) = "" Then MkDir m_appDataPath
+    
+    ' ensure Temp path exists
     m_appTempPath = modUtil.GetTempFolder & "\BYTE RANGER"
     If Dir(m_appTempPath, vbDirectory) = "" Then MkDir m_appTempPath
     m_appTempPath = m_appTempPath & "\" & AppProjectName & "\"
     If Dir(m_appTempPath, vbDirectory) = "" Then MkDir m_appTempPath
-        
-    '
-    SetAppProjectName
-    
+            
     ' Error Logger
-    modErr.InitLogger m_appTempPath, AppProjectName, (AppProjectName & " " & AppVersion)
+    modErr.InitLogger m_appDataPath, AppProjectName, (AppProjectName & " " & AppVersion)
     
     'init frmWait
     frmWait.Initialize
@@ -357,7 +392,7 @@ Public Sub HandleSheetActivate(ByVal activatedSheet As Worksheet)
     Exit Sub
     
 ErrHandler:
-    modErr.ReportError "HandleSheetActivate", Err.Number, Erl, caption:=modMain.AppProjectName
+    modErr.ReportError "modMain.HandleSheetActivate", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -437,7 +472,7 @@ Public Sub HandleSheetChange(ByVal changedSheet As Worksheet, ByVal targetRng As
     Exit Sub
     
 ErrHandler:
-    modErr.ReportError "HandleSheetActivate", Err.Number, Erl, caption:=modMain.AppProjectName
+    modErr.ReportError "modMain.HandleSheetChange", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -473,7 +508,7 @@ Public Sub HandleSheetBeforeRightClick(ByVal clickedOnSheet As Worksheet, ByVal 
 CleanExit:
     Exit Sub
 ErrHandler:
-    modCellCtxMnu.ResetToDefaultCtxMenu  ' Fallback auf Standard
+    modCellCtxMnu.ResetToDefaultCtxMenu  ' Fallback to default context menu
     modErr.ReportError "HandleSheetBeforeRightClick", Err.Number, Erl, _
         caption:=modMain.AppProjectName
 End Sub
@@ -608,7 +643,7 @@ Public Sub ShowOptions()
     Dim currentWorkbook As Workbook
     Dim hasRDDWorkbook As Boolean
     Dim dataDict As Scripting.Dictionary
-    Dim lo As ListObject
+    Dim dataTable As ListObject
     
     ' Check whether an RDD workbook is active
     Set currentWorkbook = ActiveWorkbook
@@ -626,13 +661,13 @@ Public Sub ShowOptions()
         Set dataDict = New Scripting.Dictionary
     
         ' get ListObject
-        Set lo = currentWorkbook.Worksheets(modConst.SHEET_DISPATCHER).ListObjects(modConst.NAME_DATA_TABLE)
-        If Not lo Is Nothing Then
+        Set dataTable = currentWorkbook.Worksheets(SHEET_DISPATCHER).ListObjects(NAME_DATA_TABLE)
+        If Not dataTable Is Nothing Then
    
             ' Extract columns in arrays
-            dataDict(modConst.LISTS_HEADER_PERSPECTIVE) = modLists.CollectTableColumnValuesToArray(lo, modConst.LISTS_HEADER_PERSPECTIVE, True)
-            dataDict(modConst.LISTS_HEADER_PARALLAX) = modLists.CollectTableColumnValuesToArray(lo, modConst.LISTS_HEADER_PARALLAX, True)
-            dataDict(modConst.LISTS_HEADER_SCENE_MODE) = modLists.CollectTableColumnValuesToArray(lo, modConst.LISTS_HEADER_SCENE_MODE, True)
+            dataDict(LISTS_HEADER_PERSPECTIVE) = modLists.CollectTableColumnValuesToArray(dataTable, LISTS_HEADER_PERSPECTIVE, True)
+            dataDict(LISTS_HEADER_PARALLAX) = modLists.CollectTableColumnValuesToArray(dataTable, LISTS_HEADER_PARALLAX, True)
+            dataDict(LISTS_HEADER_SCENE_MODE) = modLists.CollectTableColumnValuesToArray(dataTable, LISTS_HEADER_SCENE_MODE, True)
 
         End If
     End If
@@ -647,10 +682,10 @@ Public Sub ShowOptions()
             ' Apply changes
             modOptions.SetAllOptions .ResultOptions
             
-            ' Speichere General Options (Registry)
+            ' Save general options to registry
             modOptions.SaveGeneralOptions
             
-            ' Speichere Workbook Options (Document Properties)
+            ' Save workbook options to document properties
             If hasRDDWorkbook Then
                 modOptions.SaveWorkbookOptions currentWorkbook
             End If
@@ -740,7 +775,7 @@ Public Function AddNewRoom(Optional ByVal shouldGoToNewRoom As Boolean = True) A
         .Label2Text = "Room Name"
         .Text2Locked = False
         .Text2NumericOnly = False
-        .Text2Value = modConst.ROOM_SHEET_DEFAULT_PREFIX & " " & CStr(roomIndex)
+        .Text2Value = ROOM_SHEET_DEFAULT_PREFIX & " " & CStr(roomIndex)
         .Text2Tip = "Descriptive alias for the room, e.g., Temple Entrance"
         .Text2RequiresValue = True
                 
@@ -1678,10 +1713,10 @@ Public Sub ShowPuzzleDependencies()
     
     ' Get the named ranges
     On Error Resume Next
-    Set puzzleIDRange = currentSheet.Range(modConst.NAME_RANGE_PUZZLES_PUZZLE_ID)
-    Set requiresRange = currentSheet.Range(modConst.NAME_RANGE_PUZZLES_REQUIRES)
-    Set dependsOnRange = currentSheet.Range(modConst.NAME_RANGE_PUZZLES_DEPENDS_ON)
-    Set grantsRange = currentSheet.Range(modConst.NAME_RANGE_PUZZLES_GRANTS)
+    Set puzzleIDRange = currentSheet.Range(NAME_RANGE_PUZZLES_PUZZLE_ID)
+    Set requiresRange = currentSheet.Range(NAME_RANGE_PUZZLES_REQUIRES)
+    Set dependsOnRange = currentSheet.Range(NAME_RANGE_PUZZLES_DEPENDS_ON)
+    Set grantsRange = currentSheet.Range(NAME_RANGE_PUZZLES_GRANTS)
     On Error GoTo ErrHandler
     
     If puzzleIDRange Is Nothing Then
@@ -1985,7 +2020,7 @@ Public Sub EditRoomIdentity()
         .Text1RequiresValue = False
         
         .Label2Text = "New Room ID:"
-        .Text2Prefix = modConst.ROOM_SHEET_ID_PREFIX
+        .Text2Prefix = ROOM_SHEET_ID_PREFIX
         .Text2Locked = False
         .Text2Value = currentRoomID
         .Text2RequiresValue = True
@@ -2007,7 +2042,7 @@ Public Sub EditRoomIdentity()
         .Text5RequiresValue = False
         
         .Label6Text = "New Room Alias:"
-        .Text6Prefix = modConst.ROOM_SHEET_ALIAS_PREFIX
+        .Text6Prefix = ROOM_SHEET_ALIAS_PREFIX
         .Text6Locked = False
         .Text6Value = currentRoomAlias
         .Text6RequiresValue = True
@@ -2108,7 +2143,6 @@ ErrHandler:
     modUtil.HideOpMode False
     frmWait.Hide
     modErr.ReportError "modMain.EditRoomIdentity", Err.Number, Erl, caption:=AppProjectName
-    Resume CleanExit
 End Sub
 
 Public Sub SyncAllLists()
@@ -2139,7 +2173,6 @@ ErrHandler:
     modUtil.HideOpMode False
     frmWait.Hide
     MsgBox "Error synchronizing lists: " & Err.Description, vbCritical, modMain.AppProjectName
-    Resume CleanExit
 End Sub
  
 Public Sub ValidateRoomData()

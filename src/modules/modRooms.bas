@@ -4,28 +4,33 @@ Attribute VB_Name = "modRooms"
 ' Purpose   : Create, initialize and manage "Room" worksheets; aggregate list data.
 '
 ' Public API:
-'   - ProtectAllRoomSheets    :
-'   - AddRoom                 : Create a new room sheet from template and initialize it.
-'   - IsRoomSheet             : Check whether a sheet is a room sheet (by tag).
-'   - RemoveRoom              : Delete a room sheet after reference checks.
-'   - GetNextRoomIndex        : Compute next numeric room index.
-'   - HasRoomID               : Determine whether a room with specific ID exists.
-'   - UpdateRoomdataLists
-'   - UpdateScenesLists
-'   - UpdateItemsLists
-'   - UpdateStateObjectsLists
-'   - UpdateHotspotsLists
-'   - UpdateGeneralSettingsLists
-'   - UpdateActorsLists
-'   - UpdateSoundsLists
-'   - UpdateSpecialFXLists
-'   - UpdateFlagsLists
-'   - UpdateAllLists
-'   - SyncLists               : Rebuild Lists columns (clear + write).
-'   - GetFormattedRoomID      : Build a formatted room ID from an index.
-'   - ApplyParallaxRangeCover : Ensure/show/hide the parallax cover according to a dropdown.
+'   - ProtectAllRoomSheets        : Protect all room sheets with UserInterfaceOnly protection.
+'   - AddRoom                     : Create a new room sheet from template and initialize it.
+'   - IsRoomSheet                 : Check whether a sheet is a room sheet (by tag).
+'   - RemoveRoom                  : Delete a room sheet after reference checks.
+'   - UpdateRoomReferences        : Update references pointing to a changed room ID/alias.
+'   - GetNextRoomIndex            : Compute next numeric room index.
+'   - HasRoomID                   : Determine whether a room with specific ID exists.
+'   - HasRoomAlias                : Determine whether a room with specific alias exists.
+'   - HasRoomNo                   : Determine whether a room with specific AGS number exists.
+'   - SynchronizeAllLists         : Refresh all list data in the dispatcher table.
+'   - UpdateRoomsMetadataLists    : Update room metadata lists (Room ID, Room No, Room Alias).
+'   - UpdateScenesMetadataLists   : Update scene ID lists.
+'   - UpdateGeneralSettingsLists  : Update lists for global dimension settings.
+'   - UpdateActorsLists           : Update actor ID/name lists.
+'   - UpdateSoundsLists           : Update sound ID/description lists.
+'   - UpdateSpecialFXLists        : Update animation/SFX lists.
+'   - UpdateFlagsLists            : Update flag ID/description/type lists.
+'   - UpdateItemsLists            : Update pickupable item ID/name lists.
+'   - UpdateStateObjectsLists     : Update multi-state object ID/name/state lists.
+'   - UpdateHotspotsLists         : Update hotspot ID/name lists.
+'   - ValidateRooms               : Validate all rooms and write a validation report.
+'   - GetFormattedRoomID          : Build a formatted room ID from an index.
+'   - IsValidAGSRoomNo            : Validate a given AGS room number.
+'   - ApplyParallaxRangeCover     : Ensure/show/hide the parallax cover according to a dropdown.
 '
-' Dependencies: modProps, modUtil, modTags, modRanges, modSheets, modLists, modRangeCover, modConst
+' Dependencies: modProps, modUtil, modTags, modRanges, modSheets, modLists,
+'               modRangeCover, modConst, modOptions, modErr, modMain
 ' Notes     :
 '   - Public API section exposes operations used by UI/other modules.
 '   - Private Helpers contain internal utilities for this module only.
@@ -33,9 +38,10 @@ Attribute VB_Name = "modRooms"
 Option Explicit
 Option Private Module
 
+' Defines how list updates are applied (full sync vs. append-only).
 Public Enum ListUpdateMode
-    LUM_Append = 0 ' only Add new Datas
-    LUM_Sync = 1   ' Rewrite all Datas new
+    LUM_Append = 0 ' only Add new data
+    LUM_Sync = 1   ' Rewrite all data (full sync)
 End Enum
 
 ' ===== Public API ==================================================================
@@ -48,12 +54,12 @@ End Enum
 ' Parameters:
 '   targetBook   [Workbook] - Optional; target workbook (default: ActiveWorkbook)
 '
-' Returns   : (none)
+' Returns   : [Long] - Number of protected room sheets.
 '
 ' Notes     :
-'   - Must be called on Workbook_Open as UserInterfaceOnly is session-specific.
+'   - Must be called before first use of room sheets, as UserInterfaceOnly is session-specific.
 '   - Unprotects first to ensure clean state, then applies UserInterfaceOnly protection.
-'   - Only affects sheets identified by modRooms.IsRoomSheet().
+'   - Only affects sheets identified as room sheet.
 ' -----------------------------------------------------------------------------------
 Public Function ProtectAllRoomSheets(Optional targetBook As Workbook = Nothing) As Long
     On Error GoTo ErrHandler
@@ -117,9 +123,9 @@ Public Function AddRoom(targetBook As Workbook, _
     
     modUtil.HideOpMode True
             
-    If Not modSheets.SheetCodeNameExists(modConst.SHEET_DISPATCHER, targetBook) And Not modTags.SheetWithTagExists(targetBook, SHEET_DISPATCHER) Then
+    If Not modSheets.SheetCodeNameExists(SHEET_DISPATCHER, targetBook) And Not modTags.SheetWithTagExists(targetBook, SHEET_DISPATCHER) Then
     
-        Set tmplSheet = RDDAddInWkBk.Worksheets(modConst.SHEET_DISPATCHER)
+        Set tmplSheet = RDDAddInWkBk.Worksheets(SHEET_DISPATCHER)
         tmplSheet.Visible = xlSheetVisible
         
         tmplSheet.Copy After:=targetBook.Sheets(targetBook.Sheets.count)
@@ -134,7 +140,7 @@ Public Function AddRoom(targetBook As Workbook, _
         Set newRoomSheet = Nothing
     End If
             
-    Set tmplSheet = RDDAddInWkBk.Worksheets(modConst.SHEET_ROOM_TEMPLATE)
+    Set tmplSheet = RDDAddInWkBk.Worksheets(SHEET_ROOM_TEMPLATE)
     tmplSheet.Visible = xlSheetVisible
     
     tmplSheet.Copy After:=targetBook.Sheets(targetBook.Sheets.count)
@@ -160,8 +166,8 @@ CleanExit:
     Exit Function
     
 ErrHandler:
+    modUtil.HideOpMode False
     modErr.ReportError "modRooms.AddRoom", Err.Number, Erl, caption:=modMain.AppProjectName
-    Resume CleanExit
 End Function
 
 ' -----------------------------------------------------------------------------------
@@ -191,7 +197,7 @@ End Function
 '   updateAggregations  [Boolean]     - If True, UpdateLists is called after deletion.
 '   returnRefSheets     [Collection]  - (Optional, ByRef) receives referencing sheet names.
 '
-' Returns   : Boolean - True on success; False is not used (errors are raised/logged).
+' Returns   : [Boolean] - True on success; False is not used (errors are raised/logged).
 '
 ' Notes     :
 '   - Checks references via GetAllSheetNamesUsingRoomID.
@@ -240,14 +246,23 @@ CleanExit:
     Exit Function
     
 ErrHandler:
-    modErr.ReportError "RemoveRoom", Err.Number, Erl, caption:=modMain.AppProjectName
-    Resume CleanExit
+    modUtil.HideOpMode False
+    modErr.ReportError "modRooms.RemoveRoom", Err.Number, Erl, caption:=modMain.AppProjectName
 End Function
 
 
 ' -----------------------------------------------------------------------------------
-' Procedure : UpdateRoomReferences
+' Function  : UpdateRoomReferences
 ' Purpose   : Updates all references to a room ID and alias throughout the workbook.
+'
+' Parameters:
+'   targetBook   [Workbook] - Target workbook.
+'   oldRoomID    [String]   - Previous room ID value.
+'   oldRoomAlias [String]   - Previous room alias value.
+'   newRoomID    [String]   - New room ID value.
+'   newRoomAlias [String]   - New room alias value.
+'
+' Returns   : [Long] - Number of updated references.
 ' -----------------------------------------------------------------------------------
 Public Function UpdateRoomReferences(ByVal targetBook As Workbook, _
     ByVal oldRoomID As String, _
@@ -315,7 +330,7 @@ End Function
 ' Parameters:
 '   targetBook      [Workbook] - Workbook to scan
 '
-' Returns   : Long - Next available Room index.
+' Returns   : [Long] - Next available Room index.
 '
 ' Notes     :
 '   - Detects Room sheets via ROOM_SHEET_ID_TAG_NAME and parses the ID.
@@ -342,7 +357,7 @@ CleanExit:
     Exit Function
 
 ErrHandler:
-    modErr.ReportError "GetNextRoomIndex", Err.Number, Erl, caption:=modMain.AppProjectName
+    modErr.ReportError "modRooms.GetNextRoomIndex", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
 End Function
 
@@ -355,7 +370,7 @@ End Function
 '   roomId           [String]                - Room ID to search for (e.g., "R001").
 '   returnSheet      [Worksheet]             - (Optional ByRef) Receives the first matching sheet if found.
 '
-' Returns   : Boolean - True if found; otherwise False.
+' Returns   : [Boolean] - True if found; otherwise False.
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
@@ -384,7 +399,7 @@ CleanExit:
     Exit Function
 
 ErrHandler:
-    modErr.ReportError "HasRoomID", Err.Number, Erl, caption:=modMain.AppProjectName
+    modErr.ReportError "modRooms.HasRoomID", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
 End Function
 
@@ -397,7 +412,7 @@ End Function
 '   roomAlis         [String]                - Room Alias to search for (e.g., "r_TempleEntrance").
 '   returnSheet      [Worksheet]             - (Optional ByRef) Receives the first matching sheet if found.
 '
-' Returns   : Boolean - True if found; otherwise False.
+' Returns   : [Boolean] - True if found; otherwise False.
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
@@ -414,7 +429,7 @@ Public Function HasRoomAlias(ByVal targetBook As Workbook, ByVal roomAlias As St
     For Each sheet In targetBook.Worksheets
         If modTags.HasSheetTag(sheet, ROOM_SHEET_ID_TAG_NAME) Then
             On Error Resume Next
-            Set cell = sheet.Range(modConst.NAME_CELL_ROOM_ALIAS)
+            Set cell = sheet.Range(NAME_CELL_ROOM_ALIAS)
             On Error GoTo ErrHandler
             
             If Not cell Is Nothing Then
@@ -432,7 +447,7 @@ CleanExit:
     Exit Function
 
 ErrHandler:
-    modErr.ReportError "HasRoomAlias", Err.Number, Erl, caption:=modMain.AppProjectName
+    modErr.ReportError "modRooms.HasRoomAlias", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
 End Function
 
@@ -445,7 +460,7 @@ End Function
 '   roomNo           [Long]                  - Room No to search for (e.g., 100).
 '   returnSheet      [Worksheet]             - (Optional ByRef) Receives the first matching sheet if found.
 '
-' Returns   : Boolean - True if found; otherwise False.
+' Returns   : [Boolean] - True if found; otherwise False.
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
@@ -463,7 +478,7 @@ Public Function HasRoomNo(ByVal targetBook As Workbook, ByVal roomNo As Long, Op
     For Each sheet In targetBook.Worksheets
         If modTags.HasSheetTag(sheet, ROOM_SHEET_ID_TAG_NAME) Then
             On Error Resume Next
-            Set cell = sheet.Range(modConst.NAME_CELL_ROOM_NO)
+            Set cell = sheet.Range(NAME_CELL_ROOM_NO)
             On Error GoTo ErrHandler
             
             If Not cell Is Nothing Then
@@ -484,7 +499,7 @@ CleanExit:
     Exit Function
 
 ErrHandler:
-    modErr.ReportError "HasRoomNo", Err.Number, Erl, caption:=modMain.AppProjectName
+    modErr.ReportError "modRooms.HasRoomNo", Err.Number, Erl, caption:=modMain.AppProjectName
     Resume CleanExit
 End Function
 
@@ -494,6 +509,8 @@ End Function
 '
 ' Parameters:
 '   targetBook  [Workbook]        - Target Workbook
+'
+' Returns   : (none)
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
@@ -521,8 +538,7 @@ CleanExit:
     
 ErrHandler:
     modUtil.HideOpMode False
-    modErr.ReportError "ProcessListsUpdate", Err.Number, Erl, caption:=modMain.AppProjectName
-    Resume CleanExit
+    modErr.ReportError "modRooms.ProcessListsUpdate", Err.Number, Erl, caption:=modMain.AppProjectName
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -532,7 +548,7 @@ End Sub
 ' Parameters:
 '   targetBook    [Workbook]          - Target workbook
 '   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
-'   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
+'   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new data
 '
 ' Returns   : (none)
 '
@@ -606,6 +622,8 @@ End Sub
 '   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
 '   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
 '
+' Returns   : (none)
+'
 ' Notes     :
 ' -----------------------------------------------------------------------------------
 Public Sub UpdateScenesMetadataLists(ByVal targetBook As Workbook, _
@@ -660,6 +678,8 @@ End Sub
 '   targetBook    [Workbook]          - Target workbook
 '   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
 '   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
+'
+' Returns   : (none)
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
@@ -738,6 +758,8 @@ End Sub
 '   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
 '   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
 '
+' Returns   : (none)
+'
 ' Notes     :
 ' -----------------------------------------------------------------------------------
 Public Sub UpdateActorsLists(ByVal targetBook As Workbook, _
@@ -797,6 +819,8 @@ End Sub
 '   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
 '   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
 '
+' Returns   : (none)
+'
 ' Notes     :
 ' -----------------------------------------------------------------------------------
 Public Sub UpdateSoundsLists(ByVal targetBook As Workbook, _
@@ -855,6 +879,8 @@ End Sub
 '   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
 '   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
 '
+' Returns   : (none)
+'
 ' Notes     :
 ' -----------------------------------------------------------------------------------
 Public Sub UpdateSpecialFXLists(ByVal targetBook As Workbook, _
@@ -912,6 +938,8 @@ End Sub
 '   targetBook    [Workbook]          - Target workbook
 '   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
 '   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
+'
+' Returns   : (none)
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
@@ -981,6 +1009,8 @@ End Sub
 '   targetBook    [Workbook]          - Target workbook
 '   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
 '   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
+'
+' Returns   : (none)
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
@@ -1097,9 +1127,9 @@ End Sub
 ' Purpose   : Updates Touchable Objects (Hotspot ID + Name) lists.
 '
 ' Parameters:
-'   targetBook    [Workbook]          - Target workbook
+'   targetBook     [Workbook]          - Target workbook
 '   dataSrcSheet   [Worksheet]         - (Optional) If Sheet is provided, only this sheet is processed
-'   mode          [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
+'   mode           [ListUpdateMode]    - LUM_Sync = synchronise all Lists (rewrite) or LUM_Append = appen only new Data
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
@@ -1219,7 +1249,6 @@ CleanExit:
 ErrHandler:
     modUtil.HideOpMode False
     modErr.ReportError "ValidateRooms", Err.Number, Erl, caption:=modMain.AppProjectName
-    Resume CleanExit
 End Function
 
 
@@ -1230,7 +1259,7 @@ End Function
 ' Parameters:
 '   roomIdx [Long] - Numeric index.
 '
-' Returns   : String - e.g., R001 (depends on ROOM_SHEET_ID_PREFIX).
+' Returns   : [String] - e.g., R001 (depends on ROOM_SHEET_ID_PREFIX).
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
@@ -1242,9 +1271,9 @@ End Function
 ' Function  : IsValidAGSRoomNo
 ' Purpose   : Validates whether a given number is a valid AGS room number
 '
-' Parameters: roomNo - The room number to validate
+' Parameters: roomNo [Long] - The room number to validate
 '
-' Returns   : Boolean - True if valid AGS room number, False otherwise
+' Returns   : [Boolean] - True if valid AGS room number, False otherwise
 '
 ' Notes     : AGS room numbers must be in the range 0-999
 '             Adventure Game Studio supports room numbers from 0 to 999
@@ -1282,6 +1311,7 @@ End Sub
 '   roomIdx           [Long]       - Numeric index used to format the Room ID
 '                                    (e.g., 1 => "R001")
 '   roomNo            [Long]       - AGS room number (0-999)
+'   sceneID           [String]     - Scene identifier for the room.
 '
 ' Returns   : (none)
 '
@@ -1300,17 +1330,17 @@ Private Sub SetupRoom(targetSheet As Worksheet, roomName As String, roomIdx As L
     Dim nm As name
     
     ' Set Scene ID in Named Range:
-    targetSheet.Range(modConst.NAME_CELL_SCENE_ID).value = sceneID
+    targetSheet.Range(NAME_CELL_SCENE_ID).value = sceneID
     
     ' Set RoomID named cell (e.g., "R001")
-    targetSheet.Range(modConst.NAME_CELL_ROOM_ID).value = GetFormattedRoomID(roomIdx)
+    targetSheet.Range(NAME_CELL_ROOM_ID).value = GetFormattedRoomID(roomIdx)
     
     ' Set RoomAlias named cell (e.g., "r_TempleEntrance")
-    targetSheet.Range(modConst.NAME_CELL_ROOM_ALIAS).value = _
-        modConst.ROOM_SHEET_ALIAS_PREFIX & GetCleanRoomAlias(roomName)
+    targetSheet.Range(NAME_CELL_ROOM_ALIAS).value = _
+        ROOM_SHEET_ALIAS_PREFIX & GetCleanRoomAlias(roomName)
     
     ' Set RoomNo named cell (e.g., 42)
-    targetSheet.Range(modConst.NAME_CELL_ROOM_NO).value = roomNo
+    targetSheet.Range(NAME_CELL_ROOM_NO).value = roomNo
     
     If modOptions.Opt_DefaultGameHeight > 0 Then
         targetSheet.Range(NAME_CELL_GAME_HEIGHT).value = modOptions.Opt_DefaultGameHeight
@@ -1352,9 +1382,9 @@ Private Sub SetupRoom(targetSheet As Worksheet, roomName As String, roomIdx As L
     Next nm
     
     ' Wire the "Insert Room Picture" button to the correct macro
-    Set dispatcherSheet = modSheets.GetSheetByCodeName(modConst.SHEET_DISPATCHER)
-    Set insertBtnShape = targetSheet.Shapes(modConst.BTN_INSERT_ROOM_PICTURE)
-    insertBtnShape.OnAction = modConst.MACRO_BTN_INSERT_PICTURE
+    Set dispatcherSheet = modSheets.GetSheetByCodeName(SHEET_DISPATCHER)
+    Set insertBtnShape = targetSheet.Shapes(BTN_INSERT_ROOM_PICTURE)
+    insertBtnShape.OnAction = MACRO_BTN_INSERT_PICTURE
          
 CleanExit:
     Exit Sub
@@ -1390,7 +1420,7 @@ Private Sub ApplyListValidation(ByVal Target As Range, ByVal nameRef As String, 
 End Sub
 
 ' -----------------------------------------------------------------------------------
-' Function  : GetAllsSheetsUsingRoomID
+' Function  : GetAllsSheetNamesUsingRoomID
 ' Purpose   : Find all Room sheets (from a provided dictionary) that reference the
 '             given room id either inside the "DOORS TO..." framed range or in the
 '             "RoomID" column of the "PUZZLES" area.
@@ -1398,11 +1428,12 @@ End Sub
 ' Parameters:
 '   roomId           [String]  - Room sheet id to search for.
 '   targetBook       [Object]  - target Workbook.
-'   sheetToExclude        [Worksheet]- (Optional) Sheet to exclude from results.
+'   sheetToExclude   [Worksheet]- (Optional) Sheet to exclude from results.
 '
-' Returns   : Collection - Sheet names that reference roomId.
+' Returns   : [Collection] - Sheet names that reference roomId.
 '
 ' Notes     :
+'   - Only room sheets are inspected.
 ' -----------------------------------------------------------------------------------
 Private Function GetAllSheetNamesUsingRoomID(ByVal roomID As String, _
     ByVal targetBook As Workbook, _
@@ -1445,7 +1476,7 @@ End Function
 ' Parameters:
 '   sourceName [String] - Source name to normalize.
 '
-' Returns   : String - Cleaned alias string.
+' Returns   : [String] - Cleaned alias string.
 ' -----------------------------------------------------------------------------------
 Private Function GetCleanRoomAlias(ByVal sourceName As String) As String
     Dim removeCharArray() As Variant
@@ -1467,10 +1498,11 @@ End Function
 ' Purpose   : Helper function for determining the list sheet and the DataTable.
 '
 ' Parameters:
-'   listSheet           [Worksheet]            - Returned List Sheet
-'   dataList            [ListObject]           - Returned Data Table
+'   targetBook [Workbook]  - Workbook that should contain the dispatcher/list sheet.
+'   listsSheet [Worksheet] - Returned list sheet.
+'   dataList   [ListObject]- Returned data table.
 '
-' Returns   : Boolean - True if successful, False if an error occurs
+' Returns   : [Boolean] - True if successful, False if an error occurs
 ' -----------------------------------------------------------------------------------
 Private Function GetListsSheetAndTable(ByVal targetBook As Workbook, _
     ByRef listsSheet As Worksheet, _
@@ -1505,7 +1537,7 @@ Private Function GetListsSheetAndTable(ByVal targetBook As Workbook, _
     Exit Function
     
 ErrHandler:
-    modErr.ReportError "GetListsSheetAndTable", Err.Number, Erl, caption:=modMain.AppProjectName
+    modErr.ReportError "modRooms.GetListsSheetAndTable", Err.Number, Erl, caption:=modMain.AppProjectName
     GetListsSheetAndTable = False
 End Function
 
@@ -1517,6 +1549,8 @@ End Function
 '   targetBook     [Workbook]         - Workbook to scan
 '   roomsDict      [Dictionary]       - Receives: Key=RoomID, Value="RoomNo|RoomAlias"
 '   onlyFromSheet  [Worksheet]        - (Optional) If provided, only collect from this sheet
+'
+' Returns   : (none)
 '
 ' Notes     :
 '   - If onlyFromSheet is Nothing: collect from ALL room sheets
@@ -1573,6 +1607,8 @@ End Sub
 '   targetBook     [Workbook]         - Workbook to scan
 '   scenesDict     [Dictionary]       - Receives: Key=SceneID, Value=True
 '   onlyFromSheet  [Worksheet]        - (Optional) If provided, only collect from this sheet
+'
+' Returns   : (none)
 ' -----------------------------------------------------------------------------------
 Private Sub CollectSceneIDs(ByVal targetBook As Workbook, _
     ByRef scenesDict As Scripting.Dictionary, _
@@ -1619,6 +1655,7 @@ End Sub
 '   widthDict      [Dictionary]       - Receives unique width values
 '   heightDict     [Dictionary]       - Receives unique height values
 '   uiHeightDict   [Dictionary]       - Receives unique UI height values
+'   onlyFromSheet [Worksheet]  - (Optional) If provided, only collect from this sheet.
 '
 ' Notes     :
 '   - Collects UNIQUE values only (no duplicates)
@@ -1702,6 +1739,8 @@ End Sub
 '   targetBook     [Workbook]         - Workbook to scan
 '   actorsDict     [Dictionary]       - Receives: Key=ActorID, Value=ActorName
 '   onlyFromSheet  [Worksheet]        - (Optional) If provided, only collect from this sheet
+'
+' Returns   : (none)
 ' -----------------------------------------------------------------------------------
 Private Sub CollectActors(ByVal targetBook As Workbook, _
     ByRef actorsDict As Scripting.Dictionary, _
@@ -1744,6 +1783,8 @@ End Sub
 '   targetBook     [Workbook]         - Workbook to scan
 '   soundsDict     [Dictionary]       - Receives: Key=SoundID, Value="Description"
 '   onlyFromSheet  [Worksheet]        - (Optional) If provided, only collect from this sheet
+'
+' Returns   : (none)
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
@@ -1792,6 +1833,8 @@ End Sub
 '   specialFXDict     [Dictionary]       - Receives: Key=AnimationID, Value="Description"
 '   onlyFromSheet     [Worksheet]        - (Optional) If provided, only collect from this sheet
 '
+' Returns   : (none)
+'
 ' Notes     :
 ' -----------------------------------------------------------------------------------
 Private Sub CollectSpecialFX(ByVal targetBook As Workbook, _
@@ -1839,6 +1882,8 @@ End Sub
 '   flagsDict      [Dictionary]       - Receives: Key=FlagID, Value="Description"
 '   flagsTypeDict  [Dictionary]       - Receives: Key=Flag Bool Type
 '   onlyFromSheet  [Worksheet]        - (Optional) If provided, only collect from this sheet
+'
+' Returns   : (none)
 '
 ' Notes     :
 ' -----------------------------------------------------------------------------------
@@ -1894,6 +1939,8 @@ End Sub
 '   targetBook     [Workbook]         - Workbook to scan
 '   itemsDict      [Dictionary]       - Receives: Key=ItemID, Value=ItemName
 '   onlyFromSheet  [Worksheet]        - (Optional) If provided, only collect from this sheet
+'
+' Returns   : (none)
 ' -----------------------------------------------------------------------------------
 Private Sub CollectItems(ByVal targetBook As Workbook, _
     ByRef itemsDict As Scripting.Dictionary, _
@@ -1939,6 +1986,8 @@ End Sub
 '   objectsDict       [Dictionary]       - Receives: Key=StateID, Value=ObjectName
 '   objectsStateDict  [Dictionary]       - Receives: Key=objects State
 '   onlyFromSheet     [Worksheet]        - (Optional) If provided, only collect from this sheet
+'
+' Returns   : (none)
 ' -----------------------------------------------------------------------------------
 Private Sub CollectStateObjects(ByVal targetBook As Workbook, _
     ByRef objectsDict As Scripting.Dictionary, _
@@ -1988,6 +2037,8 @@ End Sub
 '   targetBook     [Workbook]         - Workbook to scan
 '   hotspotsDict   [Dictionary]       - Receives: Key=HotspotID, Value=HotspotName
 '   onlyFromSheet  [Worksheet]        - (Optional) If provided, only collect from this sheet
+'
+' Returns   : (none)
 ' -----------------------------------------------------------------------------------
 Private Sub CollectHotspots(ByVal targetBook As Workbook, _
     ByRef hotspotsDict As Scripting.Dictionary, _
@@ -2027,7 +2078,16 @@ End Sub
 ' -----------------------------------------------------------------------------------
 ' Procedure : UpdateRoomMetadataInDispatcherTable
 ' Purpose   : Updates Room ID and Room Alias in the DropDownLists table.
-' -----------------------------------------------------------------------------------
+'
+' Parameters:
+'   targetBook   [Workbook] - Target workbook.
+'   oldRoomID    [String]   - Previous room ID.
+'   oldRoomAlias [String]   - Previous room alias.
+'   newRoomID    [String]   - New room ID.
+'   newRoomAlias [String]   - New room alias.
+'
+' Returns   : (none)
+' ----------------------------------------------------------------------------------
 Private Sub UpdateRoomMetadataInDispatcherTable(ByVal targetBook As Workbook, _
     ByVal oldRoomID As String, _
     ByVal oldRoomAlias As String, _
@@ -2100,7 +2160,7 @@ End Sub
 ' Parameters:
 '   targetBook  [Workbook]  - Workbook to create sheet in
 '
-' Returns   : Worksheet - The validation results sheet
+' Returns   : [Worksheet] - The validation results sheet
 ' -----------------------------------------------------------------------------------
 Private Function EnsureValidationSheet(ByVal targetBook As Workbook) As Worksheet
     Dim ValidSheet As Worksheet
@@ -2137,6 +2197,8 @@ End Function
 ' Parameters:
 '   sheet     [Worksheet]  - Sheet to format
 '   lastRow   [Long]       - Last row with data
+'
+' Returns   : (none)
 ' -----------------------------------------------------------------------------------
 Private Sub FormatValidationSheet(ByVal sheet As Worksheet, ByVal lastRow As Long)
     If lastRow > 1 Then
@@ -2174,7 +2236,7 @@ End Sub
 '   validationSheet   [Worksheet]  - Sheet to write results to
 '   startRow          [Long]       - Starting row for writing issues
 '
-' Returns   : Long - Next available row for writing
+' Returns   : [Long] - Next available row for writing
 ' -----------------------------------------------------------------------------------
 Private Function CheckDuplicateRoomIDs(ByVal targetBook As Workbook, _
     ByVal validationSheet As Worksheet, _
@@ -2225,7 +2287,7 @@ End Function
 '   validationSheet   [Worksheet]  - Sheet to write results to
 '   startRow          [Long]       - Starting row for writing issues
 '
-' Returns   : Long - Next available row for writing
+' Returns   : [Long] - Next available row for writing
 ' -----------------------------------------------------------------------------------
 Private Function CheckDuplicateRoomAliases(ByVal targetBook As Workbook, _
     ByVal validationSheet As Worksheet, _
@@ -2243,7 +2305,7 @@ Private Function CheckDuplicateRoomAliases(ByVal targetBook As Workbook, _
     For Each roomSheet In targetBook.Worksheets
         If IsRoomSheet(roomSheet) Then
             On Error Resume Next
-            Set cell = roomSheet.Range(modConst.NAME_CELL_ROOM_ALIAS)
+            Set cell = roomSheet.Range(NAME_CELL_ROOM_ALIAS)
             On Error GoTo 0
             
             If Not cell Is Nothing Then
@@ -2281,7 +2343,7 @@ End Function
 '   validationSheet   [Worksheet]  - Sheet to write results to
 '   startRow          [Long]       - Starting row for writing issues
 '
-' Returns   : Long - Next available row for writing
+' Returns   : [Long] - Next available row for writing
 ' -----------------------------------------------------------------------------------
 Private Function CheckDuplicateRoomNumbers(ByVal targetBook As Workbook, _
     ByVal validationSheet As Worksheet, _
@@ -2300,7 +2362,7 @@ Private Function CheckDuplicateRoomNumbers(ByVal targetBook As Workbook, _
     For Each roomSheet In targetBook.Worksheets
         If IsRoomSheet(roomSheet) Then
             On Error Resume Next
-            Set cell = roomSheet.Range(modConst.NAME_CELL_ROOM_NO)
+            Set cell = roomSheet.Range(NAME_CELL_ROOM_NO)
             On Error GoTo 0
             
             If Not cell Is Nothing Then
@@ -2345,7 +2407,7 @@ End Function
 '   validationSheet   [Worksheet]  - Sheet to write results to
 '   startRow          [Long]       - Starting row for writing issues
 '
-' Returns   : Long - Next available row for writing
+' Returns   : [Long] - Next available row for writing
 ' -----------------------------------------------------------------------------------
 Private Function CheckMissingRoomReferences(ByVal targetBook As Workbook, _
     ByVal validationSheet As Worksheet, _
@@ -2365,7 +2427,7 @@ Private Function CheckMissingRoomReferences(ByVal targetBook As Workbook, _
         If IsRoomSheet(roomSheet) Then
             ' Check "Doors To Room ID" references
             On Error Resume Next
-            Set refRange = roomSheet.Range(modConst.NAME_RANGE_DOORS_TO_ROOM_ID)
+            Set refRange = roomSheet.Range(NAME_RANGE_DOORS_TO_ROOM_ID)
             On Error GoTo 0
             
             If Not refRange Is Nothing Then
@@ -2388,7 +2450,7 @@ Private Function CheckMissingRoomReferences(ByVal targetBook As Workbook, _
             
             ' Check "Doors To Room Alias" references
             On Error Resume Next
-            Set refRange = roomSheet.Range(modConst.NAME_RANGE_DOORS_TO_ROOM_ALIAS)
+            Set refRange = roomSheet.Range(NAME_RANGE_DOORS_TO_ROOM_ALIAS)
             On Error GoTo 0
             
             If Not refRange Is Nothing Then
@@ -2423,7 +2485,7 @@ End Function
 '   validationSheet   [Worksheet]  - Sheet to write results to
 '   startRow          [Long]       - Starting row for writing issues
 '
-' Returns   : Long - Next available row for writing
+' Returns   : [Long] - Next available row for writing
 '
 ' Notes     :
 '   - Uses depth-first search to detect cycles
@@ -2495,7 +2557,7 @@ Private Function GetRoomDependencies(ByVal roomSheet As Worksheet) As Collection
     
     ' Get references from "Doors To Room ID" range
     On Error Resume Next
-    Set refRange = roomSheet.Range(modConst.NAME_RANGE_DOORS_TO_ROOM_ID)
+    Set refRange = roomSheet.Range(NAME_RANGE_DOORS_TO_ROOM_ID)
     On Error GoTo 0
     
     If Not refRange Is Nothing Then

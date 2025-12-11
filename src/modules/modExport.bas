@@ -436,7 +436,7 @@ End Function
 ' -----------------------------------------------------------------------------------
 Private Function GetRoomId(ByVal ws As Worksheet) As String
     On Error Resume Next
-    GetRoomId = ws.Range(modConst.NAME_CELL_ROOM_ID).value
+    GetRoomId = ws.Range(NAME_CELL_ROOM_ID).value
     If Err.Number <> 0 Then GetRoomId = ""
     On Error GoTo 0
 End Function
@@ -447,7 +447,7 @@ End Function
 ' -----------------------------------------------------------------------------------
 Private Function GetRoomAlias(ByVal ws As Worksheet) As String
     On Error Resume Next
-    GetRoomAlias = ws.Range(modConst.NAME_CELL_ROOM_ALIAS).value
+    GetRoomAlias = ws.Range(NAME_CELL_ROOM_ALIAS).value
     If Err.Number <> 0 Then GetRoomAlias = ""
     On Error GoTo 0
 End Function

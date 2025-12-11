@@ -563,8 +563,8 @@ End Function
 ' Function  : GetDefaultManualPath
 ' Purpose   : Builds the default manual path string.
 ' Returns   : String - e.g., "<MyDocuments>\<Project>\Doku"
-' Notes     : Uses modConst.WILDCARD_MY_DOCUMENTS and AppProjectName.
+' Notes     : Uses WILDCARD_MY_DOCUMENTS and AppProjectName.
 ' -----------------------------------------------------------------------------------
 Private Function GetDefaultManualPath() As String
-    GetDefaultManualPath = modConst.WILDCARD_MY_DOCUMENTS & "\" & AppProjectName & "\Doku"
+    GetDefaultManualPath = WILDCARD_MY_DOCUMENTS & "\" & AppProjectName & "\Doku"
 End Function

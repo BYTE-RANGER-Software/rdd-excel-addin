@@ -97,7 +97,6 @@ CleanExit:
     Exit Sub
 ErrHandler:
     modErr.ReportError "InitializeCellCtxMenu", Err.Number, Erl, caption:=modMain.AppProjectName
-    Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -149,7 +148,6 @@ CleanExit:
     Exit Sub
 ErrHandler:
     modErr.ReportError "EnsureCellCtxMenuReady", Err.Number, Erl, caption:=modMain.AppProjectName
-    Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -365,7 +363,6 @@ CleanExit:
     Exit Function
 ErrHandler:
     modErr.ReportError "EvaluateCellCtxMenu", Err.Number, Erl, caption:=modMain.AppProjectName
-    Resume CleanExit
 End Function
 
 ' -----------------------------------------------------------------------------------
@@ -449,7 +446,6 @@ CleanExit:
     Exit Sub
 ErrHandler:
     modErr.ReportError "ShowCellCtxByCachedCaption", Err.Number, Erl, caption:=modMain.AppProjectName
-    Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------

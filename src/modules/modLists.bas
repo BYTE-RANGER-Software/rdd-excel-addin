@@ -106,7 +106,6 @@ CleanExit:
     Exit Function
 ErrHandler:
     modErr.ReportError "GetNamedOrHeaderValue", Err.Number, Erl, caption:=modMain.AppProjectName
-    Resume CleanExit
 End Function
 
 ' -----------------------------------------------------------------------------------
@@ -246,7 +245,6 @@ CleanExit:
     Exit Sub
 ErrHandler:
     modErr.ReportError "CollectTableColumnsToDict", Err.Number, Erl, caption:=modMain.AppProjectName
-    Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -353,7 +351,6 @@ CleanExit:
     Exit Sub
 ErrHandler:
     modErr.ReportError "CollectNamedRangePairsToDict", Err.Number, Erl, caption:=modMain.AppProjectName
-    Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -402,7 +399,6 @@ CleanExit:
     Exit Sub
 ErrHandler:
     modErr.ReportError "CollectNamedRangeValuesToDict", Err.Number, Erl, caption:=modMain.AppProjectName
-    Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -520,7 +516,6 @@ CleanExit:
     Exit Sub
 ErrHandler:
     modErr.ReportError "WriteDictToTableColumns", Err.Number, Erl, caption:=modMain.AppProjectName
-    Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -655,7 +650,6 @@ CleanExit:
     Exit Sub
 ErrHandler:
     modErr.ReportError "AppendMissingDictSetToTableColumns", Err.Number, Erl, caption:=modMain.AppProjectName
-    Resume CleanExit
 End Sub
 
 

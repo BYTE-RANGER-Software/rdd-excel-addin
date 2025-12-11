@@ -569,13 +569,13 @@ Private Sub CollectPuzzleData( _
     
     ' Try to get Named Ranges - exit if PUZZLES section doesn't exist
     On Error Resume Next
-    Set puzzleIDRange = ws.Range(modConst.NAME_RANGE_PUZZLES_PUZZLE_ID)
-    Set titleRange = ws.Range(modConst.NAME_RANGE_PUZZLES_TITLE)
-    Set dependsOnRange = ws.Range(modConst.NAME_RANGE_PUZZLES_DEPENDS_ON)
-    Set requiresRange = ws.Range(modConst.NAME_RANGE_PUZZLES_REQUIRES)
-    Set difficultyRange = ws.Range(modConst.NAME_RANGE_PUZZLES_DIFFICULTY)
-    Set statusRange = ws.Range(modConst.NAME_RANGE_PUZZLES_STATUS)
-    Set notesRange = ws.Range(modConst.NAME_RANGE_PUZZLES_NOTES)
+    Set puzzleIDRange = ws.Range(NAME_RANGE_PUZZLES_PUZZLE_ID)
+    Set titleRange = ws.Range(NAME_RANGE_PUZZLES_TITLE)
+    Set dependsOnRange = ws.Range(NAME_RANGE_PUZZLES_DEPENDS_ON)
+    Set requiresRange = ws.Range(NAME_RANGE_PUZZLES_REQUIRES)
+    Set difficultyRange = ws.Range(NAME_RANGE_PUZZLES_DIFFICULTY)
+    Set statusRange = ws.Range(NAME_RANGE_PUZZLES_STATUS)
+    Set notesRange = ws.Range(NAME_RANGE_PUZZLES_NOTES)
     On Error GoTo ErrHandler
     
     ' Exit if essential ranges don't exist

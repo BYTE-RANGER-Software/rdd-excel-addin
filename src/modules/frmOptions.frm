@@ -128,16 +128,16 @@ Private Sub LoadDataIntoComboBoxes()
     If m_cboDataDict Is Nothing Then Exit Sub
     
     ' Fill combo boxes from dictionary
-    If m_cboDataDict.Exists(modConst.LISTS_HEADER_PERSPECTIVE) Then
-        FillComboFromList Me.cboPerspective, m_cboDataDict(modConst.LISTS_HEADER_PERSPECTIVE)
+    If m_cboDataDict.Exists(LISTS_HEADER_PERSPECTIVE) Then
+        FillComboFromList Me.cboPerspective, m_cboDataDict(LISTS_HEADER_PERSPECTIVE)
     End If
     
-    If m_cboDataDict.Exists(modConst.LISTS_HEADER_PARALLAX) Then
-        FillComboFromList Me.cboParallax, m_cboDataDict(modConst.LISTS_HEADER_PARALLAX)
+    If m_cboDataDict.Exists(LISTS_HEADER_PARALLAX) Then
+        FillComboFromList Me.cboParallax, m_cboDataDict(LISTS_HEADER_PARALLAX)
     End If
     
-    If m_cboDataDict.Exists(modConst.LISTS_HEADER_SCENE_MODE) Then
-        FillComboFromList Me.cboSceneMode, m_cboDataDict(modConst.LISTS_HEADER_SCENE_MODE)
+    If m_cboDataDict.Exists(LISTS_HEADER_SCENE_MODE) Then
+        FillComboFromList Me.cboSceneMode, m_cboDataDict(LISTS_HEADER_SCENE_MODE)
     End If
 End Sub
 

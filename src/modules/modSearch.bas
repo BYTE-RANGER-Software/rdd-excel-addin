@@ -75,22 +75,22 @@ Public Function FindItemUsages(ByVal searchTerm As String, _
         If modRooms.IsRoomSheet(ws, roomID) Then
             ' Search in Puzzles - Requires column
             SearchInNamedRange ws, searchTerm, _
-                modConst.NAME_RANGE_PUZZLES_REQUIRES, _
+                NAME_RANGE_PUZZLES_REQUIRES, _
                 "Puzzle Requires", results
             
             ' Search in Puzzles - Grants column
             SearchInNamedRange ws, searchTerm, _
-                modConst.NAME_RANGE_PUZZLES_GRANTS, _
+                NAME_RANGE_PUZZLES_GRANTS, _
                 "Puzzle Grants", results
             
             ' Search in Pickupable Objects - Item ID (other definitions)
             SearchInNamedRange ws, searchTerm, _
-                modConst.NAME_RANGE_PICKUPABLE_OBJECTS_ITEM_ID, _
+                NAME_RANGE_PICKUPABLE_OBJECTS_ITEM_ID, _
                 "Item Definition", results
             
             ' Search in Pickupable Objects - Item Name (other definitions)
             SearchInNamedRange ws, searchTerm, _
-                modConst.NAME_RANGE_PICKUPABLE_OBJECTS_NAME, _
+                NAME_RANGE_PICKUPABLE_OBJECTS_NAME, _
                 "Item Definition (Name)", results
         End If
     Next ws
@@ -137,27 +137,27 @@ Public Function FindActorUsages(ByVal searchTerm As String, _
         If modRooms.IsRoomSheet(ws, roomID) Then
             ' Search in Actors - Condition column
             SearchInNamedRange ws, searchTerm, _
-                modConst.NAME_RANGE_ACTORS_CONDITION, _
+                NAME_RANGE_ACTORS_CONDITION, _
                 "Actor Condition", results
             
             ' Search in Puzzles - Owner column
             SearchInNamedRange ws, searchTerm, _
-                modConst.NAME_RANGE_PUZZLES_OWNER, _
+                NAME_RANGE_PUZZLES_OWNER, _
                 "Puzzle Owner", results
             
             ' Search in Puzzles - Target column
             SearchInNamedRange ws, searchTerm, _
-                modConst.NAME_RANGE_PUZZLES_TARGET, _
+                NAME_RANGE_PUZZLES_TARGET, _
                 "Puzzle Target", results
             
             ' Search in Actors - Actor ID (other definitions)
             SearchInNamedRange ws, searchTerm, _
-                modConst.NAME_RANGE_ACTORS_ACTOR_ID, _
+                NAME_RANGE_ACTORS_ACTOR_ID, _
                 "Actor Definition", results
             
             ' Search in Actors - Actor Name (other definitions)
             SearchInNamedRange ws, searchTerm, _
-                modConst.NAME_RANGE_ACTORS_ACTOR_NAME, _
+                NAME_RANGE_ACTORS_ACTOR_NAME, _
                 "Actor Definition (Name)", results
         End If
     Next ws
@@ -204,17 +204,17 @@ Public Function FindFlagUsages(ByVal searchTerm As String, _
         If modRooms.IsRoomSheet(ws, roomID) Then
             ' Search in Puzzles - Requires column
             SearchInNamedRange ws, searchTerm, _
-                modConst.NAME_RANGE_PUZZLES_REQUIRES, _
+                NAME_RANGE_PUZZLES_REQUIRES, _
                 "Puzzle Requires", results
             
             ' Search in Puzzles - DependsOn column
             SearchInNamedRange ws, searchTerm, _
-                modConst.NAME_RANGE_PUZZLES_DEPENDS_ON, _
+                NAME_RANGE_PUZZLES_DEPENDS_ON, _
                 "Puzzle DependsOn", results
             
             ' Search in Actors - Condition column
             SearchInNamedRange ws, searchTerm, _
-                modConst.NAME_RANGE_ACTORS_CONDITION, _
+                NAME_RANGE_ACTORS_CONDITION, _
                 "Actor Condition", results
         End If
     Next ws
@@ -261,22 +261,22 @@ Public Function FindHotspotUsages(ByVal searchTerm As String, _
         If modRooms.IsRoomSheet(ws, roomID) Then
             ' Search in Puzzles - Target column (hotspots can be puzzle targets)
             SearchInNamedRange ws, searchTerm, _
-                modConst.NAME_RANGE_PUZZLES_TARGET, _
+                NAME_RANGE_PUZZLES_TARGET, _
                 "Puzzle Target", results
             
             ' Search in Actors - Condition column (hotspots in conditions)
             SearchInNamedRange ws, searchTerm, _
-                modConst.NAME_RANGE_ACTORS_CONDITION, _
+                NAME_RANGE_ACTORS_CONDITION, _
                 "Actor Condition", results
             
             ' Search in Touchable Objects - Hotspot ID (other definitions)
             SearchInNamedRange ws, searchTerm, _
-                modConst.NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID, _
+                NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID, _
                 "Hotspot Definition", results
             
             ' Search in Touchable Objects - Hotspot Name (other definitions)
             SearchInNamedRange ws, searchTerm, _
-                modConst.NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_NAME, _
+                NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_NAME, _
                 "Hotspot Definition (Name)", results
         End If
     Next ws
@@ -350,7 +350,7 @@ Public Function FindPuzzleLocation( _
         If modRooms.IsRoomSheet(ws, roomID) Then
             ' Versuche Named Range zu holen
             On Error Resume Next
-            Set puzzleIDRange = ws.Range(modConst.NAME_RANGE_PUZZLES_PUZZLE_ID)
+            Set puzzleIDRange = ws.Range(NAME_RANGE_PUZZLES_PUZZLE_ID)
             On Error GoTo ErrHandler
             
             If Not puzzleIDRange Is Nothing Then
@@ -408,7 +408,7 @@ Public Function FindItemDefinition(ByVal itemID As String, _
     For Each ws In targetBook.Worksheets
         If modRooms.IsRoomSheet(ws, roomID) Then
             On Error Resume Next
-            Set itemIDRange = ws.Range(modConst.NAME_RANGE_PICKUPABLE_OBJECTS_ITEM_ID)
+            Set itemIDRange = ws.Range(NAME_RANGE_PICKUPABLE_OBJECTS_ITEM_ID)
             On Error GoTo ErrHandler
             
             If Not itemIDRange Is Nothing Then
@@ -426,7 +426,7 @@ Public Function FindItemDefinition(ByVal itemID As String, _
             
             ' Search by item Name if not found by ID
             On Error Resume Next
-            Set itemNameRange = ws.Range(modConst.NAME_RANGE_PICKUPABLE_OBJECTS_NAME)
+            Set itemNameRange = ws.Range(NAME_RANGE_PICKUPABLE_OBJECTS_NAME)
             On Error GoTo ErrHandler
             
             If Not itemNameRange Is Nothing Then
@@ -479,7 +479,7 @@ Public Function FindFlagDefinition(ByVal flagID As String, _
     For Each ws In targetBook.Worksheets
         If modRooms.IsRoomSheet(ws, roomID) Then
             On Error Resume Next
-            Set flagIDRange = ws.Range(modConst.NAME_RANGE_FLAGS_FLAG_ID)
+            Set flagIDRange = ws.Range(NAME_RANGE_FLAGS_FLAG_ID)
             On Error GoTo ErrHandler
             
             If Not flagIDRange Is Nothing Then
@@ -534,7 +534,7 @@ Public Function FindHotspotDefinition(ByVal hotspotID As String, _
         If modRooms.IsRoomSheet(ws, roomID) Then
             ' Search by Hotspot ID first
             On Error Resume Next
-            Set hotspotIDRange = ws.Range(modConst.NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID)
+            Set hotspotIDRange = ws.Range(NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_ID)
             On Error GoTo ErrHandler
             
             If Not hotspotIDRange Is Nothing Then
@@ -552,7 +552,7 @@ Public Function FindHotspotDefinition(ByVal hotspotID As String, _
             
             ' Search by Hotspot Name if not found by ID
             On Error Resume Next
-            Set hotspotNameRange = ws.Range(modConst.NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_NAME)
+            Set hotspotNameRange = ws.Range(NAME_RANGE_TOUCHABLE_OBJECTS_HOTSPOT_NAME)
             On Error GoTo ErrHandler
             
             If Not hotspotNameRange Is Nothing Then

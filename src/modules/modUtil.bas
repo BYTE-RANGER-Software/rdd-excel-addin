@@ -130,6 +130,16 @@ Public Function GetTempFolder() As String
 End Function
 
 ' -----------------------------------------------------------------------------------
+' Function  : GetAppDataFolder
+' Purpose   : Return the system %AppData% folder path.
+' Parameters: -
+' Returns   : String - %AppData% path.
+' -----------------------------------------------------------------------------------
+Public Function GetAppDataFolder() As String
+    GetAppDataFolder = Environ("AppData")
+End Function
+
+' -----------------------------------------------------------------------------------
 ' Function  : ReplaceWildcards
 ' Purpose   : Replace project/user wildcards with absolute paths.
 '
@@ -139,21 +149,21 @@ End Function
 ' Returns   : String - Expanded string.
 '
 ' Notes     :
-'   - Supports modConst.WILDCARD_APP_PATH and modConst.WILDCARD_MY_DOCUMENTS.
+'   - Supports WILDCARD_APP_PATH and WILDCARD_MY_DOCUMENTS.
 ' -----------------------------------------------------------------------------------
 Public Function ReplaceWildcards(ByVal InputStr As String) As String
     Dim OutputStr As String
     
     If LenB(InputStr) = 0 Then Exit Function
     
-    If InStr(1, InputStr, modConst.WILDCARD_APP_PATH) = 1 Then
-        OutputStr = Replace$(InputStr, modConst.WILDCARD_APP_PATH, ThisWorkbook.path)
+    If InStr(1, InputStr, WILDCARD_APP_PATH) = 1 Then
+        OutputStr = Replace$(InputStr, WILDCARD_APP_PATH, ThisWorkbook.path)
     Else
         OutputStr = InputStr
     End If
             
-    If InStr(1, OutputStr, modConst.WILDCARD_MY_DOCUMENTS) = 1 Then
-        OutputStr = Replace$(OutputStr, modConst.WILDCARD_MY_DOCUMENTS, GetMyDocumentsPath)
+    If InStr(1, OutputStr, WILDCARD_MY_DOCUMENTS) = 1 Then
+        OutputStr = Replace$(OutputStr, WILDCARD_MY_DOCUMENTS, GetMyDocumentsPath)
     End If
     
     ReplaceWildcards = OutputStr
@@ -174,13 +184,13 @@ Public Function AddWildcards(ByVal InputStr As String) As String
     If LenB(InputStr) = 0 Then Exit Function
     
     If InStr(1, InputStr, ThisWorkbook.path) = 1 Then
-        OutputStr = Replace$(InputStr, ThisWorkbook.path, modConst.WILDCARD_APP_PATH)
+        OutputStr = Replace$(InputStr, ThisWorkbook.path, WILDCARD_APP_PATH)
     Else
         OutputStr = InputStr
     End If
             
     If InStr(1, OutputStr, GetMyDocumentsPath) = 1 Then
-        OutputStr = Replace$(OutputStr, GetMyDocumentsPath, modConst.WILDCARD_MY_DOCUMENTS)
+        OutputStr = Replace$(OutputStr, GetMyDocumentsPath, WILDCARD_MY_DOCUMENTS)
     End If
     
     AddWildcards = OutputStr

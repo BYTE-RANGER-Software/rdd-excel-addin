@@ -59,9 +59,8 @@ CleanExit:
     Exit Sub
     
 ErrHandler:
-    modErr.ReportError "FormDrop_OnAction", Err.Number, Erl
-    Resume CleanExit
-End Sub
+    modErr.ReportError "modFormDropRouter_OnAction", Err.Number, Erl
+ End Sub
 
 ' -----------------------------------------------------------------------------------
 ' Procedure : FormDrop_Arrow_OnClick
@@ -98,7 +97,6 @@ CleanExit:
     Exit Sub
     
 ErrHandler:
-     modErr.ReportError "FormDrop_Arrow_OnClick", Err.Number, Erl
-    Resume CleanExit
+     modErr.ReportError "modFormDropRouter_Arrow_OnClick", Err.Number, Erl
 End Sub
 

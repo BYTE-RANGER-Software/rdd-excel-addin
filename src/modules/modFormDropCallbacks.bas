@@ -51,7 +51,6 @@ CleanExit:
     
 ErrHandler:
     modErr.ReportError "OnFormDropCatSelected", Err.Number, Erl, caption:=AppProjectName
-    Resume CleanExit
 End Sub
 
 
@@ -135,5 +134,4 @@ CleanExit:
     
 ErrHandler:
     modErr.ReportError "OnFormDropSubSelected", Err.Number, Erl, caption:=AppProjectName
-    Resume CleanExit
 End Sub

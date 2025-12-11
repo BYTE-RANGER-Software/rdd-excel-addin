@@ -56,7 +56,6 @@ CleanExit:
 ErrHandler:
     modErr.ReportError "UserForm_Initialize", Err.Number, Erl, True, modMain.AppProjectName, , _
                        "Form=" & Me.name
-    Resume CleanExit
 End Sub
 
 Private Sub lblLicenseLink_Click()
@@ -70,7 +69,6 @@ CleanExit:
 ErrHandler:
     modErr.ReportError "lblLicenseLink_Click", Err.Number, Erl, True, modMain.AppProjectName, , _
                        "Form=" & Me.name & ", Control=lblLicenseLink"
-    Resume CleanExit
 End Sub
 
 Private Sub lblWebsiteLink_Click()
@@ -84,7 +82,6 @@ CleanExit:
 ErrHandler:
     modErr.ReportError "lblWebsiteLink_Click", Err.Number, Erl, True, modMain.AppProjectName, , _
                        "Form=" & Me.name & ", Control=lblWebsiteLink"
-    Resume CleanExit
 End Sub
 
 Private Sub cmdOK_Click()
@@ -120,5 +117,4 @@ CleanExit:
 ErrHandler:
     ' Log but avoid an extra MsgBox here; the caller already shows UI on error.
     modErr.ReportError "OpenLinkSafe", Err.Number, Erl, False, modMain.AppProjectName
-    Resume CleanExit
 End Sub

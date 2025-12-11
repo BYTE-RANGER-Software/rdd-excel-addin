@@ -105,7 +105,6 @@ CleanExit:
     Exit Sub
 ErrHandler:
     modErr.ReportError "clsFormDropManager.Init", Err.Number, Erl
-    Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -167,7 +166,6 @@ CleanExit:
     Exit Sub
 ErrHandler:
     modErr.ReportError "clsFormDropManager.Class_Terminate", Err.Number, Erl
-    Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -226,7 +224,6 @@ CleanExit:
     Exit Sub
 ErrHandler:
     modErr.ReportError "clsFormDropManager.HandleSelectionChange", Err.Number, Erl
-    Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -257,7 +254,6 @@ CleanExit:
     Exit Sub
 ErrHandler:
     modErr.ReportError "clsFormDropManager.HandleSheetDeactivate", Err.Number, Erl
-    Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
@@ -330,7 +326,6 @@ CleanExit:
     Exit Sub
 ErrHandler:
     modErr.ReportError "clsFormDropManager.PreFillAnchorCache", Err.Number, Erl
-    Resume CleanExit
 End Sub
 
 
@@ -364,7 +359,6 @@ CleanExit:
     Exit Function
 ErrHandler:
     ShouldHandleSheet = False
-    Resume CleanExit
 End Function
 
 ' -----------------------------------------------------------------------------------
@@ -411,7 +405,6 @@ CleanExit:
     Exit Function
 ErrHandler:
     modErr.ReportError "clsFormDropManager.GetMngr", Err.Number, Erl
-    Resume CleanExit
 End Function
 
 ' -----------------------------------------------------------------------------------
@@ -691,7 +684,6 @@ CleanExit:
     Exit Function
 ErrHandler:
     modErr.ReportError "clsFormDropManager.GetOrCreateAnchorConfig", Err.Number, Erl
-    Resume CleanExit
 End Function
 
 ' -----------------------------------------------------------------------------------

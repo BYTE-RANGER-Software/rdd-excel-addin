@@ -7,6 +7,12 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = True
+'* * * * * * * * * * * * * * * * * * * *  VSC VBATools * * * * * * * * * * * * * * * * * * * *
+'* Path       : C:\Users\thiemann\Documents\Programming\Games\AGS\indy-foy\tools\dev\rdd-excel-addin\src\_internal\Backup\
+'* Version    : v1
+'* Created    : 10.12.2025_13.37.55
+'* OldVersion :
+'* * * * * * * * * * * * * * * * * * * *  VSC VBATools * * * * * * * * * * * * * * * * * * * *
 ' ====================================================================================
 ' Class     : RDDAddInWkBk (ThisWorkbook)
 ' Purpose   : Encapsulates Add-In Workbook event handling and delegates to modMain.

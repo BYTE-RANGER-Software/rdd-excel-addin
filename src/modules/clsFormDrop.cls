@@ -197,8 +197,7 @@ Public Function Init(ByRef hostWorkbook As Workbook, ByRef formDropRegistry As S
 CleanExit:
     Exit Function
 ErrHandler:
-    ReportError "Init", Err.Number, Erl
-    Resume CleanExit
+    modErr.ReportError "clsFormDrop.Init", Err.Number, Erl
 End Function
 
 ' -----------------------------------------------------------------------------------
@@ -517,7 +516,6 @@ CleanExit:
     Exit Sub
 ErrHandler:
     ReportError "clsFormDrop.ShowAt", Err.Number, Erl
-    Resume CleanExit
 End Sub
 
 ' -----------------------------------------------------------------------------------
