@@ -56,7 +56,7 @@ The add-in is based on proven game design methods, particularly the **Puzzle Dep
 
 ### Installation Steps
 
-**Step 1:** Copy the file `RDD_AddIn.xlam` to the Excel Add-Ins folder:
+**Step 1:** Copy the file `RDD.xlam` to the Excel Add-Ins folder:
 
 ```shell
 %APPDATA%\Microsoft\AddIns\
@@ -65,11 +65,11 @@ The add-in is based on proven game design methods, particularly the **Puzzle Dep
 **Step 2:** Open Excel and navigate to:  
 *File → Options → Add-Ins → Manage Excel Add-Ins → Go...*
 
-**Step 3:** Check the box next to "RDD_AddIn" and click OK.
+**Step 3:** Check the box next to "RDD" and click OK.
 
-**Step 4:** The new tab "RDD-AddIn" now appears in the Ribbon menu.
+**Step 4:** The new tab "RDD" now appears in the Ribbon menu.
 
-> 💡 **Tip:** On first launch, a working folder is created under `My Documents\RDD-AddIn` containing log files and the manual.
+> 💡 **Info:** When you start the program for the first time, a working folder is created under `%AppData%\BYTE RANGER\RDDAddIn`, which contains log files and the manual, as well as a temporary folder under `%Temp%\BYTE RANGER\RDDAddIn`.
 
 ---
 
@@ -77,13 +77,14 @@ The add-in is based on proven game design methods, particularly the **Puzzle Dep
 
 ### 3.1 The Ribbon Menu
 
-After installation, a new tab **RDD-AddIn** appears in the Excel Ribbon with the following groups:
+![Ribbon](images/Ribbon.png)
+After installation, a new tab **RDD** appears in the Excel Ribbon with the following groups:
 
 #### Group: Rooms
 
 | Button | Function |
 |--------|----------|
-| **New Room** | Creates a new Room Sheet based on the template |
+| **Add Room** | Creates a new Room Sheet based on the template |
 | **Edit** | Opens dialog to edit Room ID, Scene ID, Alias |
 | **Delete** | Deletes the current Room Sheet (with reference check) |
 | **Sync Lists** | Synchronizes all dropdown lists from room data |
@@ -174,12 +175,14 @@ Each Room Sheet follows a standardized structure with multiple sections:
 
 #### Creating a New Room
 
-1. Click **"New Room"** in the Ribbon
-2. Enter the Room ID in the dialog (e.g., "R001")
-3. Optional: Enter a Room Alias (e.g., "r_entrance")
-4. A new sheet is created based on the template
+1. Click **"Add Room"** in the Ribbon
+2. Optional: Enter the Scene ID in the dialog (e.g., "Hindu Temple")
+3. Enter a Room Alias (e.g., "Entrance")
+4. Enter a AGS Room Number (e.g., "1")
+5. A new sheet is created based on the template
 
-> ⚠️ **Note:** Room IDs must be unique and should use the format `R###`. The alias must start with `r_`.
+> ⚠️ **Note:** Room IDs must be unique and are automatically generated according to the following pattern: “R###.”  
+The alias is automatically prefixed with “r_”..
 
 #### Editing Room Identity
 
@@ -275,8 +278,6 @@ Right-clicking on a puzzle cell in the PDCData sheet shows additional options:
 
 - "Goto Node in Chart" – Navigate to the node in the chart
 - "Show Dependencies" – Display all dependencies
-
-> 💡 **Tip:** Shape names in the chart correspond to Node IDs. You can select shapes directly via Excel's Name Box.
 
 ---
 

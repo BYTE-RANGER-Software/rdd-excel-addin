@@ -69,7 +69,7 @@ Das Add-In basiert auf bewährten Game-Design-Methoden, insbesondere der **Puzzl
 
 **Schritt 4:** Das neue Tab "RDD-AddIn" erscheint nun im Ribbon-Menü.
 
-> 💡 **Tipp:** Beim ersten Start wird ein Arbeitsordner unter `Eigene Dokumente\RDD-AddIn` erstellt, der Log-Dateien und das Handbuch enthält.
+> 💡 **Info:** Beim ersten Start wird ein Arbeitsordner unter `%AppData%\BYTE RANGER\RDDAddIn` erstellt, der Log-Dateien und das Handbuch enthält, sowie ein temporärer Ordner unter `%Temp%\BYTE RANGER\RDDAddIn`.
 
 ---
 
@@ -77,13 +77,14 @@ Das Add-In basiert auf bewährten Game-Design-Methoden, insbesondere der **Puzzl
 
 ### 3.1 Das Ribbon-Menü
 
-Nach der Installation erscheint ein neues Tab **RDD-AddIn** im Excel-Ribbon mit folgenden Gruppen:
+![Ribbon](images/Ribbon.png)
+Nach der Installation erscheint ein neues Tab **RDD** im Excel-Ribbon mit folgenden Gruppen:
 
 #### Gruppe: Räume
 
 | Button | Funktion |
 |--------|----------|
-| **Neuer Raum** | Erstellt ein neues Room Sheet basierend auf dem Template |
+| **Add Room** | Erstellt ein neues Room Sheet basierend auf dem Template |
 | **Bearbeiten** | Öffnet Dialog zur Bearbeitung von Room ID, Scene ID, Alias |
 | **Löschen** | Löscht das aktuelle Room Sheet (mit Referenzprüfung) |
 | **Sync Listen** | Synchronisiert alle Dropdown-Listen aus den Room-Daten |
@@ -174,12 +175,14 @@ Jedes Room Sheet folgt einer standardisierten Struktur mit mehreren Abschnitten:
 
 #### Neuen Raum erstellen
 
-1. Klicken Sie auf **"Neuer Raum"** im Ribbon
-2. Geben Sie im Dialog die Room ID ein (z.B. "R001")
-3. Optional: Geben Sie einen Room Alias ein (z.B. "r_entrance")
-4. Ein neues Sheet wird basierend auf dem Template erstellt
+1. Klicken Sie im Ribbon auf **„Add Room“**.
+2. Optional: Geben Sie die Szenen-ID in das Dialogfeld ein (z. B. „Hindu-Tempel“).
+3. Geben Sie einen Raumalias ein (z. B. „Eingang“).
+4. Geben Sie eine AGS-Raumnummer ein (z. B. „1“).
+5. Basierend auf der Vorlage wird ein neues Blatt erstellt.
 
-> ⚠️ **Hinweis:** Room IDs müssen eindeutig sein und sollten das Format `R###` verwenden. Der Alias muss mit `r_` beginnen.
+> ⚠️ **Hinweis:** Raum-IDs müssen eindeutig sein und werden automatisch nach folgendem Schema „R###“ generiert.  
+Dem Alias wird automatisch „r_“ vorangestellt.
 
 #### Raum-Identität bearbeiten
 
