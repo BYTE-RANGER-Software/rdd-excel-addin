@@ -1326,8 +1326,11 @@ Private Sub SetupRoom(targetSheet As Worksheet, roomName As String, roomIdx As L
     On Error GoTo ErrHandler
     Dim insertBtnShape As Shape
     Dim dispatcherSheet As Worksheet
+    Dim targetBook As Workbook
     Dim dataRange As Range
     Dim nm As name
+    
+    Set targetBook = targetSheet.Parent
     
     ' Set Scene ID in Named Range:
     targetSheet.Range(NAME_CELL_SCENE_ID).value = sceneID
@@ -1373,9 +1376,9 @@ Private Sub SetupRoom(targetSheet As Worksheet, roomName As String, roomIdx As L
     If LenB(modOptions.Opt_DefaultSceneMode) > 0 Then
         targetSheet.Range(NAME_CELL_SCENE_MODE).value = modOptions.Opt_DefaultSceneMode
     End If
-    
+        
     ' Remove stale named range references to add-in template workbook
-    For Each nm In targetSheet.Parent.Names
+    For Each nm In targetBook.Names
         If InStr(nm.RefersTo, "[" & RDDAddInWkBk.name & "]") > 0 Then
             nm.Delete
         End If

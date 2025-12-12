@@ -1218,6 +1218,30 @@ Public Sub ExportToPdf()
         Exit Sub
     End If
     
+    Dim titleProp As String
+    Dim useWorkbookNameAsTitle As Boolean
+    
+    ' Check if Title is set
+    On Error Resume Next
+    titleProp = rddWorkBook.BuiltinDocumentProperties("Title").value
+    On Error GoTo ErrHandler
+    
+    If Len(titleProp) = 0 Then
+        If MsgBox("Document Title is not set!" & vbCrLf & vbCrLf & _
+            "The workbook name will be used as fallback." & vbCrLf & vbCrLf & _
+            "To set the Title property:" & vbCrLf & _
+            "File -> Info -> Properties -> Advanced Properties" & vbCrLf & _
+            "Do you want to continue with the export?", _
+            vbExclamation + vbYesNo, _
+            "Title Missing") = vbNo Then
+            Exit Sub
+        End If
+        
+        useWorkbookNameAsTitle = True
+    Else
+        useWorkbookNameAsTitle = False
+    End If
+    
     ' Show file dialog
     Dim filePath As String
     Dim defaultName As String
@@ -1244,7 +1268,7 @@ Public Sub ExportToPdf()
     modUtil.HideOpMode True
     
     Dim success As Boolean
-    success = modExport.ExportWorkbookToPdf(rddWorkBook, filePath)
+    success = modExport.ExportWorkbookToPdf(rddWorkBook, filePath, useWorkbookNameAsTitle)
     
     modUtil.HideOpMode False
     frmWait.Hide
@@ -1252,7 +1276,7 @@ Public Sub ExportToPdf()
     ' User feedback
     If success Then
         MsgBox "PDF exported successfully!" & vbCrLf & vbCrLf & filePath, _
-               vbInformation, modMain.AppProjectName
+            vbInformation, modMain.AppProjectName
     Else
         MsgBox "PDF export failed.", vbExclamation, modMain.AppProjectName
     End If

@@ -29,7 +29,7 @@ Option Private Module
 ' -----------------------------------------------------------------------------------
 Public Function CustomPropertyExists( _
     ByVal targetSheet As Worksheet, _
-    ByVal propertyName As String, _
+    ByVal PropertyName As String, _
     Optional ByRef returnProperty As customProperty) As Boolean
     
     Dim cp As customProperty
@@ -37,7 +37,7 @@ Public Function CustomPropertyExists( _
     Err.Clear
 
     For Each cp In targetSheet.CustomProperties
-        If StrComp(cp.name, propertyName, vbTextCompare) = 0 Then
+        If StrComp(cp.name, PropertyName, vbTextCompare) = 0 Then
             Set returnProperty = cp
             CustomPropertyExists = True
             Exit Function
@@ -71,7 +71,7 @@ End Function
 Public Function GetAllSheetsNamesByCustomProperty( _
     ByVal sourceWorkb As Workbook, _
     ByRef returnSheetNamesArray() As String, _
-    ByVal propertyName As String) As Boolean
+    ByVal PropertyName As String) As Boolean
 
     Dim matchCount As Long
     Dim sheet As Worksheet
@@ -83,7 +83,7 @@ Public Function GetAllSheetsNamesByCustomProperty( _
     matchCount = -1
 
     For Each sheet In sourceWorkb.Worksheets
-        If CustomPropertyExists(sheet, propertyName, cp) Then
+        If CustomPropertyExists(sheet, PropertyName, cp) Then
             matchCount = matchCount + 1
             returnSheetNamesArray(matchCount) = sheet.name
         End If
@@ -122,7 +122,7 @@ End Function
 ' -----------------------------------------------------------------------------------
 Public Function GetSheetByCustomProperty( _
     ByVal sourceWorkbook As Workbook, _
-    ByVal propertyName As String, _
+    ByVal PropertyName As String, _
     Optional ByVal propertyValue As String = "") As Worksheet
 
     Dim sourceSheet As Worksheet
@@ -131,12 +131,12 @@ Public Function GetSheetByCustomProperty( _
     If Not sourceWorkbook Is Nothing Then
         For Each sourceSheet In sourceWorkbook.Worksheets
             For Each cp In sourceSheet.CustomProperties
-                If StrComp(cp.name, propertyName, vbTextCompare) <> 0 Then
+                If StrComp(cp.name, PropertyName, vbTextCompare) <> 0 Then
                     ' continue looping
                 ElseIf StrComp(cp.value, propertyValue, vbTextCompare) = 0 Then
                     Set GetSheetByCustomProperty = sourceSheet
                     Exit Function
-                ElseIf StrComp(cp.name, propertyName, vbTextCompare) = 0 _
+                ElseIf StrComp(cp.name, PropertyName, vbTextCompare) = 0 _
                        And propertyValue = "" Then
                     Set GetSheetByCustomProperty = sourceSheet
                     Exit Function
@@ -162,12 +162,12 @@ End Function
 '
 ' Notes     : Adds the property if it does not exist; updates otherwise.
 ' -----------------------------------------------------------------------------------
-Public Sub SetCustomProperty(ByVal targetSheet As Worksheet, ByVal propertyName As String, ByVal propertyValue As String)
+Public Sub SetCustomProperty(ByVal targetSheet As Worksheet, ByVal PropertyName As String, ByVal propertyValue As String)
     Dim cp As customProperty
-    If CustomPropertyExists(targetSheet, propertyName, cp) Then
+    If CustomPropertyExists(targetSheet, PropertyName, cp) Then
         cp.value = CStr(propertyValue)
     Else
-        targetSheet.CustomProperties.Add name:=propertyName, value:=IIf(LenB(propertyValue) = 0, "-", propertyValue)
+        targetSheet.CustomProperties.Add name:=PropertyName, value:=IIf(LenB(propertyValue) = 0, "-", propertyValue)
     End If
 End Sub
 
@@ -202,14 +202,14 @@ End Sub
 '
 ' Notes     : Returns empty string on not found or when worksheet is Nothing.
 ' -----------------------------------------------------------------------------------
-Public Function GetCustomPropertyValue(ByVal sourceSheet As Worksheet, ByVal propertyName As String) As String
+Public Function GetCustomPropertyValue(ByVal sourceSheet As Worksheet, ByVal PropertyName As String) As String
     Dim cp As customProperty
     
     On Error GoTo ErrHandler
 
     If Not sourceSheet Is Nothing Then
         For Each cp In sourceSheet.CustomProperties
-            If StrComp(cp.name, propertyName, vbTextCompare) = 0 Then
+            If StrComp(cp.name, PropertyName, vbTextCompare) = 0 Then
                 GetCustomPropertyValue = cp.value
                 Exit Function
             End If
@@ -236,14 +236,14 @@ End Function
 '
 ' Notes     : Case-insensitive name comparison. Safe on errors.
 ' -----------------------------------------------------------------------------------
-Public Function DocumentPropertyExists(ByVal targetWorkbook As Workbook, ByVal propertyName As String, Optional ByRef returnProperty As DocumentProperty = Nothing) As Boolean
+Public Function DocumentPropertyExists(ByVal targetWorkbook As Workbook, ByVal PropertyName As String, Optional ByRef returnProperty As DocumentProperty = Nothing) As Boolean
     Dim dp As DocumentProperty
     On Error GoTo ErrHandler
     Err.Clear
   
    
     For Each dp In targetWorkbook.CustomDocumentProperties
-        If StrComp(dp.name, propertyName, vbTextCompare) = 0 Then
+        If StrComp(dp.name, PropertyName, vbTextCompare) = 0 Then
             Set returnProperty = dp
             DocumentPropertyExists = True
             Exit Function
@@ -273,10 +273,10 @@ End Function
 '
 ' Notes     : Uses DocumentPropertyExists to probe presence.
 ' -----------------------------------------------------------------------------------
-Public Function GetDocumentPropertyValue(ByVal sourceWorkbook As Workbook, ByVal propertyName As String, ByVal defaultValue As Variant) As Variant
+Public Function GetDocumentPropertyValue(ByVal sourceWorkbook As Workbook, ByVal PropertyName As String, ByVal defaultValue As Variant) As Variant
     Dim dp As DocumentProperty
 
-    If DocumentPropertyExists(sourceWorkbook, propertyName, dp) Then
+    If DocumentPropertyExists(sourceWorkbook, PropertyName, dp) Then
         GetDocumentPropertyValue = dp.value
     Else
         GetDocumentPropertyValue = defaultValue
@@ -297,10 +297,10 @@ End Function
 '
 ' Notes     : Wrapper over DocumentPropertyExists.
 ' -----------------------------------------------------------------------------------
-Public Function GetDocumentProperty(ByVal sourceWorkbook As Workbook, ByVal propertyName As String) As DocumentProperty
+Public Function GetDocumentProperty(ByVal sourceWorkbook As Workbook, ByVal PropertyName As String) As DocumentProperty
     Dim dp As DocumentProperty
 
-    If DocumentPropertyExists(sourceWorkbook, propertyName, dp) Then
+    If DocumentPropertyExists(sourceWorkbook, PropertyName, dp) Then
         Set GetDocumentProperty = dp
     End If
             
@@ -321,7 +321,7 @@ End Function
 ' Notes     : If the property exists, its value is updated; otherwise the property
 '             is created using the inferred type.
 ' -----------------------------------------------------------------------------------
-Public Sub SetDocumentPropertyValue(ByVal targetWorkbook As Workbook, ByVal propertyName As String, ByVal propertyValue As Variant)
+Public Sub SetDocumentPropertyValue(ByVal targetWorkbook As Workbook, ByVal PropertyName As String, ByVal propertyValue As Variant)
     Dim dp As DocumentProperty
     Dim propertyType As MsoDocProperties
 
@@ -341,20 +341,20 @@ Public Sub SetDocumentPropertyValue(ByVal targetWorkbook As Workbook, ByVal prop
     End Select
     
     
-    If DocumentPropertyExists(targetWorkbook, propertyName, dp) Then
+    If DocumentPropertyExists(targetWorkbook, PropertyName, dp) Then
         dp.value = propertyValue
     Else
                 
         If propertyType = msoPropertyTypeString Then
-            targetWorkbook.CustomDocumentProperties.Add name:=propertyName, LinkToContent:=False, Type:=propertyType, value:=CStr(propertyValue)
+            targetWorkbook.CustomDocumentProperties.Add name:=PropertyName, LinkToContent:=False, Type:=propertyType, value:=CStr(propertyValue)
         ElseIf propertyType = msoPropertyTypeBoolean Then
-            targetWorkbook.CustomDocumentProperties.Add name:=propertyName, LinkToContent:=False, Type:=propertyType, value:=CBool(propertyValue)
+            targetWorkbook.CustomDocumentProperties.Add name:=PropertyName, LinkToContent:=False, Type:=propertyType, value:=CBool(propertyValue)
         ElseIf propertyType = msoPropertyTypeDate Then
-            targetWorkbook.CustomDocumentProperties.Add name:=propertyName, LinkToContent:=False, Type:=propertyType, value:=CDate(propertyValue)
+            targetWorkbook.CustomDocumentProperties.Add name:=PropertyName, LinkToContent:=False, Type:=propertyType, value:=CDate(propertyValue)
         ElseIf propertyType = msoPropertyTypeNumber Then
-            targetWorkbook.CustomDocumentProperties.Add name:=propertyName, LinkToContent:=False, Type:=propertyType, value:=CLng(propertyValue)
+            targetWorkbook.CustomDocumentProperties.Add name:=PropertyName, LinkToContent:=False, Type:=propertyType, value:=CLng(propertyValue)
         ElseIf propertyType = msoPropertyTypeFloat Then
-            targetWorkbook.CustomDocumentProperties.Add name:=propertyName, LinkToContent:=False, Type:=propertyType, value:=CDbl(propertyValue)
+            targetWorkbook.CustomDocumentProperties.Add name:=PropertyName, LinkToContent:=False, Type:=propertyType, value:=CDbl(propertyValue)
         End If
     End If
 End Sub

@@ -38,8 +38,9 @@ Private Const CSV_EDGES_HEADER As String = "Source,Target,Type,Label"
 '             - PDC Chart (if exists)
 '
 ' Parameters:
-'   exportBook  [Workbook] - The workbook to export
-'   filePath    [String]   - Full path for the output PDF file
+'   exportBook             [Workbook] - The workbook to export
+'   filePath               [String]   - Full path for the output PDF file
+'   useWorkbookNameAsTitle [Boolean]
 '
 ' Returns   : Boolean - True on success
 '
@@ -49,7 +50,8 @@ Private Const CSV_EDGES_HEADER As String = "Source,Target,Type,Label"
 ' -----------------------------------------------------------------------------------
 Public Function ExportWorkbookToPdf( _
     ByVal exportBook As Workbook, _
-    ByVal filePath As String) As Boolean
+    ByVal filePath As String, _
+    ByVal useWorkbookNameAsTitle As Boolean) As Boolean
     
     On Error GoTo ErrHandler
     
@@ -62,9 +64,38 @@ Public Function ExportWorkbookToPdf( _
     Dim sheetNames() As String
     Dim i As Long
     Dim originalActiveSheet As Worksheet
+    Dim documentTitle As String
+    Dim revisionNumber As String
+    Dim lastSaveTime As String
     
     ' Store original active sheet
     Set originalActiveSheet = exportBook.ActiveSheet
+    
+    ' Determine title to use (single source of truth)
+    If useWorkbookNameAsTitle Then
+        documentTitle = Replace(exportBook.name, ".xlsm", "")
+        documentTitle = Replace(documentTitle, ".xlsx", "")
+    Else
+        On Error Resume Next
+        documentTitle = exportBook.BuiltinDocumentProperties("Title").value
+        On Error GoTo ErrHandler
+    End If
+    
+    ' Get Revision Number
+    On Error Resume Next
+    revisionNumber = exportBook.BuiltinDocumentProperties("Revision Number").value
+    If Err.Number <> 0 Or Len(revisionNumber) = 0 Then
+        revisionNumber = "1" ' Default to 1 if not set
+    End If
+    On Error GoTo ErrHandler
+    
+    'Get Last Save Time
+    On Error Resume Next
+    lastSaveTime = Format$(exportBook.BuiltinDocumentProperties("Last Save Time").value, "yyyy-mm-dd hh:mm")
+    If Err.Number <> 0 Or Len(lastSaveTime) = 0 Then
+        lastSaveTime = Format$(Now, "yyyy-mm-dd hh:mm") ' Fallback to export time
+    End If
+    On Error GoTo ErrHandler
     
     ' Initialize collections
     Set sheetsToExport = New Collection
@@ -83,7 +114,7 @@ Public Function ExportWorkbookToPdf( _
     On Error GoTo ErrHandler
     
     ' Create cover page
-    Set coverSheet = CreateCoverPage(exportBook)
+    Set coverSheet = CreateCoverPage(exportBook, documentTitle, revisionNumber, lastSaveTime)
     sheetsToExport.Add coverSheet
     
     ' Create TOC
@@ -92,13 +123,13 @@ Public Function ExportWorkbookToPdf( _
     
     ' Add room sheets (with print setup)
     For Each ws In roomSheets
-        SetupRoomSheetForPrint ws
+        SetupRoomSheetForPrint ws, documentTitle, revisionNumber, lastSaveTime
         sheetsToExport.Add ws
     Next ws
     
     ' Add chart if exists
     If Not chartSheet Is Nothing Then
-        SetupChartSheetForPrint chartSheet
+        SetupChartSheetForPrint chartSheet, documentTitle, revisionNumber, lastSaveTime
         sheetsToExport.Add chartSheet
     End If
     
@@ -201,9 +232,28 @@ End Function
 
 ' -----------------------------------------------------------------------------------
 ' Function  : CreateCoverPage
-' Purpose   : Creates a temporary cover page sheet with document properties.
-' -----------------------------------------------------------------------------------
-Private Function CreateCoverPage(ByVal exportBook As Workbook) As Worksheet
+' Purpose   : Creates a temporary cover page sheet with document properties and
+'             metadata for the PDF export.
+'
+' Parameters:
+'   exportBook      [Workbook] - The workbook being exported
+'   documentTitle   [String]   - Document title to display on cover page.
+'                                If omitted or empty, reads from BuiltInDocumentProperties("Title")
+'   revisionNumber  [String]   - Revision number from document properties
+'   lastSaveTime    [String]   - Last save timestamp (formatted)
+'
+' Returns   : [Worksheet] - The newly created cover page sheet (_RDD_Cover_)
+'
+' Notes     :
+'   - Sheet is temporary and should be deleted after PDF export
+'   - Displays: Title, Subject, Author, Manager, Company, Comments, Export Date
+'   - Uses centered layout with merged cells for professional appearance
+'   - Print setup: Portrait, fit to 1 page, centered horizontally and vertically
+' ----------------------------------------------------------------------------------
+Private Function CreateCoverPage(ByVal exportBook As Workbook, _
+                                  documentTitle As String, _
+                                  revisionNumber As String, _
+                                  lastSaveTime As String) As Worksheet
     Dim coverSheet As Worksheet
     Dim props As DocumentProperties
     Dim rowNum As Long
@@ -222,9 +272,9 @@ Private Function CreateCoverPage(ByVal exportBook As Workbook) As Worksheet
         .Range("B3").Font.Bold = True
         .Range("B3").HorizontalAlignment = xlCenter
         
-        ' Document title from properties
+        ' Document title from documentTitle or properties
         .Range("B5:F5").Merge
-        .Range("B5").value = GetBuiltinProperty(props, "Title")
+        .Range("B5").value = IIf(documentTitle = vbNullString, exportBook.name, documentTitle)
         .Range("B5").Font.Size = 20
         .Range("B5").HorizontalAlignment = xlCenter
         
@@ -255,17 +305,17 @@ Private Function CreateCoverPage(ByVal exportBook As Workbook) As Worksheet
         .Cells(rowNum, 2).Font.Bold = True
         .Cells(rowNum, 3).value = GetBuiltinProperty(props, "Company")
         rowNum = rowNum + 1
-        
-        ' Category
-        .Cells(rowNum, 2).value = "Category:"
+                        
+        ' Revision Number
+        .Cells(rowNum, 2).value = "Revision:"
         .Cells(rowNum, 2).Font.Bold = True
-        .Cells(rowNum, 3).value = GetBuiltinProperty(props, "Category")
+        .Cells(rowNum, 3).value = revisionNumber
         rowNum = rowNum + 1
         
-        ' Keywords
-        .Cells(rowNum, 2).value = "Keywords:"
+        ' Last Modified
+        .Cells(rowNum, 2).value = "Last Modified:"
         .Cells(rowNum, 2).Font.Bold = True
-        .Cells(rowNum, 3).value = GetBuiltinProperty(props, "Keywords")
+        .Cells(rowNum, 3).value = lastSaveTime
         rowNum = rowNum + 2
         
         ' Comments
@@ -388,24 +438,19 @@ Private Function CreateTableOfContents( _
 End Function
 
 ' -----------------------------------------------------------------------------------
-' Procedure : SetupRoomSheetForPrint
-' Purpose   : Configures room sheet print settings (area, orientation, fit to page).
-' -----------------------------------------------------------------------------------
-Private Sub SetupRoomSheetForPrint(ByVal ws As Worksheet)
-    With ws.PageSetup
-        .PrintArea = ROOM_PRINT_AREA
-        .Orientation = xlPortrait
-        .FitToPagesWide = 1
-        .FitToPagesTall = 1
-        .CenterHorizontally = True
-    End With
-End Sub
-
-' -----------------------------------------------------------------------------------
 ' Procedure : SetupChartSheetForPrint
-' Purpose   : Configures chart sheet print settings.
+' Purpose   : Configures chart sheet print settings and sets footer with version info.
+'
+' Parameters:
+'   ws             [Worksheet] - Room sheet to configure
+'   documentTitle  [String]    - Document title for header
+'   revisionNumber [String]    - Revision number for footer
+'   lastSaveTime   [String]    - Last save timestamp for footer
 ' -----------------------------------------------------------------------------------
-Private Sub SetupChartSheetForPrint(ByVal ws As Worksheet)
+Private Sub SetupChartSheetForPrint(ByVal ws As Worksheet, _
+                                     documentTitle As String, _
+                                     revisionNumber As String, _
+                                     lastSaveTime As String)
     With ws.PageSetup
         .PrintArea = ""  ' Clear to print all content
         .Orientation = xlLandscape  ' Chart typically wider
@@ -413,6 +458,59 @@ Private Sub SetupChartSheetForPrint(ByVal ws As Worksheet)
         .FitToPagesTall = 1
         .CenterHorizontally = True
         .CenterVertically = True
+        
+        ' Header: Document Title
+        .CenterHeader = documentTitle
+        
+        ' Footer: Chart label | Page Number | Version Info
+        .LeftFooter = "Puzzle Dependency Chart"
+        .CenterFooter = "Page &[Page] of &[Pages]"
+        .RightFooter = "Rev. " & revisionNumber & " | " & lastSaveTime
+    End With
+End Sub
+
+' -----------------------------------------------------------------------------------
+' Procedure : SetupRoomSheetForPrint
+' Purpose   : Configures room sheet print settings (area, orientation, fit to page)
+'             and sets header/footer with document title and version information.
+'
+' Parameters:
+'   ws             [Worksheet] - Room sheet to configure
+'   documentTitle  [String]    - Document title for header
+'   revisionNumber [String]    - Revision number for footer
+'   lastSaveTime   [String]    - Last save timestamp for footer
+'
+' Notes     :
+'   - Header: Document title (centered)
+'   - Footer Left: Room ID - Room Alias
+'   - Footer Center: Page X of Y
+'   - Footer Right: Rev. X | Last Modified: yyyy-mm-dd hh:mm
+' ----------------------------------------------------------------------------------
+Private Sub SetupRoomSheetForPrint(ByVal ws As Worksheet, _
+                                    documentTitle As String, _
+                                    revisionNumber As String, _
+                                    lastSaveTime As String)
+    Dim roomID As String
+    Dim roomAlias As String
+    
+    ' Get Room metadata
+    roomID = GetRoomId(ws)
+    roomAlias = GetRoomAlias(ws)
+    
+    With ws.PageSetup
+        .PrintArea = ROOM_PRINT_AREA
+        .Orientation = xlPortrait
+        .FitToPagesWide = 1
+        .FitToPagesTall = 1
+        .CenterHorizontally = True
+        
+        ' Header: Replace [Title] with Document Title
+        .CenterHeader = Replace(.CenterHeader, "[Title]", documentTitle)
+        
+        ' Footer: Room Info | Page Number | Version Info
+        .LeftFooter = roomID & " - " & roomAlias
+        .CenterFooter = "Page &[Page] of &[Pages]"
+        .RightFooter = "Rev. " & revisionNumber & " | " & lastSaveTime
     End With
 End Sub
 

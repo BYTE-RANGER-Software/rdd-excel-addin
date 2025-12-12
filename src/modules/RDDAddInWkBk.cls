@@ -9,9 +9,9 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = True
 '* * * * * * * * * * * * * * * * * * * *  VSC VBATools * * * * * * * * * * * * * * * * * * * *
 '* Path       : C:\Users\thiemann\Documents\Programming\Games\AGS\indy-foy\tools\dev\rdd-excel-addin\src\_internal\Backup\
-'* Version    : v1
-'* Created    : 10.12.2025_13.37.55
-'* OldVersion :
+'* Version    : v2
+'* Created    : 11.12.2025_14.04.03
+'* OldVersion : v1
 '* * * * * * * * * * * * * * * * * * * *  VSC VBATools * * * * * * * * * * * * * * * * * * * *
 ' ====================================================================================
 ' Class     : RDDAddInWkBk (ThisWorkbook)

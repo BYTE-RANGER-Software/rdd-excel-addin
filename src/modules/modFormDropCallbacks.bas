@@ -41,9 +41,8 @@ Option Explicit
 Public Sub OnFormDropCatSelected(ByVal ddCat As DropDown, cell As Range)
     On Error GoTo ErrHandler
     
-    'TODO:
-    
-    Debug.Print "FormDrop Category selected: " & ddCat.list(ddCat.value)
+        
+    'Debug.Print "FormDrop Category selected: " & ddCat.list(ddCat.value)
     
 CleanExit:
     On Error GoTo 0
@@ -78,18 +77,17 @@ Public Sub OnFormDropSubSelected(ByVal ddSub As DropDown, cell As Range)
     Dim i As Integer
     Dim found As Boolean
     Dim ownerSheet As Worksheet: Set ownerSheet = ddSub.Parent
-    ' TODO:
     
     'Debug.Print "FormDrop Sub selected: " & ddSub.List(ddSub.Value)
 
     selectedIndex = ddSub.ListIndex
 
-    ' Wenn nichts ausgewählt wurde, abbrechen
+    ' If nothing has been selected, cancel
     If selectedIndex = 0 Then Exit Sub
 
     selectedValue = ddSub.list(selectedIndex)
 
-    ' Vorhandene Werte aufteilen
+    ' Divide existing values
     If cell.value <> "" Then
         arrVals = Split(cell.value, ", ")
     Else
@@ -97,7 +95,7 @@ Public Sub OnFormDropSubSelected(ByVal ddSub As DropDown, cell As Range)
         arrVals(0) = ""
     End If
 
-    ' Prüfen, ob Wert bereits vorhanden ist
+    ' Check whether value already exists
     result = ""
     found = False
     For i = LBound(arrVals) To UBound(arrVals)
@@ -114,7 +112,7 @@ Public Sub OnFormDropSubSelected(ByVal ddSub As DropDown, cell As Range)
         End If
     Next i
 
-    ' Wenn nicht vorhanden, hinzufügen
+    ' If not available, add
     If Not found Then
         If result = "" Then
             result = selectedValue
